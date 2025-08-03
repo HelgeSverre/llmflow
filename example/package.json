@@ -2,9 +2,13 @@
   "name": "llmflow-examples",
   "version": "1.0.0",
   "description": "Example scripts for testing LLMFlow",
+  "type": "module",
   "scripts": {
     "chat": "node chat-simulation.js",
     "chat:proxy": "LLMFLOW_URL=http://localhost:8080 node chat-simulation.js",
     "chat:direct": "LLMFLOW_URL=https://api.openai.com node chat-simulation.js"
+  },
+  "dependencies": {
+    "openai": "^4.28.0"
   }
 }

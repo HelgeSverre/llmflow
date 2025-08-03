@@ -6,25 +6,57 @@ const https = require('https');
 
 const PROXY_PORT = process.env.PROXY_PORT || 8080;
 const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 3000;
-const DATA_FILE = 'llmflow-data.json';
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'llmflow-data.json');
 
 // Initialize or load data
 let data = { traces: [] };
+console.log(`📁 Data file location: ${DATA_FILE}`);
 if (fs.existsSync(DATA_FILE)) {
     try {
-        data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+        const fileContent = fs.readFileSync(DATA_FILE, 'utf8');
+        data = JSON.parse(fileContent);
+        console.log(`✅ Loaded ${data.traces.length} existing traces from data file`);
     } catch (err) {
-        console.error('Failed to load data file, starting fresh');
+        console.error('❌ Failed to load data file, starting fresh:', err.message);
     }
+} else {
+    console.log('📝 No existing data file found, will create on first save');
 }
 
 // Save data to file
 function saveData() {
     try {
         fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+        console.log(`💾 Saved ${data.traces.length} traces to ${DATA_FILE}`);
     } catch (err) {
-        console.error('Failed to save data:', err);
+        console.error('❌ Failed to save data:', err);
+        console.error('   File path:', DATA_FILE);
+        console.error('   Error details:', err.message);
     }
+}
+
+// Logging middleware factory
+function createLoggingMiddleware(appName) {
+    return (req, res, next) => {
+        const startTime = Date.now();
+        const traceId = req.headers['x-trace-id'] || uuidv4();
+        req.traceId = traceId;
+        
+        console.log(`\n📍 [${appName}] ${new Date().toISOString()} [${traceId}]`);
+        console.log(`   ${req.method} ${req.path}`);
+        console.log(`   From: ${req.ip || req.connection.remoteAddress}`);
+        
+        // Log response when finished
+        const originalSend = res.send;
+        res.send = function(data) {
+            res.send = originalSend;
+            const duration = Date.now() - startTime;
+            console.log(`   Response: ${res.statusCode} in ${duration}ms`);
+            return res.send(data);
+        };
+        
+        next();
+    };
 }
 
 // Calculate estimated cost based on token usage (OpenAI pricing)
@@ -83,8 +115,6 @@ function logInteraction(traceId, req, responseData, duration, error = null) {
         }
 
         saveData();
-
-        console.log(`Logged interaction ${traceId}: ${model}, ${totalTokens} tokens, $${estimatedCost.toFixed(6)}`);
     } catch (err) {
         console.error('Failed to log interaction:', err);
     }
@@ -93,6 +123,18 @@ function logInteraction(traceId, req, responseData, duration, error = null) {
 // Proxy Server
 const proxyApp = express();
 proxyApp.use(express.json());
+proxyApp.use(createLoggingMiddleware('PROXY'));
+
+// Health check endpoint
+proxyApp.get('/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        service: 'proxy',
+        port: PROXY_PORT,
+        traces: data.traces.length,
+        uptime: process.uptime()
+    });
+});
 
 // CORS headers for development
 proxyApp.use((req, res, next) => {
@@ -106,13 +148,20 @@ proxyApp.use((req, res, next) => {
     }
 });
 
+
+
+
+
 // Proxy all OpenAI API calls
 proxyApp.all('/v1/*', async (req, res) => {
-    const traceId = uuidv4();
     const startTime = Date.now();
+    const traceId = req.traceId; // Use traceId from middleware
+
+    console.log(`\n🔵 OpenAI API Call Details:`);
+    console.log(`   Model: ${req.body?.model || 'N/A'}`);
+    console.log(`   Messages: ${req.body?.messages?.length || 0}`);
 
     try {
-        console.log(`Proxying ${req.method} ${req.path} [${traceId}]`);
 
         // Forward request to OpenAI using https
         const postData = req.method !== 'GET' ? JSON.stringify(req.body) : '';
@@ -145,6 +194,14 @@ proxyApp.all('/v1/*', async (req, res) => {
                     responseData = { error: 'Invalid JSON response', body: responseBody };
                 }
 
+                // Log response details
+                console.log(`\n✅ [${new Date().toISOString()}] Response received [${traceId}]`);
+                console.log(`   Status: ${proxyRes.statusCode}`);
+                console.log(`   Duration: ${duration}ms`);
+                console.log(`   Model: ${responseData.model || req.body?.model || 'N/A'}`);
+                console.log(`   Tokens: ${responseData.usage?.total_tokens || 0} (prompt: ${responseData.usage?.prompt_tokens || 0}, completion: ${responseData.usage?.completion_tokens || 0})`);
+                console.log(`   Cost: $${calculateCost(req.body?.model || 'unknown', responseData.usage?.prompt_tokens || 0, responseData.usage?.completion_tokens || 0).toFixed(6)}`);
+
                 // Log interaction
                 logInteraction(traceId, req, {
                     status: proxyRes.statusCode,
@@ -169,7 +226,11 @@ proxyApp.all('/v1/*', async (req, res) => {
 
     } catch (error) {
         const duration = Date.now() - startTime;
-        console.error(`Proxy error [${traceId}]:`, error.message);
+        
+        console.log(`\n❌ [${new Date().toISOString()}] Request failed [${traceId}]`);
+        console.log(`   Error: ${error.message}`);
+        console.log(`   Duration: ${duration}ms`);
+        console.log(`   Path: ${req.path}`);
         
         // Log error
         logInteraction(traceId, req, null, duration, error.message);
@@ -180,6 +241,19 @@ proxyApp.all('/v1/*', async (req, res) => {
 
 // Dashboard Server
 const dashboardApp = express();
+dashboardApp.use(express.json());
+dashboardApp.use(createLoggingMiddleware('DASHBOARD'));
+
+// Health check endpoint
+dashboardApp.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        service: 'dashboard',
+        port: DASHBOARD_PORT,
+        traces: data.traces.length,
+        uptime: process.uptime()
+    });
+});
 
 // Serve static files
 dashboardApp.use(express.static(path.join(__dirname, 'public')));
@@ -273,13 +347,18 @@ dashboardApp.get('/api/stats', (req, res) => {
 
 // Start servers
 proxyApp.listen(PROXY_PORT, () => {
-    console.log(`🔄 LLMFlow Proxy running on http://localhost:${PROXY_PORT}`);
+    console.log(`\n🚀 LLMFlow Started Successfully!`);
+    console.log(`🔄 Proxy running on http://localhost:${PROXY_PORT}`);
     console.log(`   Change your OpenAI base_url to: http://localhost:${PROXY_PORT}/v1`);
+    console.log(`   Health check: http://localhost:${PROXY_PORT}/health`);
 });
 
 dashboardApp.listen(DASHBOARD_PORT, () => {
-    console.log(`📊 LLMFlow Dashboard running on http://localhost:${DASHBOARD_PORT}`);
+    console.log(`📊 Dashboard running on http://localhost:${DASHBOARD_PORT}`);
     console.log(`   View your LLM interactions at: http://localhost:${DASHBOARD_PORT}`);
+    console.log(`   API health check: http://localhost:${DASHBOARD_PORT}/api/health`);
+    console.log(`\n📁 Data file: ${DATA_FILE}`);
+    console.log(`📝 Currently tracking ${data.traces.length} traces\n`);
 });
 
 process.on('SIGINT', () => {

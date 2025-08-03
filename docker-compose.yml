@@ -1,0 +1,23 @@
+services:
+  llmflow:
+    build: .
+    container_name: llmflow
+    ports:
+      - "${PROXY_PORT:-8080}:8080"
+      - "${DASHBOARD_PORT:-3000}:3000"
+    volumes:
+      - llmflow-data:/data
+    environment:
+      - PROXY_PORT=8080
+      - DASHBOARD_PORT=3000
+      - DATA_FILE=/data/llmflow-data.json
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  llmflow-data:
+    driver: local

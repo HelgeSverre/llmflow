@@ -1,27 +1,28 @@
 FROM node:18-alpine
 
-# Install build dependencies for better-sqlite3
-RUN apk add --no-cache python3 make g++
-
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy server package files
+COPY server/package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy application files
-COPY server.js ./
-COPY public ./public/
+# Copy server application files
+COPY server/server.js ./
+COPY server/public ./public/
 
-# Create directory for database
+# Create directory for data
 RUN mkdir -p /data
 
 # Environment variables
 ENV NODE_ENV=production
 ENV PROXY_PORT=8080
 ENV DASHBOARD_PORT=3000
+ENV DATA_FILE=/data/llmflow-data.json
+
+# Create volume mount point
+VOLUME ["/data"]
 
 # Expose ports
 EXPOSE 8080 3000

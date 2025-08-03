@@ -3,11 +3,11 @@
 // Simple chat simulation to test LLMFlow proxy
 // This simulates a realistic conversation with context building over time
 
-const https = require('https');
+import OpenAI from 'openai';
 
 // Configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const BASE_URL = process.env.LLMFLOW_URL || 'http://localhost:8080';
+const PROXY_URL = process.env.LLMFLOW_URL || 'http://localhost:8080';
 const MODEL = 'gpt-3.5-turbo';
 
 if (!OPENAI_API_KEY) {
@@ -15,6 +15,13 @@ if (!OPENAI_API_KEY) {
     console.error('   Example: OPENAI_API_KEY=sk-... node chat-simulation.js');
     process.exit(1);
 }
+
+// Initialize OpenAI client with proxy
+const client = new OpenAI({
+    apiKey: OPENAI_API_KEY,
+    baseURL: `${PROXY_URL}/v1`,
+    httpAgent: undefined, // Let the library handle the agent
+});
 
 // Chat conversation flow
 const conversationFlow = [
@@ -30,57 +37,6 @@ const conversationFlow = [
     { role: 'assistant', content: null },
 ];
 
-// Make API call through LLMFlow proxy
-async function callOpenAI(messages) {
-    const url = new URL('/v1/chat/completions', BASE_URL);
-    
-    const data = JSON.stringify({
-        model: MODEL,
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 150
-    });
-
-    const options = {
-        hostname: url.hostname,
-        port: url.port || (url.protocol === 'https:' ? 443 : 80),
-        path: url.pathname,
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Length': Buffer.byteLength(data)
-        }
-    };
-
-    return new Promise((resolve, reject) => {
-        const req = (url.protocol === 'https:' ? https : require('http')).request(options, (res) => {
-            let responseData = '';
-
-            res.on('data', (chunk) => {
-                responseData += chunk;
-            });
-
-            res.on('end', () => {
-                try {
-                    const json = JSON.parse(responseData);
-                    if (res.statusCode >= 200 && res.statusCode < 300) {
-                        resolve(json);
-                    } else {
-                        reject(new Error(`API Error ${res.statusCode}: ${json.error?.message || responseData}`));
-                    }
-                } catch (e) {
-                    reject(new Error(`Failed to parse response: ${responseData}`));
-                }
-            });
-        });
-
-        req.on('error', reject);
-        req.write(data);
-        req.end();
-    });
-}
-
 // Simulate typing delay
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -89,7 +45,7 @@ function delay(ms) {
 // Run the chat simulation
 async function runSimulation() {
     console.log('🤖 Starting LLMFlow Chat Simulation');
-    console.log(`📡 Using proxy at: ${BASE_URL}`);
+    console.log(`📡 Using proxy at: ${PROXY_URL}`);
     console.log(`🧠 Model: ${MODEL}\n`);
 
     const messages = [];
@@ -111,9 +67,14 @@ async function runSimulation() {
             console.log('   ⏳ Thinking...');
             const startTime = Date.now();
             
-            const response = await callOpenAI(messages);
-            const duration = Date.now() - startTime;
+            const response = await client.chat.completions.create({
+                model: MODEL,
+                messages: messages,
+                temperature: 0.7,
+                max_tokens: 150
+            });
             
+            const duration = Date.now() - startTime;
             const assistantMessage = response.choices[0].message;
             messages.push(assistantMessage);
             
@@ -136,6 +97,10 @@ async function runSimulation() {
 
         } catch (error) {
             console.error(`❌ Error: ${error.message}\n`);
+            if (error.response) {
+                console.error('   Status:', error.response.status);
+                console.error('   Data:', error.response.data);
+            }
             break;
         }
     }

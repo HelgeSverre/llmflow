@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker logs:*)",
+      "Bash(make:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(npm install)",
+      "Bash(docker-compose:*)",
+      "Bash(mv:*)",
+      "Bash(true)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
