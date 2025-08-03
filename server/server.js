@@ -61,6 +61,7 @@ function createLoggingMiddleware(appName) {
 
 // Calculate estimated cost based on token usage (OpenAI pricing)
 function calculateCost(model, promptTokens, completionTokens) {
+     // TODO:  replace with : https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
     const pricing = {
         'gpt-3.5-turbo': { input: 0.0015, output: 0.002 }, // per 1K tokens
         'gpt-4': { input: 0.03, output: 0.06 },
