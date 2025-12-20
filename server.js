@@ -634,7 +634,7 @@ db.setInsertLogHook((logSummary) => {
 dashboardServer.listen(DASHBOARD_PORT, () => {
     log.startup(`Dashboard running on http://localhost:${DASHBOARD_PORT}`);
     log.info(`Database: ${db.DB_PATH}`);
-    log.info(`Traces: ${db.getTraceCount()}`);
+    log.info(`Traces: ${db.getTraceCount()}, Logs: ${db.getLogCount()}`);
     log.info(`WebSocket: ws://localhost:${DASHBOARD_PORT}/ws`);
     if (log.isVerbose()) {
         log.info('Verbose logging enabled');
