@@ -1,8 +1,19 @@
 // State
-let currentTab = 'traces';
+let currentTab = 'timeline';
 let traces = [];
+let logs = [];
 let stats = {};
 let selectedTraceId = null;
+let selectedLogId = null;
+let selectedTimelineItem = null;
+let timelineItems = [];
+let timelineFilters = {
+    q: '',
+    tool: '',
+    type: '',
+    dateRange: '',
+    date_from: null
+};
 let filters = {
     q: '',
     model: '',
@@ -10,6 +21,19 @@ let filters = {
     dateRange: '',
     date_from: null,
     date_to: null
+};
+let logFilters = {
+    q: '',
+    service_name: '',
+    event_name: '',
+    severity_min: null
+};
+let metrics = [];
+let metricsSummary = [];
+let metricFilters = {
+    name: '',
+    service_name: '',
+    metric_type: ''
 };
 
 // WebSocket state
@@ -47,15 +71,23 @@ initTheme();
 function init() {
     initFiltersFromUrl();
     setupFilters();
+    setupLogFilters();
+    setupMetricFilters();
+    setupTimelineFilters();
     setupKeyboardShortcuts();
     loadModels();
     loadStats();
-    loadTraces();
+    loadTimeline();
+    loadLogFilterOptions();
+    loadMetricFilterOptions();
     initWebSocket();
 
     // Polling as fallback (less frequent since we have WebSocket)
     setInterval(loadStats, 30000);
-    setInterval(loadTraces, 30000);
+    setInterval(() => {
+        if (currentTab === 'timeline') loadTimeline();
+        else if (currentTab === 'traces') loadTraces();
+    }, 30000);
 }
 
 if (document.readyState === 'loading') {
@@ -167,12 +199,25 @@ function showTab(tab) {
     event.target.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
 
-    if (tab === 'traces') {
+    if (tab === 'timeline') {
+        document.getElementById('timelineTab').classList.add('active');
+        loadTimeline();
+    } else if (tab === 'traces') {
         document.getElementById('tracesTab').classList.add('active');
         loadTraces();
+    } else if (tab === 'logs') {
+        document.getElementById('logsTab').classList.add('active');
+        loadLogs();
+    } else if (tab === 'metrics') {
+        document.getElementById('metricsTab').classList.add('active');
+        loadMetrics();
+        loadMetricsSummary();
     } else if (tab === 'models') {
         document.getElementById('modelsTab').classList.add('active');
         loadModelStats();
+    } else if (tab === 'analytics') {
+        document.getElementById('analyticsTab').classList.add('active');
+        loadAnalytics();
     }
 }
 
@@ -372,6 +417,643 @@ async function loadModelStats() {
     `).join('');
 }
 
+// ==================== Logs Functions ====================
+
+function setupLogFilters() {
+    let searchTimeout;
+    document.getElementById('logSearchInput')?.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            logFilters.q = e.target.value;
+            loadLogs();
+        }, 300);
+    });
+
+    document.getElementById('logServiceFilter')?.addEventListener('change', (e) => {
+        logFilters.service_name = e.target.value;
+        loadLogs();
+    });
+
+    document.getElementById('logEventFilter')?.addEventListener('change', (e) => {
+        logFilters.event_name = e.target.value;
+        loadLogs();
+    });
+
+    document.getElementById('logSeverityFilter')?.addEventListener('change', (e) => {
+        logFilters.severity_min = e.target.value ? parseInt(e.target.value, 10) : null;
+        loadLogs();
+    });
+
+    document.getElementById('clearLogFilters')?.addEventListener('click', clearLogFilters);
+}
+
+function clearLogFilters() {
+    logFilters = { q: '', service_name: '', event_name: '', severity_min: null };
+    document.getElementById('logSearchInput').value = '';
+    document.getElementById('logServiceFilter').value = '';
+    document.getElementById('logEventFilter').value = '';
+    document.getElementById('logSeverityFilter').value = '';
+    loadLogs();
+}
+
+async function loadLogFilterOptions() {
+    try {
+        const response = await fetch('/api/logs/filters');
+        const data = await response.json();
+        
+        const serviceSelect = document.getElementById('logServiceFilter');
+        if (serviceSelect && data.services) {
+            serviceSelect.innerHTML = '<option value="">All Services</option>';
+            data.services.forEach(svc => {
+                const opt = document.createElement('option');
+                opt.value = svc;
+                opt.textContent = svc;
+                serviceSelect.appendChild(opt);
+            });
+        }
+        
+        const eventSelect = document.getElementById('logEventFilter');
+        if (eventSelect && data.event_names) {
+            eventSelect.innerHTML = '<option value="">All Events</option>';
+            data.event_names.forEach(evt => {
+                const opt = document.createElement('option');
+                opt.value = evt;
+                opt.textContent = evt;
+                eventSelect.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error('Failed to load log filter options:', e);
+    }
+}
+
+async function loadLogs() {
+    if (currentTab !== 'logs') return;
+
+    try {
+        const params = new URLSearchParams({ limit: '100' });
+        if (logFilters.q) params.set('q', logFilters.q);
+        if (logFilters.service_name) params.set('service_name', logFilters.service_name);
+        if (logFilters.event_name) params.set('event_name', logFilters.event_name);
+        if (logFilters.severity_min != null) params.set('severity_min', logFilters.severity_min);
+
+        const response = await fetch('/api/logs?' + params.toString());
+        const data = await response.json();
+        logs = data.logs || [];
+
+        renderLogsTable();
+    } catch (e) {
+        console.error('Failed to load logs:', e);
+        document.getElementById('logsBody').innerHTML = 
+            '<tr><td colspan="5" class="empty-state">Failed to load logs</td></tr>';
+    }
+}
+
+function renderLogsTable() {
+    const tbody = document.getElementById('logsBody');
+    if (!tbody) return;
+
+    if (!logs || logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">No logs found. Send OTLP logs to /v1/logs</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = logs.map(l => `
+        <tr class="trace-row ${l.id === selectedLogId ? 'selected' : ''}" onclick="selectLog('${l.id}', this)">
+            <td>${formatTime(l.timestamp)}</td>
+            <td><span class="severity-badge severity-${getSeverityClass(l.severity_text)}">${l.severity_text || 'INFO'}</span></td>
+            <td>${l.service_name ? `<span class="service-badge">${escapeHtml(l.service_name)}</span>` : '-'}</td>
+            <td>${l.event_name ? `<span class="event-badge">${escapeHtml(l.event_name)}</span>` : '-'}</td>
+            <td><span class="log-body-preview">${escapeHtml(l.body || '-')}</span></td>
+        </tr>
+    `).join('');
+}
+
+function getSeverityClass(severityText) {
+    if (!severityText) return 'info';
+    const s = severityText.toLowerCase();
+    if (s.includes('fatal')) return 'fatal';
+    if (s.includes('error')) return 'error';
+    if (s.includes('warn')) return 'warn';
+    if (s.includes('debug')) return 'debug';
+    if (s.includes('trace')) return 'trace';
+    return 'info';
+}
+
+async function selectLog(logId, rowEl) {
+    selectedLogId = logId;
+
+    document.querySelectorAll('#logsBody .trace-row').forEach(r => r.classList.remove('selected'));
+    if (rowEl) rowEl.classList.add('selected');
+
+    const titleEl = document.getElementById('logDetailTitle');
+    const metaEl = document.getElementById('logDetailMeta');
+    const bodyEl = document.getElementById('logBody');
+    const attrsEl = document.getElementById('logAttributes');
+    const resourceEl = document.getElementById('logResource');
+
+    try {
+        const response = await fetch(`/api/logs/${logId}`);
+        if (!response.ok) throw new Error('Log not found');
+        
+        const log = await response.json();
+
+        titleEl.textContent = log.event_name || log.service_name || 'Log';
+        metaEl.textContent = [
+            log.severity_text,
+            log.service_name,
+            log.trace_id ? `trace: ${log.trace_id.slice(0, 8)}...` : null
+        ].filter(Boolean).join(' · ');
+
+        bodyEl.textContent = log.body || '-';
+        attrsEl.textContent = JSON.stringify(log.attributes || {}, null, 2);
+        resourceEl.textContent = JSON.stringify(log.resource_attributes || {}, null, 2);
+    } catch (e) {
+        console.error('Failed to load log:', e);
+        titleEl.textContent = 'Error';
+        metaEl.textContent = '';
+        bodyEl.textContent = 'Failed to load log';
+        attrsEl.textContent = '{}';
+        resourceEl.textContent = '{}';
+    }
+}
+
+function handleNewLog(log) {
+    if (currentTab !== 'logs') return;
+    if (!logMatchesFilters(log)) return;
+
+    if (!logs.find(l => l.id === log.id)) {
+        logs.unshift(log);
+        if (logs.length > 100) {
+            logs.length = 100;
+        }
+        renderLogsTable();
+    }
+}
+
+function logMatchesFilters(log) {
+    if (logFilters.service_name && log.service_name !== logFilters.service_name) return false;
+    if (logFilters.event_name && log.event_name !== logFilters.event_name) return false;
+    if (logFilters.q) return false; // Text search requires server
+    return true;
+}
+
+// ==================== Metrics Functions ====================
+
+function setupMetricFilters() {
+    document.getElementById('metricNameFilter')?.addEventListener('change', (e) => {
+        metricFilters.name = e.target.value;
+        loadMetrics();
+    });
+
+    document.getElementById('metricServiceFilter')?.addEventListener('change', (e) => {
+        metricFilters.service_name = e.target.value;
+        loadMetrics();
+    });
+
+    document.getElementById('metricTypeFilter')?.addEventListener('change', (e) => {
+        metricFilters.metric_type = e.target.value;
+        loadMetrics();
+    });
+
+    document.getElementById('clearMetricFilters')?.addEventListener('click', clearMetricFilters);
+}
+
+function clearMetricFilters() {
+    metricFilters = { name: '', service_name: '', metric_type: '' };
+    document.getElementById('metricNameFilter').value = '';
+    document.getElementById('metricServiceFilter').value = '';
+    document.getElementById('metricTypeFilter').value = '';
+    loadMetrics();
+}
+
+async function loadMetricFilterOptions() {
+    try {
+        const response = await fetch('/api/metrics/filters');
+        const data = await response.json();
+        
+        const nameSelect = document.getElementById('metricNameFilter');
+        if (nameSelect && data.names) {
+            nameSelect.innerHTML = '<option value="">All Metrics</option>';
+            data.names.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                nameSelect.appendChild(opt);
+            });
+        }
+        
+        const serviceSelect = document.getElementById('metricServiceFilter');
+        if (serviceSelect && data.services) {
+            serviceSelect.innerHTML = '<option value="">All Services</option>';
+            data.services.forEach(svc => {
+                const opt = document.createElement('option');
+                opt.value = svc;
+                opt.textContent = svc;
+                serviceSelect.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error('Failed to load metric filter options:', e);
+    }
+}
+
+async function loadMetricsSummary() {
+    if (currentTab !== 'metrics') return;
+
+    try {
+        const response = await fetch('/api/metrics?aggregation=summary');
+        const data = await response.json();
+        metricsSummary = data.summary || [];
+
+        const container = document.getElementById('metricsSummary');
+        if (!metricsSummary || metricsSummary.length === 0) {
+            container.innerHTML = '<p class="empty-state">No metrics yet. Send OTLP metrics to /v1/metrics</p>';
+            return;
+        }
+
+        container.innerHTML = metricsSummary.slice(0, 8).map(m => `
+            <div class="metric-card">
+                <div class="metric-card-header">
+                    <span class="metric-card-name" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
+                    <span class="metric-badge metric-${m.metric_type || 'gauge'}">${m.metric_type || 'gauge'}</span>
+                </div>
+                <div class="metric-card-value">${formatMetricValue(m)}</div>
+                <div class="metric-card-meta">
+                    <span>${m.data_points} data points</span>
+                    <span>${m.service_name || 'unknown'}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error('Failed to load metrics summary:', e);
+        document.getElementById('metricsSummary').innerHTML = 
+            '<p class="empty-state">Failed to load metrics</p>';
+    }
+}
+
+function formatMetricValue(m) {
+    if (m.sum_int != null && m.sum_int !== 0) {
+        return formatNumber(m.sum_int);
+    }
+    if (m.avg_double != null) {
+        return m.avg_double.toFixed(2);
+    }
+    if (m.max_int != null) {
+        return formatNumber(m.max_int);
+    }
+    return '-';
+}
+
+async function loadMetrics() {
+    if (currentTab !== 'metrics') return;
+
+    try {
+        const params = new URLSearchParams({ limit: '100' });
+        if (metricFilters.name) params.set('name', metricFilters.name);
+        if (metricFilters.service_name) params.set('service_name', metricFilters.service_name);
+        if (metricFilters.metric_type) params.set('metric_type', metricFilters.metric_type);
+
+        const response = await fetch('/api/metrics?' + params.toString());
+        const data = await response.json();
+        metrics = data.metrics || [];
+
+        renderMetricsTable();
+    } catch (e) {
+        console.error('Failed to load metrics:', e);
+        document.getElementById('metricsBody').innerHTML = 
+            '<tr><td colspan="5" class="empty-state">Failed to load metrics</td></tr>';
+    }
+}
+
+function renderMetricsTable() {
+    const tbody = document.getElementById('metricsBody');
+    if (!tbody) return;
+
+    if (!metrics || metrics.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">No metrics found. Send OTLP metrics to /v1/metrics</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = metrics.map(m => `
+        <tr class="trace-row">
+            <td>${formatTime(m.timestamp)}</td>
+            <td><span class="metric-badge metric-${m.metric_type || 'gauge'}">${m.metric_type || 'gauge'}</span></td>
+            <td class="metric-name-cell">${escapeHtml(m.name)}</td>
+            <td class="metric-value">${m.value_int != null ? formatNumber(m.value_int) : (m.value_double != null ? m.value_double.toFixed(2) : '-')}</td>
+            <td>${m.service_name ? `<span class="service-badge">${escapeHtml(m.service_name)}</span>` : '-'}</td>
+        </tr>
+    `).join('');
+}
+
+function handleNewMetric(metric) {
+    if (currentTab !== 'metrics') return;
+    
+    if (!metrics.find(m => m.id === metric.id)) {
+        metrics.unshift(metric);
+        if (metrics.length > 100) {
+            metrics.length = 100;
+        }
+        renderMetricsTable();
+    }
+}
+
+// ==================== Timeline Functions ====================
+
+function setupTimelineFilters() {
+    let searchTimeout;
+    document.getElementById('timelineSearchInput')?.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            timelineFilters.q = e.target.value;
+            loadTimeline();
+        }, 300);
+    });
+
+    document.getElementById('toolFilter')?.addEventListener('change', (e) => {
+        timelineFilters.tool = e.target.value;
+        loadTimeline();
+    });
+
+    document.getElementById('timelineTypeFilter')?.addEventListener('change', (e) => {
+        timelineFilters.type = e.target.value;
+        loadTimeline();
+    });
+
+    document.getElementById('timelineDateFilter')?.addEventListener('change', (e) => {
+        timelineFilters.dateRange = e.target.value;
+        applyTimelineDateRange(timelineFilters.dateRange);
+        loadTimeline();
+    });
+
+    document.getElementById('clearTimelineFilters')?.addEventListener('click', clearTimelineFilters);
+}
+
+function applyTimelineDateRange(range) {
+    const now = Date.now();
+    switch (range) {
+        case '1h': timelineFilters.date_from = now - 3600000; break;
+        case '24h': timelineFilters.date_from = now - 86400000; break;
+        case '7d': timelineFilters.date_from = now - 604800000; break;
+        default: timelineFilters.date_from = null;
+    }
+}
+
+function clearTimelineFilters() {
+    timelineFilters = { q: '', tool: '', type: '', dateRange: '', date_from: null };
+    document.getElementById('timelineSearchInput').value = '';
+    document.getElementById('toolFilter').value = '';
+    document.getElementById('timelineTypeFilter').value = '';
+    document.getElementById('timelineDateFilter').value = '';
+    loadTimeline();
+}
+
+async function loadTimeline() {
+    if (currentTab !== 'timeline') return;
+
+    try {
+        // Load traces and logs in parallel
+        const [tracesRes, logsRes] = await Promise.all([
+            fetch('/api/traces?limit=50'),
+            fetch('/api/logs?limit=50')
+        ]);
+
+        const tracesData = await tracesRes.json();
+        const logsData = await logsRes.json();
+
+        // Combine and normalize
+        const traceItems = (tracesData || []).map(t => ({
+            id: t.id,
+            type: 'trace',
+            timestamp: t.timestamp,
+            title: t.span_name || t.model || 'Trace',
+            body: t.model ? `Model: ${t.model}` : '',
+            tool: detectTool(t),
+            tokens: t.total_tokens,
+            cost: t.estimated_cost,
+            duration: t.duration_ms,
+            status: t.status,
+            trace_id: t.trace_id || t.id,
+            raw: t
+        }));
+
+        const logItems = (logsData.logs || []).map(l => ({
+            id: l.id,
+            type: 'log',
+            timestamp: l.timestamp,
+            title: l.event_name || l.service_name || 'Log',
+            body: l.body || '',
+            tool: detectToolFromLog(l),
+            severity: l.severity_text,
+            trace_id: l.trace_id,
+            raw: l
+        }));
+
+        // Combine and sort by timestamp
+        timelineItems = [...traceItems, ...logItems]
+            .sort((a, b) => b.timestamp - a.timestamp);
+
+        // Apply filters
+        let filtered = timelineItems;
+
+        if (timelineFilters.tool) {
+            filtered = filtered.filter(i => i.tool === timelineFilters.tool);
+        }
+
+        if (timelineFilters.type) {
+            filtered = filtered.filter(i => i.type === timelineFilters.type);
+        }
+
+        if (timelineFilters.date_from) {
+            filtered = filtered.filter(i => i.timestamp >= timelineFilters.date_from);
+        }
+
+        if (timelineFilters.q) {
+            const q = timelineFilters.q.toLowerCase();
+            filtered = filtered.filter(i => 
+                (i.title && i.title.toLowerCase().includes(q)) ||
+                (i.body && i.body.toLowerCase().includes(q))
+            );
+        }
+
+        renderTimeline(filtered.slice(0, 100));
+    } catch (e) {
+        console.error('Failed to load timeline:', e);
+        document.getElementById('timelineList').innerHTML = 
+            '<div class="empty-state">Failed to load timeline</div>';
+    }
+}
+
+function detectTool(trace) {
+    const provider = (trace.provider || '').toLowerCase();
+    const serviceName = (trace.service_name || '').toLowerCase();
+    
+    if (provider.includes('anthropic-passthrough') || serviceName.includes('claude')) {
+        return 'claude-code';
+    }
+    if (serviceName.includes('codex') || serviceName.includes('openai-codex')) {
+        return 'codex-cli';
+    }
+    if (provider.includes('gemini-passthrough') || serviceName.includes('gemini')) {
+        return 'gemini-cli';
+    }
+    if (serviceName.includes('aider')) {
+        return 'aider';
+    }
+    return 'proxy';
+}
+
+function detectToolFromLog(log) {
+    const serviceName = (log.service_name || '').toLowerCase();
+    const eventName = (log.event_name || '').toLowerCase();
+    
+    if (serviceName.includes('claude') || eventName.includes('claude')) {
+        return 'claude-code';
+    }
+    if (serviceName.includes('codex') || eventName.includes('codex')) {
+        return 'codex-cli';
+    }
+    if (serviceName.includes('gemini') || eventName.includes('gemini')) {
+        return 'gemini-cli';
+    }
+    if (serviceName.includes('aider')) {
+        return 'aider';
+    }
+    return 'proxy';
+}
+
+function getToolIcon(tool) {
+    switch (tool) {
+        case 'claude-code': return '🟣';
+        case 'codex-cli': return '🟢';
+        case 'gemini-cli': return '🔵';
+        case 'aider': return '🟠';
+        default: return '⚪';
+    }
+}
+
+function getToolLabel(tool) {
+    switch (tool) {
+        case 'claude-code': return 'Claude';
+        case 'codex-cli': return 'Codex';
+        case 'gemini-cli': return 'Gemini';
+        case 'aider': return 'Aider';
+        default: return 'Proxy';
+    }
+}
+
+function renderTimeline(items) {
+    const container = document.getElementById('timelineList');
+    if (!container) return;
+
+    if (!items || items.length === 0) {
+        container.innerHTML = '<div class="empty-state">No activity yet. Run an AI CLI tool to see the timeline.</div>';
+        return;
+    }
+
+    container.innerHTML = items.map(item => `
+        <div class="timeline-item ${selectedTimelineItem?.id === item.id ? 'selected' : ''}" 
+             onclick="selectTimelineItem('${item.id}', '${item.type}', this)">
+            <div class="timeline-item-icon tool-${item.tool}">
+                ${getToolIcon(item.tool)}
+            </div>
+            <div class="timeline-item-content">
+                <div class="timeline-item-header">
+                    <span class="type-badge type-${item.type}">${item.type}</span>
+                    <span class="timeline-item-title">${escapeHtml(item.title)}</span>
+                    <span class="timeline-item-time">${formatTime(item.timestamp)}</span>
+                </div>
+                <div class="timeline-item-body">${escapeHtml(item.body)}</div>
+                <div class="timeline-item-meta">
+                    <span class="tool-badge tool-${item.tool}">${getToolLabel(item.tool)}</span>
+                    ${item.tokens ? `<span>${formatNumber(item.tokens)} tokens</span>` : ''}
+                    ${item.cost ? `<span>$${item.cost.toFixed(4)}</span>` : ''}
+                    ${item.duration ? `<span>${item.duration}ms</span>` : ''}
+                    ${item.severity ? `<span class="severity-badge severity-${getSeverityClass(item.severity)}">${item.severity}</span>` : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function selectTimelineItem(id, type, rowEl) {
+    selectedTimelineItem = { id, type };
+
+    document.querySelectorAll('.timeline-item').forEach(r => r.classList.remove('selected'));
+    if (rowEl) rowEl.classList.add('selected');
+
+    const titleEl = document.getElementById('timelineDetailTitle');
+    const metaEl = document.getElementById('timelineDetailMeta');
+    const dataEl = document.getElementById('timelineDetailData');
+    const relatedSection = document.getElementById('relatedLogsSection');
+    const relatedLogsEl = document.getElementById('relatedLogs');
+
+    try {
+        if (type === 'trace') {
+            const response = await fetch(`/api/traces/${id}`);
+            const data = await response.json();
+            const t = data.trace || data;
+
+            titleEl.textContent = t.span_name || t.model || 'Trace';
+            metaEl.textContent = [
+                t.provider,
+                t.duration_ms ? `${t.duration_ms}ms` : null,
+                t.total_tokens ? `${t.total_tokens} tokens` : null
+            ].filter(Boolean).join(' · ');
+
+            dataEl.textContent = JSON.stringify(t, null, 2);
+
+            // Load related logs
+            if (t.trace_id) {
+                const logsRes = await fetch(`/api/logs?trace_id=${t.trace_id}&limit=10`);
+                const logsData = await logsRes.json();
+                const relatedLogs = logsData.logs || [];
+
+                if (relatedLogs.length > 0) {
+                    relatedSection.style.display = 'block';
+                    relatedLogsEl.innerHTML = relatedLogs.map(l => `
+                        <div class="related-log-item">
+                            <div class="related-log-header">
+                                <span class="severity-badge severity-${getSeverityClass(l.severity_text)}">${l.severity_text || 'INFO'}</span>
+                                <span>${formatTime(l.timestamp)}</span>
+                            </div>
+                            <div class="related-log-body">${escapeHtml(l.body || '-')}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    relatedSection.style.display = 'none';
+                }
+            } else {
+                relatedSection.style.display = 'none';
+            }
+        } else if (type === 'log') {
+            const response = await fetch(`/api/logs/${id}`);
+            const log = await response.json();
+
+            titleEl.textContent = log.event_name || log.service_name || 'Log';
+            metaEl.textContent = [
+                log.severity_text,
+                log.service_name,
+                log.trace_id ? `trace: ${log.trace_id.slice(0, 8)}...` : null
+            ].filter(Boolean).join(' · ');
+
+            dataEl.textContent = JSON.stringify(log, null, 2);
+            relatedSection.style.display = 'none';
+        }
+    } catch (e) {
+        console.error('Failed to load timeline item:', e);
+        titleEl.textContent = 'Error';
+        metaEl.textContent = '';
+        dataEl.textContent = 'Failed to load';
+        relatedSection.style.display = 'none';
+    }
+}
+
+function handleTimelineUpdate(item) {
+    if (currentTab !== 'timeline') return;
+    loadTimeline(); // Reload for now - could optimize later
+}
+
 // Utils
 function formatTime(ts) {
     if (!ts) return '-';
@@ -504,6 +1186,12 @@ function handleWsMessage(msg) {
         case 'new_trace':
             // Could highlight or scroll to top
             break;
+        case 'new_log':
+            handleNewLog(msg.payload);
+            break;
+        case 'new_metric':
+            handleNewMetric(msg.payload);
+            break;
         case 'stats_update':
             handleStatsUpdate(msg.payload);
             break;
@@ -585,4 +1273,212 @@ function renderTracesTable() {
             <td class="${(t.status || 200) < 400 ? 'status-success' : 'status-error'}">${t.status || 200}</td>
         </tr>
     `).join('');
+}
+
+// ==================== Analytics Functions ====================
+
+let analyticsDays = 30;
+
+function setupAnalyticsFilters() {
+    document.getElementById('analyticsDaysFilter')?.addEventListener('change', (e) => {
+        analyticsDays = parseInt(e.target.value) || 30;
+        loadAnalytics();
+    });
+
+    document.getElementById('refreshAnalytics')?.addEventListener('click', loadAnalytics);
+}
+
+async function loadAnalytics() {
+    if (currentTab !== 'analytics') return;
+
+    try {
+        const [trendsRes, toolRes, modelRes, dailyRes] = await Promise.all([
+            fetch(`/api/analytics/token-trends?interval=day&days=${analyticsDays}`),
+            fetch(`/api/analytics/cost-by-tool?days=${analyticsDays}`),
+            fetch(`/api/analytics/cost-by-model?days=${analyticsDays}`),
+            fetch(`/api/analytics/daily?days=${analyticsDays}`)
+        ]);
+
+        const [trendsData, toolData, modelData, dailyData] = await Promise.all([
+            trendsRes.json(),
+            toolRes.json(),
+            modelRes.json(),
+            dailyRes.json()
+        ]);
+
+        renderTokenTrendsChart(trendsData.trends || []);
+        renderCostByToolChart(toolData.by_tool || []);
+        renderCostByModelChart(modelData.by_model || []);
+        renderDailySummary(dailyData.daily || []);
+    } catch (e) {
+        console.error('Failed to load analytics:', e);
+    }
+}
+
+function renderTokenTrendsChart(trends) {
+    const container = document.getElementById('tokenTrendsChart');
+    if (!container) return;
+
+    if (!trends || trends.length === 0) {
+        container.innerHTML = '<p class="empty-state">No data yet. Generate some traces to see trends.</p>';
+        return;
+    }
+
+    const maxTokens = Math.max(...trends.map(t => t.total_tokens || 0));
+    const barWidth = Math.max(8, Math.floor((container.clientWidth - 60) / trends.length) - 2);
+
+    container.innerHTML = `
+        <div class="bar-chart">
+            <div class="bar-chart-bars">
+                ${trends.map((t, i) => {
+                    const height = maxTokens > 0 ? ((t.total_tokens || 0) / maxTokens * 100) : 0;
+                    const promptHeight = maxTokens > 0 ? ((t.prompt_tokens || 0) / maxTokens * 100) : 0;
+                    return `
+                        <div class="bar-group" style="width: ${barWidth}px" title="${t.label}\nTokens: ${formatNumber(t.total_tokens || 0)}\nCost: $${(t.total_cost || 0).toFixed(4)}">
+                            <div class="bar bar-total" style="height: ${height}%"></div>
+                            <div class="bar bar-prompt" style="height: ${promptHeight}%"></div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            <div class="bar-chart-legend">
+                <span class="legend-item"><span class="legend-dot legend-total"></span>Total</span>
+                <span class="legend-item"><span class="legend-dot legend-prompt"></span>Prompt</span>
+            </div>
+        </div>
+    `;
+}
+
+function renderCostByToolChart(byTool) {
+    const container = document.getElementById('costByToolChart');
+    if (!container) return;
+
+    if (!byTool || byTool.length === 0) {
+        container.innerHTML = '<p class="empty-state">No data yet.</p>';
+        return;
+    }
+
+    const totalCost = byTool.reduce((sum, t) => sum + (t.total_cost || 0), 0);
+
+    container.innerHTML = `
+        <div class="horizontal-bar-chart">
+            ${byTool.slice(0, 8).map(t => {
+                const toolName = getToolDisplayName(t.provider, t.service_name);
+                const percentage = totalCost > 0 ? ((t.total_cost || 0) / totalCost * 100) : 0;
+                const toolClass = getToolClass(t.provider, t.service_name);
+                return `
+                    <div class="h-bar-row">
+                        <div class="h-bar-label">
+                            <span class="tool-badge ${toolClass}">${escapeHtml(toolName)}</span>
+                        </div>
+                        <div class="h-bar-track">
+                            <div class="h-bar-fill ${toolClass}" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="h-bar-value">$${(t.total_cost || 0).toFixed(2)}</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+        <div class="chart-total">Total: $${totalCost.toFixed(2)}</div>
+    `;
+}
+
+function renderCostByModelChart(byModel) {
+    const container = document.getElementById('costByModelChart');
+    if (!container) return;
+
+    if (!byModel || byModel.length === 0) {
+        container.innerHTML = '<p class="empty-state">No data yet.</p>';
+        return;
+    }
+
+    const totalCost = byModel.reduce((sum, m) => sum + (m.total_cost || 0), 0);
+
+    container.innerHTML = `
+        <div class="horizontal-bar-chart">
+            ${byModel.slice(0, 8).map(m => {
+                const percentage = totalCost > 0 ? ((m.total_cost || 0) / totalCost * 100) : 0;
+                return `
+                    <div class="h-bar-row">
+                        <div class="h-bar-label">
+                            <span class="model-badge">${escapeHtml(m.model || 'unknown')}</span>
+                        </div>
+                        <div class="h-bar-track">
+                            <div class="h-bar-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="h-bar-value">$${(m.total_cost || 0).toFixed(2)}</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+        <div class="chart-total">Total: $${totalCost.toFixed(2)}</div>
+    `;
+}
+
+function renderDailySummary(daily) {
+    const container = document.getElementById('dailySummaryTable');
+    if (!container) return;
+
+    if (!daily || daily.length === 0) {
+        container.innerHTML = '<p class="empty-state">No data yet.</p>';
+        return;
+    }
+
+    const reversed = [...daily].reverse();
+
+    container.innerHTML = `
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Requests</th>
+                    <th>Tokens</th>
+                    <th>Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${reversed.slice(0, 14).map(d => `
+                    <tr>
+                        <td>${d.date}</td>
+                        <td>${formatNumber(d.requests || 0)}</td>
+                        <td>${formatNumber(d.tokens || 0)}</td>
+                        <td>$${(d.cost || 0).toFixed(2)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function getToolDisplayName(provider, serviceName) {
+    const p = (provider || '').toLowerCase();
+    const s = (serviceName || '').toLowerCase();
+
+    if (p.includes('anthropic') || s.includes('claude')) return 'Claude Code';
+    if (s.includes('codex') || p.includes('codex')) return 'Codex CLI';
+    if (p.includes('gemini') || s.includes('gemini')) return 'Gemini CLI';
+    if (s.includes('aider')) return 'Aider';
+    if (p.includes('openai')) return 'OpenAI';
+    if (p.includes('ollama')) return 'Ollama';
+
+    return provider || serviceName || 'Other';
+}
+
+function getToolClass(provider, serviceName) {
+    const p = (provider || '').toLowerCase();
+    const s = (serviceName || '').toLowerCase();
+
+    if (p.includes('anthropic') || s.includes('claude')) return 'tool-claude-code';
+    if (s.includes('codex') || p.includes('codex')) return 'tool-codex-cli';
+    if (p.includes('gemini') || s.includes('gemini')) return 'tool-gemini-cli';
+    if (s.includes('aider')) return 'tool-aider';
+
+    return 'tool-proxy';
+}
+
+// Initialize analytics filters when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupAnalyticsFilters);
+} else {
+    setupAnalyticsFilters();
 }

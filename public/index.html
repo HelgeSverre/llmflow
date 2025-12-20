@@ -62,11 +62,66 @@
 
       <main>
         <div class="tabs">
-          <button class="tab active" onclick="showTab('traces')">Traces</button>
+          <button class="tab active" onclick="showTab('timeline')">Timeline</button>
+          <button class="tab" onclick="showTab('traces')">Traces</button>
+          <button class="tab" onclick="showTab('logs')">Logs</button>
+          <button class="tab" onclick="showTab('metrics')">Metrics</button>
           <button class="tab" onclick="showTab('models')">Models</button>
+          <button class="tab" onclick="showTab('analytics')">Analytics</button>
         </div>
 
-        <div id="tracesTab" class="tab-content active">
+        <div id="timelineTab" class="tab-content active">
+          <div class="filter-bar">
+            <input type="text" id="timelineSearchInput" placeholder="Search timeline... (press /)" />
+            <select id="toolFilter">
+              <option value="">All Tools</option>
+              <option value="claude-code">Claude Code</option>
+              <option value="codex-cli">Codex CLI</option>
+              <option value="gemini-cli">Gemini CLI</option>
+              <option value="aider">Aider</option>
+              <option value="proxy">Proxy</option>
+            </select>
+            <select id="timelineTypeFilter">
+              <option value="">All Types</option>
+              <option value="trace">Traces</option>
+              <option value="log">Logs</option>
+              <option value="metric">Metrics</option>
+            </select>
+            <select id="timelineDateFilter">
+              <option value="">All Time</option>
+              <option value="1h">Last Hour</option>
+              <option value="24h">Last 24h</option>
+              <option value="7d">Last 7d</option>
+            </select>
+            <button id="clearTimelineFilters" class="btn-secondary">Clear</button>
+          </div>
+
+          <div class="split-layout">
+            <div class="panel-left">
+              <div id="timelineList" class="timeline-list">
+                <div class="empty-state">Loading timeline...</div>
+              </div>
+            </div>
+
+            <div class="panel-right" id="timelineDetailPanel">
+              <div class="detail-header">
+                <h2 id="timelineDetailTitle">Select an item</h2>
+                <span id="timelineDetailMeta" class="detail-meta"></span>
+              </div>
+              <div class="detail-body">
+                <div class="detail-section" id="timelineDetailContent">
+                  <pre id="timelineDetailData">{}</pre>
+                </div>
+                <div class="detail-section" id="relatedLogsSection" style="display: none;">
+                  <h3>Related Logs</h3>
+                  <div id="relatedLogs"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tracesTab" class="tab-content">
           <div class="filter-bar">
             <input type="text" id="searchInput" placeholder="Search... (press /)" />
             <select id="modelFilter">
@@ -134,9 +189,176 @@
           </div>
         </div>
 
+        <div id="logsTab" class="tab-content">
+          <div class="filter-bar">
+            <input type="text" id="logSearchInput" placeholder="Search logs... (press /)" />
+            <select id="logServiceFilter">
+              <option value="">All Services</option>
+            </select>
+            <select id="logEventFilter">
+              <option value="">All Events</option>
+            </select>
+            <select id="logSeverityFilter">
+              <option value="">All Severity</option>
+              <option value="17">Error+</option>
+              <option value="13">Warn+</option>
+              <option value="9">Info+</option>
+              <option value="5">Debug+</option>
+            </select>
+            <button id="clearLogFilters" class="btn-secondary">Clear</button>
+          </div>
+
+          <div class="split-layout">
+            <div class="panel-left">
+              <table id="logsTable">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Severity</th>
+                    <th>Service</th>
+                    <th>Event</th>
+                    <th>Body</th>
+                  </tr>
+                </thead>
+                <tbody id="logsBody">
+                  <tr>
+                    <td colspan="5" class="empty-state">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="panel-right" id="logDetailPanel">
+              <div class="detail-header">
+                <h2 id="logDetailTitle">Select a log</h2>
+                <span id="logDetailMeta" class="detail-meta"></span>
+              </div>
+              <div class="detail-body">
+                <div class="detail-section">
+                  <h3>Body</h3>
+                  <pre id="logBody">-</pre>
+                </div>
+                <div class="detail-section">
+                  <h3>Attributes</h3>
+                  <pre id="logAttributes">{}</pre>
+                </div>
+                <div class="detail-section">
+                  <h3>Resource</h3>
+                  <pre id="logResource">{}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="metricsTab" class="tab-content">
+          <div class="filter-bar">
+            <select id="metricNameFilter">
+              <option value="">All Metrics</option>
+            </select>
+            <select id="metricServiceFilter">
+              <option value="">All Services</option>
+            </select>
+            <select id="metricTypeFilter">
+              <option value="">All Types</option>
+              <option value="sum">Sum (Counter)</option>
+              <option value="gauge">Gauge</option>
+              <option value="histogram">Histogram</option>
+            </select>
+            <button id="clearMetricFilters" class="btn-secondary">Clear</button>
+          </div>
+
+          <div class="metrics-layout">
+            <div class="metrics-summary" id="metricsSummary">
+              <p class="empty-state">Loading metrics summary...</p>
+            </div>
+
+            <div class="metrics-table-container">
+              <table id="metricsTable">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Value</th>
+                    <th>Service</th>
+                  </tr>
+                </thead>
+                <tbody id="metricsBody">
+                  <tr>
+                    <td colspan="5" class="empty-state">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div id="modelsTab" class="tab-content">
           <div id="modelStats" class="model-grid">
             <p class="empty-state">Loading...</p>
+          </div>
+        </div>
+
+        <div id="analyticsTab" class="tab-content">
+          <div class="analytics-controls">
+            <select id="analyticsDaysFilter">
+              <option value="7">Last 7 days</option>
+              <option value="14">Last 14 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+            <button id="refreshAnalytics" class="btn-secondary">Refresh</button>
+          </div>
+
+          <div class="analytics-grid">
+            <div class="analytics-card analytics-card-wide">
+              <div class="analytics-card-header">
+                <h3>Token Usage Trends</h3>
+                <span class="analytics-subtitle">Daily token consumption</span>
+              </div>
+              <div class="analytics-card-body">
+                <div id="tokenTrendsChart" class="chart-container">
+                  <p class="empty-state">Loading chart...</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="analytics-card">
+              <div class="analytics-card-header">
+                <h3>Cost by Tool</h3>
+                <span class="analytics-subtitle">Total spend per AI tool</span>
+              </div>
+              <div class="analytics-card-body">
+                <div id="costByToolChart" class="chart-container">
+                  <p class="empty-state">Loading chart...</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="analytics-card">
+              <div class="analytics-card-header">
+                <h3>Cost by Model</h3>
+                <span class="analytics-subtitle">Total spend per model</span>
+              </div>
+              <div class="analytics-card-body">
+                <div id="costByModelChart" class="chart-container">
+                  <p class="empty-state">Loading chart...</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="analytics-card analytics-card-wide">
+              <div class="analytics-card-header">
+                <h3>Daily Summary</h3>
+                <span class="analytics-subtitle">Requests, tokens, and costs per day</span>
+              </div>
+              <div class="analytics-card-body">
+                <div id="dailySummaryTable" class="daily-summary-table">
+                  <p class="empty-state">Loading data...</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>
