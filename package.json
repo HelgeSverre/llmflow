@@ -12,6 +12,7 @@
     "test:otlp": "node test/run-tests.js otlp-e2e.js",
     "test:ws": "node test/run-tests.js websocket-e2e.js",
     "test:logs": "node test/run-tests.js otlp-logs-e2e.js",
+    "test:metrics": "node test/run-tests.js otlp-metrics-e2e.js",
     "test:providers": "node test/run-tests.js providers.js",
     "test:providers-e2e": "node test/run-tests.js providers-e2e.js"
   },
