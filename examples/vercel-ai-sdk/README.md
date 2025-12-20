@@ -1,16 +1,20 @@
-# Vercel AI SDK + LLMFlow Example
+# Vercel AI SDK + LLMFlow Proxy Example
 
-This example demonstrates how to trace Vercel AI SDK applications with LLMFlow.
+This example demonstrates how to trace Vercel AI SDK applications with LLMFlow by routing API calls through the proxy.
 
 ## How It Works
 
-The Vercel AI SDK has built-in telemetry support via `experimental_telemetry`. When enabled, it emits OpenTelemetry spans that LLMFlow can capture.
+The Vercel AI SDK is configured to send OpenAI API calls through the LLMFlow proxy at `http://localhost:8080/v1`. The proxy:
+
+1. Logs the request
+2. Forwards it to OpenAI
+3. Logs the response with token usage and cost
+4. Returns the response to your app
 
 ## Setup
 
-1. Start LLMFlow:
+1. Start LLMFlow from the project root:
    ```bash
-   cd ../..
    npm install
    npm start
    ```
@@ -20,9 +24,9 @@ The Vercel AI SDK has built-in telemetry support via `experimental_telemetry`. W
    npm install
    ```
 
-3. Set your OpenAI API key:
+3. Set your OpenAI API key in `.env` at the project root:
    ```bash
-   export OPENAI_API_KEY=sk-your-key
+   OPENAI_API_KEY=sk-your-key
    ```
 
 4. Run the example:
@@ -32,55 +36,42 @@ The Vercel AI SDK has built-in telemetry support via `experimental_telemetry`. W
 
 5. View traces at [http://localhost:3000](http://localhost:3000)
 
-## Enabling Telemetry
-
-Add `experimental_telemetry` to your AI SDK calls:
+## Key Code
 
 ```javascript
+import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
 
+// Create OpenAI client that routes through LLMFlow proxy
+const openai = createOpenAI({
+    baseURL: 'http://localhost:8080/v1',
+    apiKey: process.env.OPENAI_API_KEY
+});
+
+// Use as normal - all calls are traced
 const { text } = await generateText({
     model: openai('gpt-4o-mini'),
-    prompt: 'Hello, world!',
-    experimental_telemetry: {
-        isEnabled: true,
-        functionId: 'my-function',
-        metadata: {
-            userId: 'user-123'
-        }
-    }
+    prompt: 'Hello!'
 });
 ```
 
 ## What Gets Traced
 
-LLMFlow automatically captures from Vercel AI SDK:
+LLMFlow automatically captures:
 
 | Attribute | Description |
 |-----------|-------------|
-| `ai.model.id` | Model identifier |
-| `ai.model.provider` | Provider (openai, anthropic, etc.) |
-| `ai.usage.promptTokens` | Input tokens |
-| `ai.usage.completionTokens` | Output tokens |
-| `ai.prompt` | The prompt sent |
-| `ai.response.text` | Generated response |
-| `ai.response.finishReason` | Why generation stopped |
-
-## Span Types
-
-| AI SDK Operation | LLMFlow Type |
-|------------------|--------------|
-| `generateText` | `llm` |
-| `streamText` | `llm` |
-| `generateObject` | `llm` |
-| `embed` | `embedding` |
-| Tool calls | `tool` |
+| Model | The LLM model used |
+| Tokens | Input and output token counts |
+| Messages | The messages sent to the model |
+| Response | The model's response |
+| Duration | How long each call took |
+| Cost | Estimated cost based on token usage |
 
 ## Configuration
 
-Set `LLMFLOW_URL` to point to your LLMFlow instance:
-
-```bash
-export LLMFLOW_URL=http://localhost:3000
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLMFLOW_PROXY` | `http://localhost:8080/v1` | LLMFlow proxy URL |
+| `LLMFLOW_DASHBOARD` | `http://localhost:3000` | Dashboard URL for viewing traces |
+| `OPENAI_API_KEY` | (required) | Your OpenAI API key |
