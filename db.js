@@ -103,6 +103,13 @@ const deleteOverflowStmt = db.prepare(`
     )
 `);
 
+// Hook for real-time updates
+let onInsertTrace = null;
+
+function setInsertTraceHook(fn) {
+    onInsertTrace = fn;
+}
+
 function insertTrace(trace) {
     insertTraceStmt.run({
         id: trace.id,
@@ -137,6 +144,29 @@ function insertTrace(trace) {
     const count = getTraceCount();
     if (count > MAX_TRACES) {
         deleteOverflowStmt.run(MAX_TRACES);
+    }
+
+    // Trigger hook for real-time updates
+    if (onInsertTrace) {
+        const summary = {
+            id: trace.id,
+            timestamp: trace.timestamp,
+            duration_ms: trace.duration_ms || null,
+            model: trace.model || null,
+            total_tokens: trace.total_tokens || 0,
+            estimated_cost: trace.estimated_cost || 0,
+            status: trace.status || null,
+            trace_id: trace.trace_id || trace.id,
+            parent_id: trace.parent_id || null,
+            span_type: trace.span_type || 'llm',
+            span_name: trace.span_name || null,
+            service_name: trace.service_name || null
+        };
+        try {
+            onInsertTrace(summary);
+        } catch (err) {
+            // Don't let hook errors break insertion
+        }
     }
 }
 
@@ -262,6 +292,7 @@ module.exports = {
     getStats,
     getTraceCount,
     getDistinctModels,
+    setInsertTraceHook,
     DB_PATH,
     DATA_DIR
 };
