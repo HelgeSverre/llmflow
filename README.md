@@ -32,9 +32,9 @@ npm install && npm start
 |---------|-------------|
 | 🌲 **Hierarchical Spans** | Trace agents, chains, tools, retrievals, and LLM calls |
 | 🔍 **Span Tree View** | Visualize the full execution flow of your AI pipelines |
-| 🔌 **Zero-code Proxy** | Just change your OpenAI base URL |
+| 🔌 **Multi-Provider Proxy** | OpenAI, Anthropic, Ollama, Groq, Mistral & more |
 | 📡 **OTLP Support** | Works with OpenTelemetry & OpenLLMetry |
-| 💰 **Cost Tracking** | Real-time pricing for 2000+ models |
+| 💰 **Cost Tracking** | Real-time pricing for 1000+ models |
 | 🔎 **Search & Filter** | Find spans by type, model, status, or content |
 | 💾 **SQLite Storage** | Persistent, queryable, no database setup |
 
@@ -44,7 +44,9 @@ npm install && npm start
 
 ### 1. Proxy (Zero Code)
 
-Point your OpenAI SDK at the proxy. All calls are automatically traced.
+Point your LLM SDK at the proxy. All calls are automatically traced.
+
+#### OpenAI (Default)
 
 ```python
 # Python
@@ -62,6 +64,99 @@ const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' });
 $client = OpenAI::factory()->withBaseUri('http://localhost:8080/v1')->make();
 ```
 
+#### Multi-Provider Support
+
+The proxy supports multiple providers via path prefixes:
+
+| Provider | Path Prefix | Example |
+|----------|-------------|---------|
+| OpenAI | `/v1/*` (default) | `http://localhost:8080/v1/chat/completions` |
+| Anthropic | `/anthropic/*` | `http://localhost:8080/anthropic/v1/messages` |
+| Google Gemini | `/gemini/*` | `http://localhost:8080/gemini/v1/chat/completions` |
+| Cohere | `/cohere/*` | `http://localhost:8080/cohere/v1/chat/completions` |
+| Azure OpenAI | `/azure/*` | `http://localhost:8080/azure/v1/chat/completions` |
+| Ollama | `/ollama/*` | `http://localhost:8080/ollama/v1/chat/completions` |
+| Groq | `/groq/*` | `http://localhost:8080/groq/v1/chat/completions` |
+| Mistral | `/mistral/*` | `http://localhost:8080/mistral/v1/chat/completions` |
+| Together | `/together/*` | `http://localhost:8080/together/v1/chat/completions` |
+| Perplexity | `/perplexity/*` | `http://localhost:8080/perplexity/chat/completions` |
+| OpenRouter | `/openrouter/*` | `http://localhost:8080/openrouter/v1/chat/completions` |
+
+Or use the `X-LLMFlow-Provider` header to override:
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "X-LLMFlow-Provider: groq" \
+  -H "Authorization: Bearer $GROQ_API_KEY" \
+  -d '{"model":"llama-3.1-8b-instant","messages":[{"role":"user","content":"Hi"}]}'
+```
+
+#### Provider Examples
+
+```python
+# Anthropic via proxy
+import anthropic
+client = anthropic.Anthropic(
+    base_url="http://localhost:8080/anthropic"
+)
+
+# Ollama via proxy (no API key needed)
+from openai import OpenAI
+client = OpenAI(
+    base_url="http://localhost:8080/ollama/v1",
+    api_key="not-needed"
+)
+
+# Groq via proxy
+from openai import OpenAI
+client = OpenAI(
+    base_url="http://localhost:8080/groq/v1",
+    api_key=os.getenv("GROQ_API_KEY")
+)
+
+# Cohere via proxy
+import cohere
+client = cohere.ClientV2(
+    base_url="http://localhost:8080/cohere",
+    api_key=os.getenv("COHERE_API_KEY")
+)
+
+# Azure OpenAI via proxy
+from openai import AzureOpenAI
+client = AzureOpenAI(
+    base_url="http://localhost:8080/azure/v1",
+    api_key=os.getenv("AZURE_OPENAI_API_KEY")
+)
+# Note: Set x-azure-resource header for resource name
+```
+
+```javascript
+// Anthropic via proxy
+import Anthropic from '@anthropic-ai/sdk';
+const client = new Anthropic({
+    baseURL: 'http://localhost:8080/anthropic'
+});
+
+// Ollama via proxy
+const client = new OpenAI({
+    baseURL: 'http://localhost:8080/ollama/v1',
+    apiKey: 'not-needed'
+});
+
+// Gemini via proxy (using OpenAI-compatible format)
+const client = new OpenAI({
+    baseURL: 'http://localhost:8080/gemini/v1',
+    apiKey: process.env.GOOGLE_API_KEY
+});
+
+// Azure OpenAI via proxy
+const client = new OpenAI({
+    baseURL: 'http://localhost:8080/azure/v1',
+    apiKey: process.env.AZURE_OPENAI_API_KEY,
+    defaultHeaders: { 'x-azure-resource': 'your-resource-name' }
+});
+```
+
 ### 2. JavaScript SDK
 
 Create custom spans for complex workflows.
@@ -69,8 +164,8 @@ Create custom spans for complex workflows.
 **Installation:**
 
 ```bash
-# Install from GitHub (recommended)
-npm install github:HelgeSverre/llmflow#main --prefix sdk
+# Install from GitHub
+npm install github:HelgeSverre/llmflow-sdk
 
 # Or link locally during development
 cd sdk && npm link && cd .. && npm link llmflow-sdk
@@ -298,13 +393,39 @@ LLMFlow automatically extracts these OpenTelemetry semantic conventions:
 
 ## Configuration
 
+### Core Settings
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PROXY_PORT` | `8080` | OpenAI proxy port |
+| `PROXY_PORT` | `8080` | Proxy port |
 | `DASHBOARD_PORT` | `3000` | Dashboard & OTLP port |
 | `DATA_DIR` | `~/.llmflow` | Data directory |
 | `MAX_TRACES` | `10000` | Max traces to retain |
 | `VERBOSE` | `0` | Enable verbose logging |
+
+### Provider API Keys
+
+| Variable | Provider | Description |
+|----------|----------|-------------|
+| `OPENAI_API_KEY` | OpenAI | OpenAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic | Anthropic Claude API key |
+| `GOOGLE_API_KEY` | Gemini | Google AI API key (or `GEMINI_API_KEY`) |
+| `COHERE_API_KEY` | Cohere | Cohere API key |
+| `GROQ_API_KEY` | Groq | Groq API key |
+| `MISTRAL_API_KEY` | Mistral | Mistral AI API key |
+| `TOGETHER_API_KEY` | Together | Together AI API key |
+| `PERPLEXITY_API_KEY` | Perplexity | Perplexity API key |
+| `OPENROUTER_API_KEY` | OpenRouter | OpenRouter API key |
+
+### Provider-Specific Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_HOST` | `localhost` | Ollama server hostname |
+| `OLLAMA_PORT` | `11434` | Ollama server port |
+| `AZURE_OPENAI_RESOURCE` | - | Azure OpenAI resource name |
+| `AZURE_OPENAI_API_KEY` | - | Azure OpenAI API key |
+| `AZURE_OPENAI_API_VERSION` | `2024-02-01` | Azure OpenAI API version |
 
 ---
 
@@ -374,7 +495,7 @@ Your App
 - [x] OTLP/HTTP support
 - [x] Real-time WebSocket updates
 - [x] Dark mode
-- [ ] Multi-provider proxy (Anthropic, Ollama)
+- [x] Multi-provider proxy (OpenAI, Anthropic, Gemini, Cohere, Azure, Ollama, Groq, Mistral, Together, OpenRouter, Perplexity)
 - [ ] Trace export (JSON, OTLP)
 
 ---
