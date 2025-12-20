@@ -372,7 +372,7 @@ Your App
 - [x] Streaming support
 - [x] Search & filtering
 - [x] OTLP/HTTP support
-- [ ] Real-time WebSocket updates
+- [x] Real-time WebSocket updates
 - [ ] Multi-provider proxy (Anthropic, Ollama)
 - [ ] Dark mode
 - [ ] Trace export (JSON, OTLP)

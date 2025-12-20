@@ -87,13 +87,13 @@ const provider = {
 
 ## Phase 3 - Developer Experience
 
-| Task | Priority | Effort |
-|------|----------|--------|
-| Python SDK | High | M |
-| Dark mode | Medium | S |
-| Real-time WebSocket updates | Medium | M |
-| Data export (JSON, CSV) | Low | S |
-| Keyboard navigation | Low | S |
+| Task | Priority | Effort | Status |
+|------|----------|--------|--------|
+| Real-time WebSocket updates | Medium | M | ✅ Done |
+| Python SDK | High | M | |
+| Dark mode | Medium | S | |
+| Data export (JSON, CSV) | Low | S | |
+| Keyboard navigation | Low | S | |
 
 ---
 
