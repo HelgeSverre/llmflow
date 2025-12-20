@@ -373,8 +373,8 @@ Your App
 - [x] Search & filtering
 - [x] OTLP/HTTP support
 - [x] Real-time WebSocket updates
+- [x] Dark mode
 - [ ] Multi-provider proxy (Anthropic, Ollama)
-- [ ] Dark mode
 - [ ] Trace export (JSON, OTLP)
 
 ---

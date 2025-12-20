@@ -17,6 +17,32 @@ let ws = null;
 let wsRetryDelay = 1000;
 const WS_MAX_RETRY = 30000;
 
+// Theme
+function initTheme() {
+    const savedTheme = localStorage.getItem('llmflow-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+    
+    if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+}
+
+function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('llmflow-theme', 'light');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('llmflow-theme', 'dark');
+    }
+}
+
+// Apply theme immediately (before DOMContentLoaded)
+initTheme();
+
 // Initialize
 function init() {
     initFiltersFromUrl();

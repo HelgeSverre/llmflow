@@ -90,8 +90,8 @@ const provider = {
 | Task | Priority | Effort | Status |
 |------|----------|--------|--------|
 | Real-time WebSocket updates | Medium | M | ✅ Done |
+| Dark mode | Medium | S | ✅ Done |
 | Python SDK | High | M | |
-| Dark mode | Medium | S | |
 | Data export (JSON, CSV) | Low | S | |
 | Keyboard navigation | Low | S | |
 
