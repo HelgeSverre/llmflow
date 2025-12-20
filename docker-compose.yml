@@ -6,17 +6,13 @@ services:
       - "${PROXY_PORT:-8080}:8080"
       - "${DASHBOARD_PORT:-3000}:3000"
     volumes:
-      - llmflow-data:/data
+      - llmflow-data:/root/.llmflow
     environment:
       - PROXY_PORT=8080
       - DASHBOARD_PORT=3000
-      - DATA_FILE=/data/llmflow-data.json
+      - DATA_DIR=/root/.llmflow
+      - MAX_TRACES=${MAX_TRACES:-10000}
     restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 volumes:
   llmflow-data:

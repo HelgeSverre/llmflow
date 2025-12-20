@@ -1,31 +1,31 @@
-FROM node:18-alpine
+FROM node:20-alpine
+
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Copy server package files
-COPY server/package*.json ./
+COPY package*.json ./
+RUN npm install --production
 
-# Install dependencies
-RUN npm install
+COPY server.js ./
+COPY db.js ./
+COPY pricing.js ./
+COPY pricing.fallback.json ./
+COPY logger.js ./
+COPY public ./public/
 
-# Copy server application files
-COPY server/server.js ./
-COPY server/public ./public/
+RUN mkdir -p /root/.llmflow
 
-# Create directory for data
-RUN mkdir -p /data
-
-# Environment variables
 ENV NODE_ENV=production
 ENV PROXY_PORT=8080
 ENV DASHBOARD_PORT=3000
-ENV DATA_FILE=/data/llmflow-data.json
+ENV DATA_DIR=/root/.llmflow
 
-# Create volume mount point
-VOLUME ["/data"]
+VOLUME ["/root/.llmflow"]
 
-# Expose ports
 EXPOSE 8080 3000
 
-# Run the application
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
 CMD ["node", "server.js"]
