@@ -8,17 +8,19 @@ const db = require('./db');
 const { calculateCost } = require('./pricing');
 const log = require('./logger');
 const { createOtlpHandler } = require('./otlp');
+const { createLogsHandler } = require('./otlp-logs');
+const { registry } = require('./providers');
 
 const PROXY_PORT = process.env.PROXY_PORT || 8080;
 const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 3000;
 
 // Log request/response to database
-function logInteraction(traceId, req, responseData, duration, error = null) {
+function logInteraction(traceId, req, responseData, duration, error = null, providerName = 'openai') {
     try {
         const timestamp = Date.now();
         const usage = responseData?.usage || {};
-        const model = req.body?.model || 'unknown';
-        const provider = 'openai';
+        const model = responseData?.model || req.body?.model || 'unknown';
+        const provider = providerName;
         
         const promptTokens = usage.prompt_tokens || 0;
         const completionTokens = usage.completion_tokens || 0;
@@ -65,7 +67,20 @@ proxyApp.get('/health', (req, res) => {
         service: 'proxy',
         port: PROXY_PORT,
         traces: db.getTraceCount(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        providers: registry.list().map(p => p.name)
+    });
+});
+
+// List available providers
+proxyApp.get('/providers', (req, res) => {
+    res.json({
+        providers: registry.list(),
+        usage: {
+            default: 'Use /v1/* for OpenAI (default provider)',
+            custom: 'Use /{provider}/v1/* for other providers (e.g., /ollama/v1/chat/completions)',
+            header: 'Or set X-LLMFlow-Provider header to override'
+        }
     });
 });
 
@@ -81,163 +96,174 @@ proxyApp.use((req, res, next) => {
     }
 });
 
-// Proxy all OpenAI API calls
-proxyApp.all('/v1/*', async (req, res) => {
-    const startTime = Date.now();
-    const traceId = req.headers['x-trace-id'] || uuidv4();
-    const isStreamingRequest = req.body && req.body.stream === true;
-
-    log.request(req.method, req.path, traceId);
-    log.debug(`Model: ${req.body?.model || 'N/A'}, Messages: ${req.body?.messages?.length || 0}, Stream: ${isStreamingRequest}`);
-
-    try {
-        const postData = req.method !== 'GET' ? JSON.stringify(req.body) : '';
+// Proxy handler for all provider routes
+function createProxyHandler() {
+    return async (req, res) => {
+        const startTime = Date.now();
+        const traceId = req.headers['x-trace-id'] || uuidv4();
         
-        const options = {
-            hostname: 'api.openai.com',
-            path: req.path,
-            method: req.method,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': req.headers.authorization,
-                'Content-Length': Buffer.byteLength(postData)
-            }
-        };
+        // Resolve provider based on path or header
+        const { provider, cleanPath } = registry.resolve(req);
+        
+        // Create a modified request with the clean path (preserving headers and body)
+        const proxyReq = { ...req, path: cleanPath, headers: req.headers, body: req.body };
+        
+        const isStreamingRequest = provider.isStreamingRequest(req);
 
-        const proxyReq = https.request(options, (proxyRes) => {
-            if (!isStreamingRequest) {
-                // Non-streaming: buffer entire response
-                let responseBody = '';
+        log.request(req.method, req.path, traceId);
+        log.debug(`Provider: ${provider.name}, Model: ${req.body?.model || 'N/A'}, Stream: ${isStreamingRequest}`);
 
-                proxyRes.on('data', (chunk) => {
-                    responseBody += chunk;
-                });
+        try {
+            // Transform request body for this provider
+            const transformedBody = provider.transformRequestBody(req.body, proxyReq);
+            const postData = req.method !== 'GET' ? JSON.stringify(transformedBody) : '';
+            
+            // Get target configuration
+            const target = provider.getTarget(proxyReq);
+            
+            // Transform headers
+            const headers = provider.transformRequestHeaders(req.headers, proxyReq);
+            headers['Content-Length'] = Buffer.byteLength(postData);
+            
+            const options = {
+                hostname: target.hostname,
+                port: target.port,
+                path: target.path,
+                method: req.method,
+                headers: headers
+            };
 
-                proxyRes.on('end', () => {
-                    const duration = Date.now() - startTime;
-                    let responseData;
-                    
-                    try {
-                        responseData = JSON.parse(responseBody);
-                    } catch (e) {
-                        responseData = { error: 'Invalid JSON response', body: responseBody };
-                    }
+            // Select HTTP or HTTPS module
+            const httpModule = provider.getHttpModule();
 
-                    const tokens = responseData.usage?.total_tokens || 0;
-                    const cost = calculateCost(req.body?.model || 'unknown', responseData.usage?.prompt_tokens || 0, responseData.usage?.completion_tokens || 0);
+            const upstreamReq = httpModule.request(options, (upstreamRes) => {
+                if (!isStreamingRequest) {
+                    // Non-streaming: buffer entire response
+                    let responseBody = '';
 
-                    log.proxy({
-                        model: responseData.model || req.body?.model,
-                        tokens,
-                        cost,
-                        duration,
-                        streaming: false
+                    upstreamRes.on('data', (chunk) => {
+                        responseBody += chunk;
                     });
 
-                    logInteraction(traceId, req, {
-                        status: proxyRes.statusCode,
-                        headers: proxyRes.headers,
-                        data: responseData,
-                        usage: responseData.usage
-                    }, duration);
-
-                    res.status(proxyRes.statusCode).json(responseData);
-                });
-            } else {
-                // Streaming: forward chunks while buffering for logging
-                res.status(proxyRes.statusCode);
-                Object.entries(proxyRes.headers).forEach(([key, value]) => {
-                    res.setHeader(key, value);
-                });
-
-                let fullContent = '';
-                let finalUsage = null;
-                let chunkCount = 0;
-
-                proxyRes.on('data', (chunk) => {
-                    const text = chunk.toString('utf8');
-                    chunkCount++;
-                    
-                    res.write(chunk);
-
-                    const lines = text.split('\n');
-                    for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed.startsWith('data:')) continue;
-                        
-                        const payload = trimmed.slice(5).trim();
-                        if (payload === '[DONE]') continue;
+                    upstreamRes.on('end', () => {
+                        const duration = Date.now() - startTime;
+                        let rawResponse;
                         
                         try {
-                            const json = JSON.parse(payload);
-                            const delta = json.choices?.[0]?.delta?.content;
-                            if (delta) fullContent += delta;
-                            if (json.usage) finalUsage = json.usage;
-                        } catch {
-                            // Ignore parse errors
+                            rawResponse = JSON.parse(responseBody);
+                        } catch (e) {
+                            rawResponse = { error: 'Invalid JSON response', body: responseBody };
                         }
-                    }
-                });
 
-                proxyRes.on('end', () => {
-                    const duration = Date.now() - startTime;
-                    const tokens = finalUsage?.total_tokens || 0;
-                    const cost = calculateCost(req.body?.model || 'unknown', finalUsage?.prompt_tokens || 0, finalUsage?.completion_tokens || 0);
+                        // Normalize response through provider
+                        const normalized = provider.normalizeResponse(rawResponse, req);
+                        const usage = provider.extractUsage(normalized.data);
+                        const cost = calculateCost(normalized.model, usage.prompt_tokens, usage.completion_tokens);
 
-                    log.proxy({
-                        model: req.body?.model,
-                        tokens,
-                        cost,
-                        duration,
-                        streaming: true
+                        log.proxy({
+                            provider: provider.name,
+                            model: normalized.model,
+                            tokens: usage.total_tokens,
+                            cost,
+                            duration,
+                            streaming: false
+                        });
+
+                        logInteraction(traceId, req, {
+                            status: upstreamRes.statusCode,
+                            headers: upstreamRes.headers,
+                            data: normalized.data,
+                            usage: usage,
+                            model: normalized.model
+                        }, duration, null, provider.name);
+
+                        res.status(upstreamRes.statusCode).json(normalized.data);
+                    });
+                } else {
+                    // Streaming: forward chunks while buffering for logging
+                    res.status(upstreamRes.statusCode);
+                    Object.entries(upstreamRes.headers).forEach(([key, value]) => {
+                        res.setHeader(key, value);
                     });
 
-                    log.debug(`Chunks: ${chunkCount}, Content: ${fullContent.length} chars`);
+                    let fullContent = '';
+                    let finalUsage = null;
+                    let chunkCount = 0;
 
-                    const assembledResponse = {
-                        id: traceId,
-                        object: 'chat.completion',
-                        model: req.body?.model,
-                        choices: [{
-                            message: { role: 'assistant', content: fullContent },
-                            finish_reason: 'stop'
-                        }],
-                        usage: finalUsage,
-                        _streaming: true,
-                        _chunks: chunkCount
-                    };
+                    upstreamRes.on('data', (chunk) => {
+                        const text = chunk.toString('utf8');
+                        chunkCount++;
+                        
+                        res.write(chunk);
 
-                    logInteraction(traceId, req, {
-                        status: proxyRes.statusCode,
-                        headers: proxyRes.headers,
-                        data: assembledResponse,
-                        usage: finalUsage
-                    }, duration);
+                        // Parse chunks through provider
+                        const parsed = provider.parseStreamChunk(text);
+                        if (parsed.content) fullContent += parsed.content;
+                        if (parsed.usage) finalUsage = parsed.usage;
+                    });
 
-                    res.end();
-                });
+                    upstreamRes.on('end', () => {
+                        const duration = Date.now() - startTime;
+                        const usage = finalUsage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+                        const cost = calculateCost(req.body?.model || 'unknown', usage.prompt_tokens, usage.completion_tokens);
+
+                        log.proxy({
+                            provider: provider.name,
+                            model: req.body?.model,
+                            tokens: usage.total_tokens,
+                            cost,
+                            duration,
+                            streaming: true
+                        });
+
+                        log.debug(`Chunks: ${chunkCount}, Content: ${fullContent.length} chars`);
+
+                        const assembledResponse = provider.assembleStreamingResponse(
+                            fullContent, finalUsage, req, traceId
+                        );
+                        assembledResponse._chunks = chunkCount;
+
+                        logInteraction(traceId, req, {
+                            status: upstreamRes.statusCode,
+                            headers: upstreamRes.headers,
+                            data: assembledResponse,
+                            usage: finalUsage,
+                            model: req.body?.model
+                        }, duration, null, provider.name);
+
+                        res.end();
+                    });
+                }
+            });
+
+            upstreamReq.on('error', (error) => {
+                const duration = Date.now() - startTime;
+                log.proxy({ provider: provider.name, error: error.message, duration });
+                logInteraction(traceId, req, null, duration, error.message, provider.name);
+                res.status(500).json({ error: 'Proxy request failed', message: error.message, provider: provider.name });
+            });
+
+            if (postData) {
+                upstreamReq.write(postData);
             }
-        });
+            upstreamReq.end();
 
-        proxyReq.on('error', (error) => {
+        } catch (error) {
             const duration = Date.now() - startTime;
-            log.proxy({ error: error.message, duration });
-            logInteraction(traceId, req, null, duration, error.message);
-            res.status(500).json({ error: 'Proxy request failed', message: error.message });
-        });
-
-        if (postData) {
-            proxyReq.write(postData);
+            log.proxy({ provider: provider.name, error: error.message, duration });
+            logInteraction(traceId, req, null, duration, error.message, provider.name);
+            res.status(500).json({ error: 'Proxy request failed', message: error.message, provider: provider.name });
         }
-        proxyReq.end();
+    };
+}
 
-    } catch (error) {
-        const duration = Date.now() - startTime;
-        log.proxy({ error: error.message, duration });
-        logInteraction(traceId, req, null, duration, error.message);
-        res.status(500).json({ error: 'Proxy request failed', message: error.message });
-    }
-});
+// Proxy all API calls - supports multiple providers via path prefix
+// /v1/* -> OpenAI (default)
+// /ollama/v1/* -> Ollama
+// /anthropic/v1/* -> Anthropic
+// /groq/v1/* -> Groq
+// etc.
+proxyApp.all('/*', createProxyHandler());
 
 // Dashboard Server
 const dashboardApp = express();
@@ -342,6 +368,60 @@ dashboardApp.get('/api/models', (req, res) => {
     }
 });
 
+// ==================== Logs API Endpoints ====================
+
+dashboardApp.get('/api/logs', (req, res) => {
+    const start = Date.now();
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+
+        const filters = {};
+        if (req.query.service_name) filters.service_name = req.query.service_name;
+        if (req.query.event_name) filters.event_name = req.query.event_name;
+        if (req.query.trace_id) filters.trace_id = req.query.trace_id;
+        if (req.query.severity_min) filters.severity_min = parseInt(req.query.severity_min, 10);
+        if (req.query.date_from) filters.date_from = parseInt(req.query.date_from, 10);
+        if (req.query.date_to) filters.date_to = parseInt(req.query.date_to, 10);
+        if (req.query.q) filters.q = req.query.q;
+
+        const logs = db.getLogs({ limit, offset, filters });
+        const total = db.getLogCount(filters);
+        log.dashboard('GET', '/api/logs', Date.now() - start);
+        res.json({ logs, total });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+dashboardApp.get('/api/logs/filters', (req, res) => {
+    try {
+        res.json({
+            services: db.getDistinctLogServices(),
+            event_names: db.getDistinctEventNames()
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+dashboardApp.get('/api/logs/:id', (req, res) => {
+    const start = Date.now();
+    try {
+        const { id } = req.params;
+        const logRecord = db.getLogById(id);
+        
+        if (!logRecord) {
+            return res.status(404).json({ error: 'Log not found' });
+        }
+
+        log.dashboard('GET', `/api/logs/${id.slice(0, 8)}`, Date.now() - start);
+        res.json(logRecord);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Span ingest endpoint for SDK
 dashboardApp.post('/api/spans', (req, res) => {
     try {
@@ -408,6 +488,10 @@ dashboardApp.post('/api/spans', (req, res) => {
 // OTLP/HTTP trace ingestion endpoint
 // Accepts OTLP/HTTP JSON format for OpenTelemetry/OpenLLMetry integration
 dashboardApp.post('/v1/traces', createOtlpHandler());
+
+// OTLP/HTTP logs ingestion endpoint
+// Accepts OTLP/HTTP JSON logs from AI CLI tools (Claude Code, Codex CLI, Gemini CLI)
+dashboardApp.post('/v1/logs', createLogsHandler());
 
 // Get trace with all spans as a tree
 dashboardApp.get('/api/traces/:id/tree', (req, res) => {
@@ -531,6 +615,19 @@ db.setInsertTraceHook((spanSummary) => {
         lastStatsUpdate = now;
         const stats = db.getStats();
         broadcast({ type: 'stats_update', payload: stats });
+    }
+});
+
+// Hook into db.insertLog for real-time log updates
+db.setInsertLogHook((logSummary) => {
+    broadcast({ type: 'new_log', payload: logSummary });
+
+    // If log has trace_id, notify trace subscribers
+    if (logSummary.trace_id) {
+        broadcast({ 
+            type: 'trace_log_added', 
+            payload: { trace_id: logSummary.trace_id, log: logSummary }
+        });
     }
 });
 
