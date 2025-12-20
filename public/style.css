@@ -57,6 +57,31 @@ h1.logo {
     color: #2563eb;
 }
 
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #9ca3af;
+    display: inline-block;
+    margin-left: 4px;
+    transition: background 0.3s;
+}
+
+.status-dot.connected {
+    background: #22c55e;
+    box-shadow: 0 0 4px #22c55e;
+}
+
+.status-dot.disconnected {
+    background: #f59e0b;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
 .stats-bar {
     display: flex;
     gap: 24px;
