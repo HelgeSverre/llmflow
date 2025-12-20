@@ -10,20 +10,44 @@ const log = require('./logger');
 const { createOtlpHandler } = require('./otlp');
 const { createLogsHandler } = require('./otlp-logs');
 const { createMetricsHandler } = require('./otlp-metrics');
+const { initExportHooks, getConfig: getExportConfig, flushAll: flushExports } = require('./otlp-export');
 const { registry } = require('./providers');
-const { AnthropicPassthrough, GeminiPassthrough, OpenAIPassthrough } = require('./providers/passthrough');
+const { AnthropicPassthrough, GeminiPassthrough, OpenAIPassthrough, HeliconePassthrough } = require('./providers/passthrough');
 
 // Passthrough handlers for native API formats
 const passthroughHandlers = {
     anthropic: new AnthropicPassthrough(),
     gemini: new GeminiPassthrough(),
-    openai: new OpenAIPassthrough()
+    openai: new OpenAIPassthrough(),
+    helicone: new HeliconePassthrough()
 };
 
 const PROXY_PORT = process.env.PROXY_PORT || 8080;
 const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 3000;
 
 // Log request/response to database
+/**
+ * Extract custom tags from X-LLMFlow-Tag headers
+ * Supports: X-LLMFlow-Tag: value or X-LLMFlow-Tag: key:value
+ * Multiple tags via comma separation or multiple headers
+ */
+function extractTagsFromHeaders(headers) {
+    const tags = [];
+    const tagHeader = headers['x-llmflow-tag'] || headers['x-llmflow-tags'];
+    
+    if (!tagHeader) return tags;
+    
+    // Handle array of headers or comma-separated string
+    const headerValues = Array.isArray(tagHeader) ? tagHeader : [tagHeader];
+    
+    for (const value of headerValues) {
+        const parts = value.split(',').map(t => t.trim()).filter(Boolean);
+        tags.push(...parts);
+    }
+    
+    return tags;
+}
+
 function logInteraction(traceId, req, responseData, duration, error = null, providerName = 'openai') {
     try {
         const timestamp = Date.now();
@@ -36,6 +60,9 @@ function logInteraction(traceId, req, responseData, duration, error = null, prov
         const totalTokens = usage.total_tokens || promptTokens + completionTokens;
         const estimatedCost = calculateCost(model, promptTokens, completionTokens);
         const status = responseData?.status || (error ? 500 : 200);
+        
+        // Extract custom tags from headers
+        const customTags = extractTagsFromHeaders(req.headers);
 
         db.insertTrace({
             id: traceId,
@@ -56,7 +83,7 @@ function logInteraction(traceId, req, responseData, duration, error = null, prov
             response_status: status,
             response_headers: responseData?.headers || {},
             response_body: responseData?.data || { error },
-            tags: [],
+            tags: customTags,
             trace_id: req.headers['x-trace-id'] || traceId,
             parent_id: req.headers['x-parent-id'] || null
         });
@@ -490,6 +517,163 @@ dashboardApp.get('/api/health', (req, res) => {
     });
 });
 
+// Provider health check endpoint
+dashboardApp.get('/api/health/providers', async (req, res) => {
+    const results = {};
+    const providers = registry.list();
+    
+    const checkProvider = async (name, checkFn) => {
+        try {
+            const start = Date.now();
+            const result = await checkFn();
+            return { 
+                status: result.ok ? 'ok' : 'error', 
+                latency_ms: Date.now() - start,
+                message: result.message || null
+            };
+        } catch (err) {
+            return { status: 'error', message: err.message };
+        }
+    };
+    
+    // Check OpenAI
+    if (process.env.OPENAI_API_KEY) {
+        results.openai = await checkProvider('openai', () => {
+            return new Promise((resolve) => {
+                const req = https.request({
+                    hostname: 'api.openai.com',
+                    path: '/v1/models',
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
+                    timeout: 5000
+                }, (res) => {
+                    resolve({ ok: res.statusCode === 200 });
+                });
+                req.on('error', (e) => resolve({ ok: false, message: e.message }));
+                req.on('timeout', () => { req.destroy(); resolve({ ok: false, message: 'timeout' }); });
+                req.end();
+            });
+        });
+    } else {
+        results.openai = { status: 'unconfigured', message: 'OPENAI_API_KEY not set' };
+    }
+    
+    // Check Anthropic
+    if (process.env.ANTHROPIC_API_KEY) {
+        results.anthropic = await checkProvider('anthropic', () => {
+            return new Promise((resolve) => {
+                const req = https.request({
+                    hostname: 'api.anthropic.com',
+                    path: '/v1/messages',
+                    method: 'POST',
+                    headers: { 
+                        'x-api-key': process.env.ANTHROPIC_API_KEY,
+                        'anthropic-version': '2023-06-01',
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 5000
+                }, (res) => {
+                    // 400 means API key is valid but request body invalid (expected)
+                    resolve({ ok: res.statusCode === 400 || res.statusCode === 200 });
+                });
+                req.on('error', (e) => resolve({ ok: false, message: e.message }));
+                req.on('timeout', () => { req.destroy(); resolve({ ok: false, message: 'timeout' }); });
+                req.write('{}');
+                req.end();
+            });
+        });
+    } else {
+        results.anthropic = { status: 'unconfigured', message: 'ANTHROPIC_API_KEY not set' };
+    }
+    
+    // Check Gemini
+    const geminiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+        results.gemini = await checkProvider('gemini', () => {
+            return new Promise((resolve) => {
+                const req = https.request({
+                    hostname: 'generativelanguage.googleapis.com',
+                    path: `/v1beta/models?key=${geminiKey}`,
+                    method: 'GET',
+                    timeout: 5000
+                }, (res) => {
+                    resolve({ ok: res.statusCode === 200 });
+                });
+                req.on('error', (e) => resolve({ ok: false, message: e.message }));
+                req.on('timeout', () => { req.destroy(); resolve({ ok: false, message: 'timeout' }); });
+                req.end();
+            });
+        });
+    } else {
+        results.gemini = { status: 'unconfigured', message: 'GOOGLE_API_KEY/GEMINI_API_KEY not set' };
+    }
+    
+    // Check Groq
+    if (process.env.GROQ_API_KEY) {
+        results.groq = await checkProvider('groq', () => {
+            return new Promise((resolve) => {
+                const req = https.request({
+                    hostname: 'api.groq.com',
+                    path: '/openai/v1/models',
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+                    timeout: 5000
+                }, (res) => {
+                    resolve({ ok: res.statusCode === 200 });
+                });
+                req.on('error', (e) => resolve({ ok: false, message: e.message }));
+                req.on('timeout', () => { req.destroy(); resolve({ ok: false, message: 'timeout' }); });
+                req.end();
+            });
+        });
+    } else {
+        results.groq = { status: 'unconfigured', message: 'GROQ_API_KEY not set' };
+    }
+    
+    // Check Ollama (local, no API key needed)
+    const ollamaHost = process.env.OLLAMA_HOST || 'localhost';
+    const ollamaPort = process.env.OLLAMA_PORT || 11434;
+    results.ollama = await checkProvider('ollama', () => {
+        return new Promise((resolve) => {
+            const req = http.request({
+                hostname: ollamaHost,
+                port: ollamaPort,
+                path: '/api/tags',
+                method: 'GET',
+                timeout: 2000
+            }, (res) => {
+                resolve({ ok: res.statusCode === 200 });
+            });
+            req.on('error', () => resolve({ ok: false, message: `not reachable at ${ollamaHost}:${ollamaPort}` }));
+            req.on('timeout', () => { req.destroy(); resolve({ ok: false, message: 'timeout' }); });
+            req.end();
+        });
+    });
+    
+    const okCount = Object.values(results).filter(r => r.status === 'ok').length;
+    const totalConfigured = Object.values(results).filter(r => r.status !== 'unconfigured').length;
+    
+    res.json({
+        summary: `${okCount}/${totalConfigured} providers healthy`,
+        providers: results
+    });
+});
+
+// OTLP Export configuration endpoint
+dashboardApp.get('/api/export', (req, res) => {
+    res.json(getExportConfig());
+});
+
+// Flush pending exports
+dashboardApp.post('/api/export/flush', async (req, res) => {
+    try {
+        await flushExports();
+        res.json({ success: true, message: 'Export flush completed' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Serve static files
 dashboardApp.use(express.static(path.join(__dirname, 'public')));
 
@@ -573,6 +757,47 @@ dashboardApp.get('/api/models', (req, res) => {
     try {
         const models = db.getDistinctModels();
         res.json(models);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== Trace Export Endpoint ====================
+
+dashboardApp.get('/api/traces/export', (req, res) => {
+    const start = Date.now();
+    try {
+        const format = req.query.format || 'json';
+        const limit = parseInt(req.query.limit) || 1000;
+        
+        const filters = {};
+        if (req.query.model) filters.model = req.query.model;
+        if (req.query.status) filters.status = req.query.status;
+        if (req.query.date_from) filters.date_from = parseInt(req.query.date_from, 10);
+        if (req.query.date_to) filters.date_to = parseInt(req.query.date_to, 10);
+        if (req.query.tag) filters.tag = req.query.tag;
+        
+        const traces = db.getTraces({ limit, offset: 0, filters });
+        
+        log.dashboard('GET', '/api/traces/export', Date.now() - start);
+        
+        if (format === 'jsonl') {
+            res.setHeader('Content-Type', 'application/x-ndjson');
+            res.setHeader('Content-Disposition', 'attachment; filename="traces.jsonl"');
+            for (const trace of traces) {
+                res.write(JSON.stringify(trace) + '\n');
+            }
+            res.end();
+        } else {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Disposition', 'attachment; filename="traces.json"');
+            res.json({
+                exported_at: new Date().toISOString(),
+                count: traces.length,
+                filters,
+                traces
+            });
+        }
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -976,11 +1201,20 @@ db.setInsertMetricHook((metricSummary) => {
     broadcast({ type: 'new_metric', payload: metricSummary });
 });
 
+// Initialize OTLP export to external backends
+initExportHooks(db);
+
 dashboardServer.listen(DASHBOARD_PORT, () => {
     log.startup(`Dashboard running on http://localhost:${DASHBOARD_PORT}`);
     log.info(`Database: ${db.DB_PATH}`);
     log.info(`Traces: ${db.getTraceCount()}, Logs: ${db.getLogCount()}, Metrics: ${db.getMetricCount()}`);
     log.info(`WebSocket: ws://localhost:${DASHBOARD_PORT}/ws`);
+    
+    const exportConfig = getExportConfig();
+    if (exportConfig.enabled) {
+        log.info(`OTLP Export: ${exportConfig.endpoints.traces || 'disabled'}`);
+    }
+    
     if (log.isVerbose()) {
         log.info('Verbose logging enabled');
     }
