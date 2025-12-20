@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 const DATA_DIR = process.env.DATA_DIR || path.join(os.homedir(), '.llmflow');
 const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'data.db');
 const MAX_TRACES = parseInt(process.env.MAX_TRACES || '10000', 10);
+const MAX_LOGS = parseInt(process.env.MAX_LOGS || '100000', 10);
 
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -70,6 +71,41 @@ function initSchema() {
             updated_at INTEGER
         );
     `);
+
+    // Logs table for OTLP logs ingestion (v0.2.1+)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS logs (
+            id TEXT PRIMARY KEY,
+            timestamp INTEGER NOT NULL,
+            observed_timestamp INTEGER,
+            
+            -- Severity
+            severity_number INTEGER,
+            severity_text TEXT,
+            
+            -- Content
+            body TEXT,
+            
+            -- Context
+            trace_id TEXT,
+            span_id TEXT,
+            
+            -- Classification
+            event_name TEXT,
+            service_name TEXT,
+            scope_name TEXT,
+            
+            -- Structured data
+            attributes TEXT,
+            resource_attributes TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_logs_trace_id ON logs(trace_id);
+        CREATE INDEX IF NOT EXISTS idx_logs_event_name ON logs(event_name);
+        CREATE INDEX IF NOT EXISTS idx_logs_service_name ON logs(service_name);
+        CREATE INDEX IF NOT EXISTS idx_logs_severity ON logs(severity_number);
+    `);
 }
 
 initSchema();
@@ -103,11 +139,39 @@ const deleteOverflowStmt = db.prepare(`
     )
 `);
 
+const insertLogStmt = db.prepare(`
+    INSERT INTO logs (
+        id, timestamp, observed_timestamp,
+        severity_number, severity_text,
+        body, trace_id, span_id,
+        event_name, service_name, scope_name,
+        attributes, resource_attributes
+    ) VALUES (
+        @id, @timestamp, @observed_timestamp,
+        @severity_number, @severity_text,
+        @body, @trace_id, @span_id,
+        @event_name, @service_name, @scope_name,
+        @attributes, @resource_attributes
+    )
+`);
+
+const deleteLogOverflowStmt = db.prepare(`
+    DELETE FROM logs
+    WHERE id NOT IN (
+        SELECT id FROM logs ORDER BY timestamp DESC LIMIT ?
+    )
+`);
+
 // Hook for real-time updates
 let onInsertTrace = null;
+let onInsertLog = null;
 
 function setInsertTraceHook(fn) {
     onInsertTrace = fn;
+}
+
+function setInsertLogHook(fn) {
+    onInsertLog = fn;
 }
 
 function insertTrace(trace) {
@@ -284,6 +348,154 @@ function getDistinctModels() {
         .map(r => r.model);
 }
 
+// ==================== Logs Functions ====================
+
+function insertLog(log) {
+    insertLogStmt.run({
+        id: log.id,
+        timestamp: log.timestamp,
+        observed_timestamp: log.observed_timestamp || null,
+        severity_number: log.severity_number || null,
+        severity_text: log.severity_text || null,
+        body: typeof log.body === 'string' ? log.body : JSON.stringify(log.body || null),
+        trace_id: log.trace_id || null,
+        span_id: log.span_id || null,
+        event_name: log.event_name || null,
+        service_name: log.service_name || null,
+        scope_name: log.scope_name || null,
+        attributes: JSON.stringify(log.attributes || {}),
+        resource_attributes: JSON.stringify(log.resource_attributes || {})
+    });
+
+    const count = getLogCount();
+    if (count > MAX_LOGS) {
+        deleteLogOverflowStmt.run(MAX_LOGS);
+    }
+
+    if (onInsertLog) {
+        const summary = {
+            id: log.id,
+            timestamp: log.timestamp,
+            severity_text: log.severity_text || null,
+            event_name: log.event_name || null,
+            service_name: log.service_name || null,
+            trace_id: log.trace_id || null,
+            body: typeof log.body === 'string' ? log.body.slice(0, 200) : null
+        };
+        try {
+            onInsertLog(summary);
+        } catch (err) {
+            // Don't let hook errors break insertion
+        }
+    }
+}
+
+function getLogs({ limit = 50, offset = 0, filters = {} } = {}) {
+    const where = [];
+    const params = {};
+
+    if (filters.service_name) {
+        where.push('service_name = @service_name');
+        params.service_name = filters.service_name;
+    }
+
+    if (filters.event_name) {
+        where.push('event_name = @event_name');
+        params.event_name = filters.event_name;
+    }
+
+    if (filters.trace_id) {
+        where.push('trace_id = @trace_id');
+        params.trace_id = filters.trace_id;
+    }
+
+    if (filters.severity_min != null) {
+        where.push('severity_number >= @severity_min');
+        params.severity_min = filters.severity_min;
+    }
+
+    if (filters.date_from) {
+        where.push('timestamp >= @date_from');
+        params.date_from = filters.date_from;
+    }
+
+    if (filters.date_to) {
+        where.push('timestamp <= @date_to');
+        params.date_to = filters.date_to;
+    }
+
+    if (filters.q) {
+        where.push('(body LIKE @q OR attributes LIKE @q)');
+        params.q = `%${filters.q}%`;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const stmt = db.prepare(`
+        SELECT 
+            id, timestamp, observed_timestamp,
+            severity_number, severity_text,
+            body, trace_id, span_id,
+            event_name, service_name, scope_name,
+            attributes, resource_attributes
+        FROM logs
+        ${whereSql}
+        ORDER BY timestamp DESC
+        LIMIT @limit OFFSET @offset
+    `);
+
+    return stmt.all({ ...params, limit, offset });
+}
+
+function getLogById(id) {
+    const log = db.prepare('SELECT * FROM logs WHERE id = ?').get(id);
+    if (log) {
+        log.attributes = JSON.parse(log.attributes || '{}');
+        log.resource_attributes = JSON.parse(log.resource_attributes || '{}');
+    }
+    return log;
+}
+
+function getLogsByTraceId(traceId) {
+    return db.prepare(`
+        SELECT *
+        FROM logs
+        WHERE trace_id = ?
+        ORDER BY timestamp ASC
+    `).all(traceId);
+}
+
+function getLogCount(filters = {}) {
+    if (Object.keys(filters).length === 0) {
+        return db.prepare('SELECT COUNT(*) as cnt FROM logs').get().cnt;
+    }
+    
+    const where = [];
+    const params = {};
+
+    if (filters.service_name) {
+        where.push('service_name = @service_name');
+        params.service_name = filters.service_name;
+    }
+
+    if (filters.event_name) {
+        where.push('event_name = @event_name');
+        params.event_name = filters.event_name;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    return db.prepare(`SELECT COUNT(*) as cnt FROM logs ${whereSql}`).get(params).cnt;
+}
+
+function getDistinctEventNames() {
+    return db.prepare('SELECT DISTINCT event_name FROM logs WHERE event_name IS NOT NULL ORDER BY event_name').all()
+        .map(r => r.event_name);
+}
+
+function getDistinctLogServices() {
+    return db.prepare('SELECT DISTINCT service_name FROM logs WHERE service_name IS NOT NULL ORDER BY service_name').all()
+        .map(r => r.service_name);
+}
+
 module.exports = {
     insertTrace,
     getTraces,
@@ -293,6 +505,16 @@ module.exports = {
     getTraceCount,
     getDistinctModels,
     setInsertTraceHook,
+    // Logs
+    insertLog,
+    getLogs,
+    getLogById,
+    getLogsByTraceId,
+    getLogCount,
+    getDistinctEventNames,
+    getDistinctLogServices,
+    setInsertLogHook,
+    // Constants
     DB_PATH,
     DATA_DIR
 };
