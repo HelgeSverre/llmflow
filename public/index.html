@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLMFlow</title>
+    <link rel="stylesheet" href="style.css" />
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-row">
+          <h1>LLMFlow</h1>
+          <div class="stats-bar">
+            <div class="stat">
+              <span class="stat-value" id="totalRequests">-</span>
+              <span class="stat-label">Traces</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="totalTokens">-</span>
+              <span class="stat-label">Tokens</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="totalCost">-</span>
+              <span class="stat-label">Cost</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="avgLatency">-</span>
+              <span class="stat-label">Avg Latency</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('traces')">Traces</button>
+          <button class="tab" onclick="showTab('models')">Models</button>
+        </div>
+
+        <div id="tracesTab" class="tab-content active">
+          <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="Search... (press /)" />
+            <select id="modelFilter">
+              <option value="">All Models</option>
+            </select>
+            <select id="statusFilter">
+              <option value="">All Status</option>
+              <option value="success">Success</option>
+              <option value="error">Error</option>
+            </select>
+            <select id="dateFilter">
+              <option value="">All Time</option>
+              <option value="1h">Last Hour</option>
+              <option value="24h">Last 24h</option>
+              <option value="7d">Last 7d</option>
+            </select>
+            <button id="clearFilters" class="btn-secondary">Clear</button>
+          </div>
+
+          <div class="split-layout">
+            <div class="panel-left">
+              <table id="tracesTable">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Model</th>
+                    <th>Tokens</th>
+                    <th>Cost</th>
+                    <th>Latency</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tracesBody">
+                  <tr>
+                    <td colspan="8" class="empty-state">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="panel-right" id="detailPanel">
+              <div class="detail-header">
+                <h2 id="detailTitle">Select a trace</h2>
+                <span id="detailMeta" class="detail-meta"></span>
+              </div>
+              <div class="detail-body">
+                <div class="detail-section">
+                  <h3>Info</h3>
+                  <pre id="traceInfo">{}</pre>
+                </div>
+                <div class="detail-section">
+                  <h3>Spans</h3>
+                  <div id="spanTree" class="span-tree">
+                    <span class="empty-state">Click a trace to view spans</span>
+                  </div>
+                </div>
+                <div class="detail-section">
+                  <h3>Input / Output</h3>
+                  <pre id="traceIO">{}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="modelsTab" class="tab-content">
+          <div id="modelStats" class="model-grid">
+            <p class="empty-state">Loading...</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

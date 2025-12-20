@@ -1,0 +1,23 @@
+{
+  "name": "llmflow-sdk",
+  "version": "0.1.0",
+  "description": "Minimal tracing SDK for LLM applications",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "keywords": [
+    "llm",
+    "tracing",
+    "observability",
+    "openai",
+    "langchain"
+  ],
+  "author": "LLMFlow",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HelgeSverre/llmflow"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
