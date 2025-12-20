@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"  # Phoenix UI & OTLP HTTP
+      - "6007:6007"  # OTLP gRPC (optional)
+    environment:
+      - PHOENIX_WORKING_DIR=/data
+    volumes:
+      - phoenix_data:/data
+
+volumes:
+  phoenix_data:
