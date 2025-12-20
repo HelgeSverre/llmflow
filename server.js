@@ -1,7 +1,9 @@
 const express = require('express');
+const http = require('http');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const https = require('https');
+const WebSocket = require('ws');
 const db = require('./db');
 const { calculateCost } = require('./pricing');
 const log = require('./logger');
@@ -476,10 +478,67 @@ proxyApp.listen(PROXY_PORT, () => {
     log.info(`Set base_url to http://localhost:${PROXY_PORT}/v1`);
 });
 
-dashboardApp.listen(DASHBOARD_PORT, () => {
+// Create HTTP server for dashboard (needed for WebSocket)
+const dashboardServer = http.createServer(dashboardApp);
+
+// WebSocket server for real-time updates
+const wss = new WebSocket.Server({ server: dashboardServer, path: '/ws' });
+const wsClients = new Set();
+
+wss.on('connection', (ws) => {
+    wsClients.add(ws);
+    log.debug(`WebSocket client connected (${wsClients.size} total)`);
+
+    ws.on('close', () => {
+        wsClients.delete(ws);
+        log.debug(`WebSocket client disconnected (${wsClients.size} remaining)`);
+    });
+
+    ws.on('error', () => {
+        wsClients.delete(ws);
+    });
+
+    // Send hello message
+    ws.send(JSON.stringify({ type: 'hello', time: Date.now() }));
+});
+
+function broadcast(messageObj) {
+    const data = JSON.stringify(messageObj);
+    for (const ws of wsClients) {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+        }
+    }
+}
+
+// Throttle stats updates (max once per second)
+let lastStatsUpdate = 0;
+const STATS_THROTTLE_MS = 1000;
+
+// Hook into db.insertTrace for real-time updates
+db.setInsertTraceHook((spanSummary) => {
+    // Broadcast new span
+    broadcast({ type: 'new_span', payload: spanSummary });
+
+    // If root span, also broadcast new_trace
+    if (!spanSummary.parent_id) {
+        broadcast({ type: 'new_trace', payload: spanSummary });
+    }
+
+    // Throttled stats update
+    const now = Date.now();
+    if (now - lastStatsUpdate > STATS_THROTTLE_MS) {
+        lastStatsUpdate = now;
+        const stats = db.getStats();
+        broadcast({ type: 'stats_update', payload: stats });
+    }
+});
+
+dashboardServer.listen(DASHBOARD_PORT, () => {
     log.startup(`Dashboard running on http://localhost:${DASHBOARD_PORT}`);
     log.info(`Database: ${db.DB_PATH}`);
     log.info(`Traces: ${db.getTraceCount()}`);
+    log.info(`WebSocket: ws://localhost:${DASHBOARD_PORT}/ws`);
     if (log.isVerbose()) {
         log.info('Verbose logging enabled');
     }
