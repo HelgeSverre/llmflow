@@ -1,0 +1,14 @@
+{
+  "name": "llmflow-ai-sdk-proxy-example",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Vercel AI SDK integration with LLMFlow tracing via proxy",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ai": "^4.0.0",
+    "@ai-sdk/openai": "^1.0.0"
+  }
+}

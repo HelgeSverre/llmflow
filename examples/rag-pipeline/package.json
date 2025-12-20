@@ -1,0 +1,13 @@
+{
+  "name": "llmflow-rag-pipeline-example",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "RAG pipeline with LLMFlow SDK for hierarchical span tracking",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "openai": "^4.0.0"
+  }
+}
