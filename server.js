@@ -9,7 +9,16 @@ const { calculateCost } = require('./pricing');
 const log = require('./logger');
 const { createOtlpHandler } = require('./otlp');
 const { createLogsHandler } = require('./otlp-logs');
+const { createMetricsHandler } = require('./otlp-metrics');
 const { registry } = require('./providers');
+const { AnthropicPassthrough, GeminiPassthrough, OpenAIPassthrough } = require('./providers/passthrough');
+
+// Passthrough handlers for native API formats
+const passthroughHandlers = {
+    anthropic: new AnthropicPassthrough(),
+    gemini: new GeminiPassthrough(),
+    openai: new OpenAIPassthrough()
+};
 
 const PROXY_PORT = process.env.PROXY_PORT || 8080;
 const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 3000;
@@ -76,10 +85,16 @@ proxyApp.get('/health', (req, res) => {
 proxyApp.get('/providers', (req, res) => {
     res.json({
         providers: registry.list(),
+        passthrough: Object.keys(passthroughHandlers).map(name => ({
+            name: passthroughHandlers[name].name,
+            displayName: passthroughHandlers[name].displayName,
+            prefix: `/passthrough/${name}/*`
+        })),
         usage: {
             default: 'Use /v1/* for OpenAI (default provider)',
             custom: 'Use /{provider}/v1/* for other providers (e.g., /ollama/v1/chat/completions)',
-            header: 'Or set X-LLMFlow-Provider header to override'
+            header: 'Or set X-LLMFlow-Provider header to override',
+            passthrough: 'Use /passthrough/{provider}/* for native API formats (e.g., /passthrough/anthropic/v1/messages)'
         }
     });
 });
@@ -257,10 +272,205 @@ function createProxyHandler() {
     };
 }
 
+// Passthrough proxy handler - forwards requests without body transformation
+function createPassthroughHandler(handler) {
+    return async (req, res) => {
+        const startTime = Date.now();
+        const traceId = req.headers['x-trace-id'] || uuidv4();
+        
+        const isStreaming = handler.isStreamingRequest(req);
+
+        log.request(req.method, req.path, traceId);
+        log.debug(`Passthrough: ${handler.name}, Model: ${req.body?.model || 'N/A'}, Stream: ${isStreaming}`);
+
+        try {
+            // Get target configuration
+            const target = handler.getTarget(req);
+            
+            // Transform only headers, NOT body
+            const headers = handler.defaultHeaderTransform(req.headers);
+            const postData = req.method !== 'GET' ? JSON.stringify(req.body) : '';
+            headers['Content-Length'] = Buffer.byteLength(postData);
+            
+            const options = {
+                hostname: target.hostname,
+                port: target.port,
+                path: target.path,
+                method: req.method,
+                headers: headers
+            };
+
+            const httpModule = handler.getHttpModule();
+
+            const upstreamReq = httpModule.request(options, (upstreamRes) => {
+                if (!isStreaming) {
+                    // Non-streaming: buffer entire response
+                    let responseBody = '';
+
+                    upstreamRes.on('data', (chunk) => {
+                        responseBody += chunk;
+                    });
+
+                    upstreamRes.on('end', () => {
+                        const duration = Date.now() - startTime;
+                        let rawResponse;
+                        
+                        try {
+                            rawResponse = JSON.parse(responseBody);
+                        } catch (e) {
+                            rawResponse = { error: 'Invalid JSON response', body: responseBody };
+                        }
+
+                        // Extract usage from native response format
+                        const usage = handler.defaultExtractUsage(rawResponse);
+                        const model = handler.defaultIdentifyModel(req.body, rawResponse);
+                        const cost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens);
+
+                        log.proxy({
+                            provider: handler.name,
+                            model: model,
+                            tokens: usage.total_tokens,
+                            cost,
+                            duration,
+                            streaming: false,
+                            passthrough: true
+                        });
+
+                        logInteraction(traceId, req, {
+                            status: upstreamRes.statusCode,
+                            headers: upstreamRes.headers,
+                            data: rawResponse,
+                            usage: usage,
+                            model: model
+                        }, duration, null, handler.name);
+
+                        // Return original response as-is (no normalization)
+                        res.status(upstreamRes.statusCode);
+                        Object.entries(upstreamRes.headers).forEach(([key, value]) => {
+                            if (key.toLowerCase() !== 'content-length' && 
+                                key.toLowerCase() !== 'transfer-encoding') {
+                                res.setHeader(key, value);
+                            }
+                        });
+                        res.json(rawResponse);
+                    });
+                } else {
+                    // Streaming: forward chunks while extracting usage
+                    res.status(upstreamRes.statusCode);
+                    Object.entries(upstreamRes.headers).forEach(([key, value]) => {
+                        res.setHeader(key, value);
+                    });
+
+                    let fullContent = '';
+                    let finalUsage = null;
+                    let chunkCount = 0;
+
+                    upstreamRes.on('data', (chunk) => {
+                        const text = chunk.toString('utf8');
+                        chunkCount++;
+                        
+                        // Forward chunk immediately (passthrough)
+                        res.write(chunk);
+
+                        // Parse chunk for usage extraction
+                        const parsed = handler.defaultParseStreamChunk(text);
+                        if (parsed.content) fullContent += parsed.content;
+                        if (parsed.usage) finalUsage = parsed.usage;
+                    });
+
+                    upstreamRes.on('end', () => {
+                        const duration = Date.now() - startTime;
+                        const model = handler.defaultIdentifyModel(req.body, {});
+                        const usage = finalUsage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+                        const cost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens);
+
+                        log.proxy({
+                            provider: handler.name,
+                            model: model,
+                            tokens: usage.total_tokens,
+                            cost,
+                            duration,
+                            streaming: true,
+                            passthrough: true
+                        });
+
+                        log.debug(`Passthrough chunks: ${chunkCount}, Content: ${fullContent.length} chars`);
+
+                        const assembledResponse = {
+                            id: traceId,
+                            model: model,
+                            content: fullContent,
+                            usage: finalUsage,
+                            _streaming: true,
+                            _chunks: chunkCount,
+                            _passthrough: true
+                        };
+
+                        logInteraction(traceId, req, {
+                            status: upstreamRes.statusCode,
+                            headers: upstreamRes.headers,
+                            data: assembledResponse,
+                            usage: finalUsage,
+                            model: model
+                        }, duration, null, handler.name);
+
+                        res.end();
+                    });
+                }
+            });
+
+            upstreamReq.on('error', (error) => {
+                const duration = Date.now() - startTime;
+                log.proxy({ provider: handler.name, error: error.message, duration, passthrough: true });
+                logInteraction(traceId, req, null, duration, error.message, handler.name);
+                res.status(502).json({ 
+                    error: 'Passthrough failed', 
+                    message: error.message,
+                    provider: handler.name 
+                });
+            });
+
+            if (postData) {
+                upstreamReq.write(postData);
+            }
+            upstreamReq.end();
+
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            log.proxy({ provider: handler.name, error: error.message, duration, passthrough: true });
+            logInteraction(traceId, req, null, duration, error.message, handler.name);
+            res.status(500).json({ 
+                error: 'Passthrough failed', 
+                message: error.message,
+                provider: handler.name 
+            });
+        }
+    };
+}
+
+// Passthrough routes - forward native API formats without transformation
+// /passthrough/anthropic/* -> api.anthropic.com (native Anthropic format)
+// /passthrough/gemini/* -> generativelanguage.googleapis.com (native Gemini format)
+// /passthrough/openai/* -> api.openai.com (native OpenAI format)
+proxyApp.all('/passthrough/anthropic/*', (req, res, next) => {
+    req.path = req.path.replace('/passthrough/anthropic', '');
+    createPassthroughHandler(passthroughHandlers.anthropic)(req, res, next);
+});
+
+proxyApp.all('/passthrough/gemini/*', (req, res, next) => {
+    req.path = req.path.replace('/passthrough/gemini', '');
+    createPassthroughHandler(passthroughHandlers.gemini)(req, res, next);
+});
+
+proxyApp.all('/passthrough/openai/*', (req, res, next) => {
+    req.path = req.path.replace('/passthrough/openai', '');
+    createPassthroughHandler(passthroughHandlers.openai)(req, res, next);
+});
+
 // Proxy all API calls - supports multiple providers via path prefix
 // /v1/* -> OpenAI (default)
 // /ollama/v1/* -> Ollama
-// /anthropic/v1/* -> Anthropic
+// /anthropic/v1/* -> Anthropic (with transformation to/from OpenAI format)
 // /groq/v1/* -> Groq
 // etc.
 proxyApp.all('/*', createProxyHandler());
@@ -368,6 +578,61 @@ dashboardApp.get('/api/models', (req, res) => {
     }
 });
 
+// ==================== Analytics API Endpoints ====================
+
+dashboardApp.get('/api/analytics/token-trends', (req, res) => {
+    const start = Date.now();
+    try {
+        const interval = req.query.interval || 'hour';
+        const days = parseInt(req.query.days) || 7;
+        
+        const trends = db.getTokenTrends({ interval, days });
+        log.dashboard('GET', '/api/analytics/token-trends', Date.now() - start);
+        res.json({ trends, interval, days });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+dashboardApp.get('/api/analytics/cost-by-tool', (req, res) => {
+    const start = Date.now();
+    try {
+        const days = parseInt(req.query.days) || 30;
+        
+        const byTool = db.getCostByTool({ days });
+        log.dashboard('GET', '/api/analytics/cost-by-tool', Date.now() - start);
+        res.json({ by_tool: byTool, days });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+dashboardApp.get('/api/analytics/cost-by-model', (req, res) => {
+    const start = Date.now();
+    try {
+        const days = parseInt(req.query.days) || 30;
+        
+        const byModel = db.getCostByModel({ days });
+        log.dashboard('GET', '/api/analytics/cost-by-model', Date.now() - start);
+        res.json({ by_model: byModel, days });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+dashboardApp.get('/api/analytics/daily', (req, res) => {
+    const start = Date.now();
+    try {
+        const days = parseInt(req.query.days) || 30;
+        
+        const daily = db.getDailyStats({ days });
+        log.dashboard('GET', '/api/analytics/daily', Date.now() - start);
+        res.json({ daily, days });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ==================== Logs API Endpoints ====================
 
 dashboardApp.get('/api/logs', (req, res) => {
@@ -417,6 +682,77 @@ dashboardApp.get('/api/logs/:id', (req, res) => {
 
         log.dashboard('GET', `/api/logs/${id.slice(0, 8)}`, Date.now() - start);
         res.json(logRecord);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== Metrics API Endpoints ====================
+
+dashboardApp.get('/api/metrics', (req, res) => {
+    const start = Date.now();
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+        const aggregation = req.query.aggregation;
+
+        if (aggregation === 'summary') {
+            const filters = {};
+            if (req.query.date_from) filters.date_from = parseInt(req.query.date_from, 10);
+            if (req.query.date_to) filters.date_to = parseInt(req.query.date_to, 10);
+            const summary = db.getMetricsSummary(filters);
+            log.dashboard('GET', '/api/metrics?aggregation=summary', Date.now() - start);
+            return res.json({ summary });
+        }
+
+        const filters = {};
+        if (req.query.name) filters.name = req.query.name;
+        if (req.query.service_name) filters.service_name = req.query.service_name;
+        if (req.query.metric_type) filters.metric_type = req.query.metric_type;
+        if (req.query.date_from) filters.date_from = parseInt(req.query.date_from, 10);
+        if (req.query.date_to) filters.date_to = parseInt(req.query.date_to, 10);
+
+        const metrics = db.getMetrics({ limit, offset, filters });
+        const total = db.getMetricCount(filters);
+        log.dashboard('GET', '/api/metrics', Date.now() - start);
+        res.json({ metrics, total });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+dashboardApp.get('/api/metrics/tokens', (req, res) => {
+    try {
+        const usage = db.getTokenUsage();
+        res.json({ usage });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+dashboardApp.get('/api/metrics/filters', (req, res) => {
+    try {
+        res.json({
+            names: db.getDistinctMetricNames(),
+            services: db.getDistinctMetricServices()
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+dashboardApp.get('/api/metrics/:id', (req, res) => {
+    const start = Date.now();
+    try {
+        const { id } = req.params;
+        const metric = db.getMetricById(id);
+        
+        if (!metric) {
+            return res.status(404).json({ error: 'Metric not found' });
+        }
+
+        log.dashboard('GET', `/api/metrics/${id.slice(0, 8)}`, Date.now() - start);
+        res.json(metric);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -492,6 +828,10 @@ dashboardApp.post('/v1/traces', createOtlpHandler());
 // OTLP/HTTP logs ingestion endpoint
 // Accepts OTLP/HTTP JSON logs from AI CLI tools (Claude Code, Codex CLI, Gemini CLI)
 dashboardApp.post('/v1/logs', createLogsHandler());
+
+// OTLP/HTTP metrics ingestion endpoint
+// Accepts OTLP/HTTP JSON metrics from AI CLI tools (Claude Code, Gemini CLI)
+dashboardApp.post('/v1/metrics', createMetricsHandler());
 
 // Get trace with all spans as a tree
 dashboardApp.get('/api/traces/:id/tree', (req, res) => {
@@ -631,10 +971,15 @@ db.setInsertLogHook((logSummary) => {
     }
 });
 
+// Hook into db.insertMetric for real-time metric updates
+db.setInsertMetricHook((metricSummary) => {
+    broadcast({ type: 'new_metric', payload: metricSummary });
+});
+
 dashboardServer.listen(DASHBOARD_PORT, () => {
     log.startup(`Dashboard running on http://localhost:${DASHBOARD_PORT}`);
     log.info(`Database: ${db.DB_PATH}`);
-    log.info(`Traces: ${db.getTraceCount()}, Logs: ${db.getLogCount()}`);
+    log.info(`Traces: ${db.getTraceCount()}, Logs: ${db.getLogCount()}, Metrics: ${db.getMetricCount()}`);
     log.info(`WebSocket: ws://localhost:${DASHBOARD_PORT}/ws`);
     if (log.isVerbose()) {
         log.info('Verbose logging enabled');
