@@ -12,6 +12,11 @@ let filters = {
     date_to: null
 };
 
+// WebSocket state
+let ws = null;
+let wsRetryDelay = 1000;
+const WS_MAX_RETRY = 30000;
+
 // Initialize
 function init() {
     initFiltersFromUrl();
@@ -20,9 +25,11 @@ function init() {
     loadModels();
     loadStats();
     loadTraces();
+    initWebSocket();
 
-    setInterval(loadStats, 15000);
-    setInterval(loadTraces, 10000);
+    // Polling as fallback (less frequent since we have WebSocket)
+    setInterval(loadStats, 30000);
+    setInterval(loadTraces, 30000);
 }
 
 if (document.readyState === 'loading') {
@@ -357,4 +364,150 @@ function formatNumber(n) {
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// WebSocket for real-time updates
+function initWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = protocol + '//' + window.location.host + '/ws';
+
+    try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            console.log('[LLMFlow] WebSocket connected');
+            wsRetryDelay = 1000; // Reset backoff
+            updateConnectionStatus(true);
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                handleWsMessage(msg);
+            } catch (e) {
+                console.error('[LLMFlow] Invalid WS message', e);
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('[LLMFlow] WebSocket closed, reconnecting...');
+            updateConnectionStatus(false);
+            scheduleReconnect();
+        };
+
+        ws.onerror = (err) => {
+            console.error('[LLMFlow] WebSocket error', err);
+            updateConnectionStatus(false);
+            ws.close();
+        };
+    } catch (e) {
+        console.error('[LLMFlow] Failed to create WebSocket', e);
+        scheduleReconnect();
+    }
+}
+
+function scheduleReconnect() {
+    setTimeout(() => {
+        wsRetryDelay = Math.min(wsRetryDelay * 2, WS_MAX_RETRY);
+        initWebSocket();
+    }, wsRetryDelay);
+}
+
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('connectionStatus');
+    if (indicator) {
+        indicator.className = connected ? 'status-dot connected' : 'status-dot disconnected';
+        indicator.title = connected ? 'Real-time updates active' : 'Reconnecting...';
+    }
+}
+
+function handleWsMessage(msg) {
+    switch (msg.type) {
+        case 'new_span':
+            handleNewSpan(msg.payload);
+            break;
+        case 'new_trace':
+            // Could highlight or scroll to top
+            break;
+        case 'stats_update':
+            handleStatsUpdate(msg.payload);
+            break;
+        case 'hello':
+            console.log('[LLMFlow] Server hello:', msg.time);
+            break;
+        default:
+            break;
+    }
+}
+
+function handleStatsUpdate(newStats) {
+    stats = newStats;
+    const elTotalRequests = document.getElementById('totalRequests');
+    if (!elTotalRequests) return;
+
+    elTotalRequests.textContent = stats.total_requests || 0;
+    document.getElementById('totalTokens').textContent = formatNumber(stats.total_tokens || 0);
+    document.getElementById('totalCost').textContent = '$' + (stats.total_cost || 0).toFixed(2);
+    document.getElementById('avgLatency').textContent = Math.round(stats.avg_duration || 0) + 'ms';
+
+    // Update models tab if visible
+    if (currentTab === 'models') {
+        loadModelStats();
+    }
+}
+
+function handleNewSpan(span) {
+    // Only update if on traces tab and span matches filters
+    if (currentTab !== 'traces') return;
+    if (!spanMatchesFilters(span)) return;
+
+    // Prepend if not already in list
+    if (!traces.find(t => t.id === span.id)) {
+        traces.unshift(span);
+        if (traces.length > 100) {
+            traces.length = 100;
+        }
+        renderTracesTable();
+    }
+}
+
+function spanMatchesFilters(span) {
+    if (filters.model && span.model !== filters.model) return false;
+
+    if (filters.status) {
+        const status = span.status || 200;
+        if (filters.status === 'error' && status < 400) return false;
+        if (filters.status === 'success' && status >= 400) return false;
+    }
+
+    if (filters.date_from && span.timestamp < filters.date_from) return false;
+    if (filters.date_to && span.timestamp > filters.date_to) return false;
+
+    // Text search requires server - skip live updates for q filter
+    if (filters.q) return false;
+
+    return true;
+}
+
+function renderTracesTable() {
+    const tbody = document.getElementById('tracesBody');
+    if (!tbody) return;
+
+    if (!traces || traces.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No traces found. Run: npm run demo</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = traces.map(t => `
+        <tr class="trace-row ${t.id === selectedTraceId ? 'selected' : ''}" onclick="selectTrace('${t.id}', this)">
+            <td>${formatTime(t.timestamp)}</td>
+            <td><span class="span-badge span-${t.span_type || 'llm'}">${t.span_type || 'llm'}</span></td>
+            <td>${escapeHtml(t.span_name || '-')}</td>
+            <td>${t.model ? `<span class="model-badge">${escapeHtml(t.model)}</span>` : '-'}</td>
+            <td>${formatNumber(t.total_tokens || 0)}</td>
+            <td>$${(t.estimated_cost || 0).toFixed(4)}</td>
+            <td>${t.duration_ms || 0}ms</td>
+            <td class="${(t.status || 200) < 400 ? 'status-success' : 'status-error'}">${t.status || 200}</td>
+        </tr>
+    `).join('');
 }
