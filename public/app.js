@@ -290,10 +290,8 @@ async function selectTrace(traceId, rowEl) {
                 || '<span class="empty-state">No spans</span>';
 
             const firstSpan = data.spans?.[0];
-            ioEl.textContent = JSON.stringify({
-                input: firstSpan?.input || null,
-                output: firstSpan?.output || null
-            }, null, 2);
+            const { input, output } = firstSpan ? extractIO(firstSpan) : { input: null, output: null };
+            ioEl.textContent = JSON.stringify({ input, output }, null, 2);
         } else {
             const res = await fetch(`/api/traces/${traceId}`);
             const data = await res.json();
@@ -307,10 +305,15 @@ async function selectTrace(traceId, rowEl) {
 
             infoEl.textContent = JSON.stringify(t, null, 2);
             spanTreeEl.innerHTML = '<span class="empty-state">Single span trace</span>';
-            ioEl.textContent = JSON.stringify({
-                request: data.request?.body,
-                response: data.response?.body
-            }, null, 2);
+            
+            const spanLike = {
+                input: t.input,
+                output: t.output,
+                request_body: data.request?.body,
+                response_body: data.response?.body,
+            };
+            const { input, output } = extractIO(spanLike);
+            ioEl.textContent = JSON.stringify({ input, output }, null, 2);
         }
     } catch (e) {
         console.error('Failed to load trace:', e);
@@ -390,6 +393,52 @@ function formatNumber(n) {
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Extract input/output from span - handles both SDK spans and proxy traces
+function extractIO(spanLike) {
+    // 1. Prefer explicit SDK span fields
+    let input = spanLike.input ?? null;
+    let output = spanLike.output ?? null;
+
+    const reqBody = spanLike.request_body || spanLike.requestBody || spanLike.request?.body || {};
+    const resBody = spanLike.response_body || spanLike.responseBody || spanLike.response?.body || {};
+
+    // 2. If missing, try OpenAI-style / proxy request body
+    if (input == null) {
+        if (Array.isArray(reqBody.messages)) {
+            input = reqBody.messages;
+        } else if (reqBody.prompt != null) {
+            input = reqBody.prompt;
+        } else if (reqBody.input != null) {
+            input = reqBody.input;
+        } else if (reqBody.contents != null) {
+            // Gemini format
+            input = reqBody.contents;
+        }
+    }
+
+    // 3. If missing, try OpenAI-style / proxy response body
+    if (output == null) {
+        if (Array.isArray(resBody.choices) && resBody.choices.length > 0) {
+            const contents = resBody.choices
+                .map(c => (c.message && c.message.content) || c.text || null)
+                .filter(Boolean);
+
+            if (contents.length === 1) {
+                output = contents[0];
+            } else if (contents.length > 1) {
+                output = contents;
+            }
+        } else if (resBody.output != null) {
+            output = resBody.output;
+        } else if (resBody.output_text != null) {
+            // OpenAI Responses API
+            output = resBody.output_text;
+        }
+    }
+
+    return { input, output };
 }
 
 // WebSocket for real-time updates

@@ -75,8 +75,8 @@
                 </div>
                 <div class="feature">
                     <div class="feature-icon">🔌</div>
-                    <h3>Zero-Code Proxy</h3>
-                    <p>Just change your OpenAI base URL — all calls are automatically traced</p>
+                    <h3>Multi-Provider Proxy</h3>
+                    <p>OpenAI, Anthropic, Gemini, Cohere, Azure, Ollama, Groq, Mistral & more</p>
                 </div>
                 <div class="feature">
                     <div class="feature-icon">📡</div>
@@ -86,7 +86,7 @@
                 <div class="feature">
                     <div class="feature-icon">💰</div>
                     <h3>Cost Tracking</h3>
-                    <p>Real-time pricing for 2000+ models from all major providers</p>
+                    <p>Real-time pricing for 1000+ models from all major providers</p>
                 </div>
                 <div class="feature">
                     <div class="feature-icon">🔍</div>
@@ -122,13 +122,16 @@ npm install && npm start</code></pre>
                     <div class="step-number">2</div>
                     <div class="step-content">
                         <h3>Point Your SDK</h3>
-                        <p>Change your OpenAI base URL to the proxy</p>
+                        <p>Change your base URL to the proxy (works with any provider)</p>
                         <div class="code-block">
-                            <pre><code># Python
+                            <pre><code># OpenAI
 client = OpenAI(base_url="http://localhost:8080/v1")
 
-# JavaScript  
-const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' });</code></pre>
+# Anthropic
+client = Anthropic(base_url="http://localhost:8080/anthropic")
+
+# Ollama, Groq, Mistral, Gemini, etc.
+client = OpenAI(base_url="http://localhost:8080/ollama/v1")</code></pre>
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
                     </div>
@@ -149,18 +152,21 @@ const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' });</code></pre>
 
         <!-- Integrations -->
         <section id="integrations">
-            <h2>Integrations</h2>
-            <p class="lead">Works with your existing tools via OpenTelemetry</p>
+            <h2>Supported Providers</h2>
+            <p class="lead">11 LLM providers with unified tracing</p>
             
             <div class="integrations">
                 <div class="integration">🤖 OpenAI</div>
                 <div class="integration">🧠 Anthropic</div>
-                <div class="integration">🦜 LangChain</div>
-                <div class="integration">🦙 LlamaIndex</div>
-                <div class="integration">👥 CrewAI</div>
-                <div class="integration">🌲 Pinecone</div>
-                <div class="integration">🎨 Chroma</div>
+                <div class="integration">✨ Gemini</div>
                 <div class="integration">⚡ Cohere</div>
+                <div class="integration">☁️ Azure</div>
+                <div class="integration">🦙 Ollama</div>
+                <div class="integration">🚀 Groq</div>
+                <div class="integration">🌬️ Mistral</div>
+                <div class="integration">🤝 Together</div>
+                <div class="integration">🔍 Perplexity</div>
+                <div class="integration">🔀 OpenRouter</div>
             </div>
 
             <div class="guide-section" style="margin-top: var(--space-lg);">
@@ -184,7 +190,7 @@ new OTLPTraceExporter({ url: 'http://localhost:3000/v1/traces' });</code></pre>
                 <h3>JavaScript SDK</h3>
                 <p>Create custom spans for complex workflows:</p>
                 <div class="code-block">
-                    <pre><code>const { trace, span, currentTraceHeaders } = require('./sdk');
+                    <pre><code>import { trace, span, currentTraceHeaders } from 'llmflow-sdk';
 
 await trace('rag-pipeline', async () => {
     const docs = await span('retrieval', 'vector-search', async () => {
