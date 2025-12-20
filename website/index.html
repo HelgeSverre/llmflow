@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLMFlow — Local-First LLM Observability</title>
+    <meta name="description" content="Trace every LLM call. See the full picture. Open source, self-hosted observability for AI applications.">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="LLMFlow — Local-First LLM Observability">
+    <meta property="og:description" content="Trace every LLM call. See the full picture. Open source, self-hosted observability for AI applications.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://github.com/HelgeSverre/llmflow">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-content">
+            <a href="#" class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+                LLMFlow
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#quickstart">Quick Start</a>
+                <a href="#integrations">Integrations</a>
+                <a href="https://github.com/HelgeSverre/llmflow">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Hero -->
+        <section class="hero">
+            <h1>LLMFlow</h1>
+            <p class="subtitle">Trace every LLM call. See the full picture.</p>
+            <p class="description">
+                Open source, local-first observability for AI applications. 
+                Trace agents, chains, and LLM calls with hierarchical spans.
+                No cloud. No subscriptions. Just run it.
+            </p>
+            <div class="hero-actions">
+                <a href="#quickstart" class="btn btn-primary">Get Started</a>
+                <a href="https://github.com/HelgeSverre/llmflow" class="btn btn-secondary">View on GitHub</a>
+            </div>
+            <div class="badges">
+                <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License">
+                <img src="https://img.shields.io/badge/Node.js-18+-green.svg" alt="Node.js 18+">
+                <img src="https://img.shields.io/badge/OpenTelemetry-OTLP-purple.svg" alt="OpenTelemetry">
+                <img src="https://img.shields.io/github/stars/HelgeSverre/llmflow?style=social" alt="GitHub Stars">
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section id="features">
+            <h2>Features</h2>
+            <div class="features-grid">
+                <div class="feature">
+                    <div class="feature-icon">🌲</div>
+                    <h3>Hierarchical Spans</h3>
+                    <p>Trace agents, chains, tools, retrievals, and LLM calls in a tree view</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔌</div>
+                    <h3>Zero-Code Proxy</h3>
+                    <p>Just change your OpenAI base URL — all calls are automatically traced</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">📡</div>
+                    <h3>OpenTelemetry</h3>
+                    <p>Native OTLP support for OpenLLMetry, LangChain, and more</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">💰</div>
+                    <h3>Cost Tracking</h3>
+                    <p>Real-time pricing for 2000+ models from all major providers</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Search & Filter</h3>
+                    <p>Find spans by type, model, status, tokens, or full-text search</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">💾</div>
+                    <h3>SQLite Storage</h3>
+                    <p>Persistent, queryable, no database setup required</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Start -->
+        <section id="quickstart">
+            <h2>Quick Start</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Clone & Install</h3>
+                        <p>Get LLMFlow running in seconds</p>
+                        <div class="code-block">
+                            <pre><code>git clone https://github.com/HelgeSverre/llmflow.git
+cd llmflow
+npm install && npm start</code></pre>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Point Your SDK</h3>
+                        <p>Change your OpenAI base URL to the proxy</p>
+                        <div class="code-block">
+                            <pre><code># Python
+client = OpenAI(base_url="http://localhost:8080/v1")
+
+# JavaScript  
+const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' });</code></pre>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>View Traces</h3>
+                        <p>Open the dashboard to see your LLM calls</p>
+                        <div class="code-block">
+                            <pre><code>open http://localhost:3000</code></pre>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Integrations -->
+        <section id="integrations">
+            <h2>Integrations</h2>
+            <p class="lead">Works with your existing tools via OpenTelemetry</p>
+            
+            <div class="integrations">
+                <div class="integration">🤖 OpenAI</div>
+                <div class="integration">🧠 Anthropic</div>
+                <div class="integration">🦜 LangChain</div>
+                <div class="integration">🦙 LlamaIndex</div>
+                <div class="integration">👥 CrewAI</div>
+                <div class="integration">🌲 Pinecone</div>
+                <div class="integration">🎨 Chroma</div>
+                <div class="integration">⚡ Cohere</div>
+            </div>
+
+            <div class="guide-section" style="margin-top: var(--space-lg);">
+                <h3>OpenTelemetry / OpenLLMetry</h3>
+                <p>Export traces from existing OTEL instrumentation directly to LLMFlow:</p>
+                <div class="code-block">
+                    <pre><code># Python
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+exporter = OTLPSpanExporter(endpoint="http://localhost:3000/v1/traces")
+
+# JavaScript
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+
+new OTLPTraceExporter({ url: 'http://localhost:3000/v1/traces' });</code></pre>
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+            </div>
+
+            <div class="guide-section">
+                <h3>JavaScript SDK</h3>
+                <p>Create custom spans for complex workflows:</p>
+                <div class="code-block">
+                    <pre><code>const { trace, span, currentTraceHeaders } = require('./sdk');
+
+await trace('rag-pipeline', async () => {
+    const docs = await span('retrieval', 'vector-search', async () => {
+        return await vectorDB.search(query);
+    });
+    
+    const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: query }]
+    }, { headers: currentTraceHeaders() });
+    
+    return response.choices[0].message.content;
+});</code></pre>
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Span Types -->
+        <section id="spans">
+            <h2>Span Types</h2>
+            <table class="options-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Use Case</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>trace</code></td>
+                        <td>Root span</td>
+                        <td>Workflow entry point</td>
+                    </tr>
+                    <tr>
+                        <td><code>llm</code></td>
+                        <td>LLM API call</td>
+                        <td>Chat completions, embeddings</td>
+                    </tr>
+                    <tr>
+                        <td><code>agent</code></td>
+                        <td>Agent execution</td>
+                        <td>ReAct loops, tool-using agents</td>
+                    </tr>
+                    <tr>
+                        <td><code>chain</code></td>
+                        <td>Chain step</td>
+                        <td>LangChain chains, pipelines</td>
+                    </tr>
+                    <tr>
+                        <td><code>tool</code></td>
+                        <td>Tool call</td>
+                        <td>Function calls, API calls</td>
+                    </tr>
+                    <tr>
+                        <td><code>retrieval</code></td>
+                        <td>Vector search</td>
+                        <td>RAG retrieval, document lookup</td>
+                    </tr>
+                    <tr>
+                        <td><code>embedding</code></td>
+                        <td>Embedding generation</td>
+                        <td>Text to vector</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Configuration -->
+        <section id="config">
+            <h2>Configuration</h2>
+            <table class="options-table">
+                <thead>
+                    <tr>
+                        <th>Variable</th>
+                        <th>Default</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>PROXY_PORT</code></td>
+                        <td><code>8080</code></td>
+                        <td>OpenAI proxy port</td>
+                    </tr>
+                    <tr>
+                        <td><code>DASHBOARD_PORT</code></td>
+                        <td><code>3000</code></td>
+                        <td>Dashboard & OTLP port</td>
+                    </tr>
+                    <tr>
+                        <td><code>DATA_DIR</code></td>
+                        <td><code>~/.llmflow</code></td>
+                        <td>Data directory</td>
+                    </tr>
+                    <tr>
+                        <td><code>MAX_TRACES</code></td>
+                        <td><code>10000</code></td>
+                        <td>Max traces to retain</td>
+                    </tr>
+                    <tr>
+                        <td><code>VERBOSE</code></td>
+                        <td><code>0</code></td>
+                        <td>Enable verbose logging</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Docker -->
+        <section id="docker">
+            <h2>Docker</h2>
+            <div class="code-block">
+                <pre><code># Run with Docker Compose
+docker-compose up
+
+# Or build and run manually
+docker build -t llmflow .
+docker run -p 3000:3000 -p 8080:8080 -v llmflow-data:/root/.llmflow llmflow</code></pre>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <a href="https://github.com/HelgeSverre/llmflow">GitHub</a>
+        <span class="sep">•</span>
+        <a href="https://github.com/HelgeSverre/llmflow/blob/main/LICENSE">MIT License</a>
+        <span class="sep">•</span>
+        Built by <a href="https://github.com/HelgeSverre">Helge Sverre</a>
+    </footer>
+
+    <script>
+        function copyCode(btn) {
+            const code = btn.previousElementSibling.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

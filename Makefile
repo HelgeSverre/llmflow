@@ -1,16 +1,18 @@
 # LLMFlow Makefile
 
-.PHONY: help dev demo docker docker-bg docker-stop docker-logs status clean
+.PHONY: help dev demo test docker docker-bg docker-stop docker-logs docker-test status clean
 
 help:
 	@echo "LLMFlow - Commands"
 	@echo ""
 	@echo "  make dev          - Install deps and start servers"
 	@echo "  make demo         - Generate sample traces"
+	@echo "  make test         - Run all tests (starts server automatically)"
 	@echo "  make docker       - Build and run with Docker Compose"
 	@echo "  make docker-bg    - Run Docker in background"
 	@echo "  make docker-stop  - Stop Docker containers"
 	@echo "  make docker-logs  - View Docker logs"
+	@echo "  make docker-test  - Run tests in Docker"
 	@echo "  make status       - Check what's running"
 	@echo "  make clean        - Remove node_modules and data"
 
@@ -19,6 +21,9 @@ dev:
 
 demo:
 	node test/demo.js
+
+test:
+	npm test
 
 docker:
 	docker-compose up --build
@@ -32,6 +37,12 @@ docker-stop:
 
 docker-logs:
 	docker-compose logs -f
+
+docker-test:
+	docker-compose up -d --build
+	@sleep 3
+	@docker-compose exec llmflow node test/otlp-e2e.js || (docker-compose down && exit 1)
+	docker-compose down
 
 status:
 	@echo "Node processes:"

@@ -12,7 +12,9 @@ COPY db.js ./
 COPY pricing.js ./
 COPY pricing.fallback.json ./
 COPY logger.js ./
+COPY otlp.js ./
 COPY public ./public/
+COPY test ./test/
 
 RUN mkdir -p /root/.llmflow
 

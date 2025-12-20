@@ -45,6 +45,18 @@ h1 {
     color: #111827;
 }
 
+h1.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.logo-icon {
+    width: 20px;
+    height: 20px;
+    color: #2563eb;
+}
+
 .stats-bar {
     display: flex;
     gap: 24px;

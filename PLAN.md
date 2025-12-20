@@ -17,6 +17,7 @@
 | Hierarchical Spans | ✅ Full span tree visualization |
 | JavaScript SDK | ✅ `trace()`, `span()`, context propagation |
 | Split-Panel UI | ✅ Langfuse-inspired layout |
+| OTLP/HTTP Support | ✅ OpenTelemetry/OpenLLMetry integration |
 
 ### Architecture
 
@@ -44,11 +45,15 @@ Your App
 | `db.js` | SQLite database module |
 | `pricing.js` | Dynamic pricing from LiteLLM |
 | `logger.js` | Colored console output |
+| `otlp.js` | OTLP/HTTP trace ingestion |
 | `sdk/index.js` | JavaScript tracing SDK |
 | `public/app.js` | Dashboard frontend logic |
 | `public/index.html` | Dashboard HTML |
 | `public/style.css` | Dashboard styles |
 | `test/demo.js` | Demo trace generator |
+| `test/otlp-e2e.js` | OTLP integration e2e tests |
+| `test/run-tests.js` | Test runner with server lifecycle |
+| `website/` | Landing page (static HTML/CSS) |
 
 ---
 

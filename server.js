@@ -5,6 +5,7 @@ const https = require('https');
 const db = require('./db');
 const { calculateCost } = require('./pricing');
 const log = require('./logger');
+const { createOtlpHandler } = require('./otlp');
 
 const PROXY_PORT = process.env.PROXY_PORT || 8080;
 const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 3000;
@@ -401,6 +402,10 @@ dashboardApp.post('/api/spans', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// OTLP/HTTP trace ingestion endpoint
+// Accepts OTLP/HTTP JSON format for OpenTelemetry/OpenLLMetry integration
+dashboardApp.post('/v1/traces', createOtlpHandler());
 
 // Get trace with all spans as a tree
 dashboardApp.get('/api/traces/:id/tree', (req, res) => {

@@ -7,7 +7,9 @@
     "start": "node server.js",
     "start:verbose": "VERBOSE=1 node server.js",
     "demo": "node test/demo.js",
-    "demo:many": "node test/demo.js --count=20"
+    "demo:many": "node test/demo.js --count=20",
+    "test": "node test/run-tests.js",
+    "test:otlp": "node test/run-tests.js otlp-e2e.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
