@@ -10,7 +10,9 @@
     "demo:many": "node test/demo.js --count=20",
     "test": "node test/run-tests.js",
     "test:otlp": "node test/run-tests.js otlp-e2e.js",
-    "test:ws": "node test/run-tests.js websocket-e2e.js"
+    "test:ws": "node test/run-tests.js websocket-e2e.js",
+    "test:providers": "node test/run-tests.js providers.js",
+    "test:providers-e2e": "node test/run-tests.js providers-e2e.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",

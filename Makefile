@@ -1,6 +1,6 @@
 # LLMFlow Makefile
 
-.PHONY: help dev demo test docker docker-bg docker-stop docker-logs docker-test status clean
+.PHONY: help dev demo test examples docker docker-bg docker-stop docker-logs docker-test status clean
 
 help:
 	@echo "LLMFlow - Commands"
@@ -8,6 +8,7 @@ help:
 	@echo "  make dev          - Install deps and start servers"
 	@echo "  make demo         - Generate sample traces"
 	@echo "  make test         - Run all tests (starts server automatically)"
+	@echo "  make examples     - Run all integration examples"
 	@echo "  make docker       - Build and run with Docker Compose"
 	@echo "  make docker-bg    - Run Docker in background"
 	@echo "  make docker-stop  - Stop Docker containers"
@@ -24,6 +25,9 @@ demo:
 
 test:
 	npm test
+
+examples:
+	./examples/run-all.sh
 
 docker:
 	docker-compose up --build
