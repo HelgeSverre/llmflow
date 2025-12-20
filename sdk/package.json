@@ -1,23 +1,45 @@
 {
   "name": "llmflow-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Minimal tracing SDK for LLM applications",
+  "type": "module",
   "main": "index.js",
+  "module": "index.js",
   "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "types": "./index.d.ts"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
   "keywords": [
     "llm",
     "tracing",
     "observability",
     "openai",
-    "langchain"
+    "langchain",
+    "opentelemetry",
+    "spans",
+    "agents"
   ],
-  "author": "LLMFlow",
+  "author": "Helge Sverre <helge.sverre@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/HelgeSverre/llmflow"
+    "url": "git+https://github.com/HelgeSverre/llmflow.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://github.com/HelgeSverre/llmflow#readme",
+  "bugs": {
+    "url": "https://github.com/HelgeSverre/llmflow/issues"
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "peerDependencies": {},
+  "devDependencies": {}
 }

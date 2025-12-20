@@ -64,10 +64,22 @@ $client = OpenAI::factory()->withBaseUri('http://localhost:8080/v1')->make();
 
 ### 2. JavaScript SDK
 
-Create custom spans for complex workflows:
+Create custom spans for complex workflows.
+
+**Installation:**
+
+```bash
+# Install from GitHub (recommended)
+npm install github:HelgeSverre/llmflow#main --prefix sdk
+
+# Or link locally during development
+cd sdk && npm link && cd .. && npm link llmflow-sdk
+```
+
+**Usage:**
 
 ```javascript
-const { trace, span, currentTraceHeaders } = require('./sdk');
+import { trace, span, currentTraceHeaders } from 'llmflow-sdk';
 
 await trace('rag-pipeline', async () => {
     const docs = await span('retrieval', 'vector-search', async () => {
@@ -81,6 +93,16 @@ await trace('rag-pipeline', async () => {
     
     return response.choices[0].message.content;
 });
+```
+
+**Auto-wrap OpenAI client:**
+
+```javascript
+import { wrapOpenAI } from 'llmflow-sdk';
+import OpenAI from 'openai';
+
+const client = wrapOpenAI(new OpenAI());
+// All chat.completions.create calls now include trace headers automatically
 ```
 
 ### 3. OpenTelemetry / OpenLLMetry
@@ -166,6 +188,28 @@ const sdk = new NodeSDK({
 from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
 
 AnthropicInstrumentor().instrument()
+```
+
+### Vercel AI SDK
+
+```javascript
+// JavaScript - Vercel AI SDK with built-in telemetry
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+const sdk = new NodeSDK({
+    traceExporter: new OTLPTraceExporter({ url: 'http://localhost:3000/v1/traces' })
+});
+sdk.start();
+
+// Enable telemetry on each call
+const { text } = await generateText({
+    model: openai('gpt-4o-mini'),
+    prompt: 'Hello, world!',
+    experimental_telemetry: { isEnabled: true }
+});
 ```
 
 ### Cohere
@@ -261,6 +305,18 @@ LLMFlow automatically extracts these OpenTelemetry semantic conventions:
 | `DATA_DIR` | `~/.llmflow` | Data directory |
 | `MAX_TRACES` | `10000` | Max traces to retain |
 | `VERBOSE` | `0` | Enable verbose logging |
+
+---
+
+## Examples
+
+See the [examples/](examples/) folder for complete integration examples:
+
+| Example | Framework | Description |
+|---------|-----------|-------------|
+| [langchain](examples/langchain) | LangChain.js | OpenLLMetry auto-instrumentation |
+| [vercel-ai-sdk](examples/vercel-ai-sdk) | Vercel AI SDK | Built-in telemetry |
+| [voltagent](examples/voltagent) | VoltAgent | Agent framework tracing |
 
 ---
 

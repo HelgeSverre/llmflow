@@ -1,0 +1,16 @@
+{
+  "name": "llmflow-vercel-ai-example",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Vercel AI SDK integration with LLMFlow tracing",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ai": "^4.0.0",
+    "@ai-sdk/openai": "^1.0.0",
+    "@opentelemetry/sdk-node": "^0.57.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.57.0"
+  }
+}

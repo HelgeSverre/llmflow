@@ -20,8 +20,8 @@
  *   });
  */
 
-const { AsyncLocalStorage } = require('async_hooks');
-const crypto = require('crypto');
+import { AsyncLocalStorage } from 'async_hooks';
+import { randomUUID } from 'crypto';
 
 const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000';
 
@@ -29,11 +29,7 @@ const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000';
 const storage = new AsyncLocalStorage();
 
 function generateId() {
-    return crypto.randomUUID ? crypto.randomUUID() : 
-        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-            const r = Math.random() * 16 | 0;
-            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-        });
+    return randomUUID();
 }
 
 /**
@@ -188,7 +184,7 @@ function wrapOpenAI(client) {
     return client;
 }
 
-module.exports = {
+export {
     span,
     trace,
     traced,
