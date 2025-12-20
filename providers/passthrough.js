@@ -444,9 +444,130 @@ class OpenAIPassthrough extends PassthroughHandler {
     }
 }
 
+/**
+ * Helicone passthrough handler for LLM cost tracking.
+ * Routes requests through Helicone's gateway while preserving OpenAI format.
+ * 
+ * Helicone adds cost tracking, caching, and analytics on top of LLM requests.
+ */
+class HeliconePassthrough extends PassthroughHandler {
+    constructor() {
+        super({
+            name: 'helicone-passthrough',
+            displayName: 'Helicone (Cost Tracking)',
+            targetHost: process.env.HELICONE_HOST || 'oai.helicone.ai',
+            targetPort: 443,
+            protocol: 'https'
+        });
+    }
+
+    /**
+     * Get target - can be self-hosted or cloud Helicone
+     */
+    getTarget(req) {
+        const host = process.env.HELICONE_HOST || 'oai.helicone.ai';
+        const port = process.env.HELICONE_PORT || 443;
+        
+        return {
+            hostname: host,
+            port: parseInt(port, 10),
+            path: req.path,
+            protocol: this.protocol
+        };
+    }
+
+    /**
+     * Transform headers for Helicone API
+     * Passes through OpenAI auth and adds Helicone-specific headers
+     */
+    defaultHeaderTransform(headers) {
+        const heliconeHeaders = {
+            'Content-Type': 'application/json',
+            'Authorization': headers.authorization
+        };
+        
+        // Add Helicone API key if provided
+        const heliconeApiKey = headers['helicone-auth'] || process.env.HELICONE_API_KEY;
+        if (heliconeApiKey) {
+            heliconeHeaders['Helicone-Auth'] = heliconeApiKey.startsWith('Bearer ') 
+                ? heliconeApiKey 
+                : `Bearer ${heliconeApiKey}`;
+        }
+        
+        // Pass through Helicone feature headers
+        const heliconeFeatures = [
+            'helicone-property-',
+            'helicone-user-id',
+            'helicone-session-id',
+            'helicone-session-name',
+            'helicone-session-path',
+            'helicone-prompt-id',
+            'helicone-cache-enabled',
+            'helicone-retry-enabled',
+            'helicone-rate-limit-policy',
+            'helicone-fallbacks'
+        ];
+        
+        Object.entries(headers).forEach(([key, value]) => {
+            const lowerKey = key.toLowerCase();
+            if (heliconeFeatures.some(prefix => lowerKey.startsWith(prefix))) {
+                heliconeHeaders[key] = value;
+            }
+        });
+        
+        return heliconeHeaders;
+    }
+
+    /**
+     * Extract usage from OpenAI response format (Helicone proxies OpenAI)
+     */
+    defaultExtractUsage(body) {
+        const usage = body?.usage || {};
+        return {
+            prompt_tokens: usage.prompt_tokens || 0,
+            completion_tokens: usage.completion_tokens || 0,
+            total_tokens: usage.total_tokens || 
+                ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0))
+        };
+    }
+
+    /**
+     * Parse OpenAI streaming chunks (same as OpenAI passthrough)
+     */
+    defaultParseStreamChunk(chunk) {
+        const lines = chunk.split('\n');
+        let content = '';
+        let usage = null;
+        let done = false;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+
+            const payload = trimmed.slice(5).trim();
+            if (payload === '[DONE]') {
+                done = true;
+                continue;
+            }
+
+            try {
+                const json = JSON.parse(payload);
+                const delta = json.choices?.[0]?.delta?.content;
+                if (delta) content += delta;
+                if (json.usage) usage = this.defaultExtractUsage(json);
+            } catch {
+                // Ignore parse errors
+            }
+        }
+
+        return { content, usage, done };
+    }
+}
+
 module.exports = {
     PassthroughHandler,
     AnthropicPassthrough,
     GeminiPassthrough,
-    OpenAIPassthrough
+    OpenAIPassthrough,
+    HeliconePassthrough
 };
