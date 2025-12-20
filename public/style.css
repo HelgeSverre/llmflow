@@ -43,45 +43,46 @@
 }
 
 [data-theme="dark"] {
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
-    --bg-hover: #334155;
-    --bg-selected: #1e3a5f;
+    /* Vercel-inspired dark theme - almost black */
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
+    --bg-tertiary: #171717;
+    --bg-hover: #1a1a1a;
+    --bg-selected: #1c1c1c;
     
-    --border-primary: #334155;
-    --border-secondary: #475569;
-    --border-light: #1e293b;
+    --border-primary: #262626;
+    --border-secondary: #404040;
+    --border-light: #171717;
     
-    --text-primary: #f1f5f9;
-    --text-secondary: #e2e8f0;
-    --text-tertiary: #94a3b8;
-    --text-muted: #64748b;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    --text-muted: #52525b;
     
     --accent-primary: #3b82f6;
     --accent-hover: #60a5fa;
     
-    --success: #34d399;
-    --error: #f87171;
-    --warning: #fbbf24;
+    --success: #22c55e;
+    --error: #ef4444;
+    --warning: #eab308;
     
-    /* Span badge colors (darker variants) */
-    --span-llm-bg: #166534;
-    --span-llm-text: #bbf7d0;
-    --span-trace-bg: #1e40af;
-    --span-trace-text: #bfdbfe;
-    --span-agent-bg: #92400e;
-    --span-agent-text: #fef3c7;
-    --span-chain-bg: #5b21b6;
-    --span-chain-text: #e9d5ff;
-    --span-tool-bg: #9d174d;
-    --span-tool-text: #fbcfe8;
-    --span-retrieval-bg: #0e7490;
-    --span-retrieval-text: #a5f3fc;
-    --span-embedding-bg: #3730a3;
-    --span-embedding-text: #c7d2fe;
-    --span-custom-bg: #475569;
-    --span-custom-text: #e2e8f0;
+    /* Span badge colors - muted for dark bg */
+    --span-llm-bg: #14532d;
+    --span-llm-text: #86efac;
+    --span-trace-bg: #1e3a8a;
+    --span-trace-text: #93c5fd;
+    --span-agent-bg: #78350f;
+    --span-agent-text: #fcd34d;
+    --span-chain-bg: #4c1d95;
+    --span-chain-text: #c4b5fd;
+    --span-tool-bg: #831843;
+    --span-tool-text: #f9a8d4;
+    --span-retrieval-bg: #164e63;
+    --span-retrieval-text: #67e8f9;
+    --span-embedding-bg: #312e81;
+    --span-embedding-text: #a5b4fc;
+    --span-custom-bg: #27272a;
+    --span-custom-text: #d4d4d8;
 }
 
 * {
