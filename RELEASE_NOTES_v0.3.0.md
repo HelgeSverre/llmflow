@@ -8,7 +8,9 @@ This release makes LLMFlow the go-to observability backend for AI-assisted devel
 
 - **AI CLI Tools Support** - Claude Code, Codex CLI, Gemini CLI, and Aider work seamlessly
 - **OTLP Logs & Metrics** - Full OpenTelemetry support beyond just traces
+- **OTLP Export** - Forward traces/logs/metrics to Jaeger, Phoenix, Langfuse, Opik
 - **Passthrough Proxy Mode** - Forward native API formats while capturing telemetry
+- **Helicone Integration** - Cost tracking via Helicone passthrough
 - **Analytics Dashboard** - Token usage trends and cost analytics by tool/model
 - **Unified Timeline** - See all AI activity from all tools in one view
 
@@ -61,6 +63,32 @@ export GEMINI_API_BASE=http://localhost:8080/passthrough/gemini
 | Anthropic | `/passthrough/anthropic/*` |
 | Gemini | `/passthrough/gemini/*` |
 | OpenAI | `/passthrough/openai/*` |
+| Helicone | `/passthrough/helicone/*` |
+
+### OTLP Export to External Backends
+
+Forward telemetry to external observability platforms:
+
+```bash
+# Export to Jaeger
+OTLP_EXPORT_ENDPOINT=http://localhost:4318/v1/traces
+
+# Export to Langfuse (with auth)
+OTLP_EXPORT_ENDPOINT=https://cloud.langfuse.com/api/public/otel/v1/traces
+OTLP_EXPORT_HEADERS=Authorization=Basic base64(pk:sk)
+```
+
+Supported backends: Jaeger, Phoenix (Arize), Langfuse, Opik (Comet), Grafana Tempo.
+
+### Custom Tags
+
+Add custom tags to traces for better filtering:
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "X-LLMFlow-Tag: user:alice, env:prod" \
+  -d '{"model":"gpt-4o-mini","messages":[...]}'
+```
 
 ### Analytics Dashboard
 
@@ -115,6 +143,8 @@ aider --openai-api-base http://localhost:8080/v1
 |----------|-------------|
 | `POST /v1/logs` | OTLP/HTTP log ingestion |
 | `POST /v1/metrics` | OTLP/HTTP metrics ingestion |
+| `GET /api/traces/export` | Export traces as JSON/JSONL |
+| `GET /api/health/providers` | Check provider API key validity |
 | `GET /api/analytics/token-trends` | Token usage over time |
 | `GET /api/analytics/cost-by-tool` | Cost breakdown by tool |
 | `GET /api/analytics/cost-by-model` | Cost breakdown by model |
@@ -133,6 +163,7 @@ make test
 ## 📖 Documentation
 
 - [AI CLI Tools Guide](docs/guides/ai-cli-tools.md)
+- [Observability Backends Guide](docs/guides/observability-backends.md)
 - [Examples](examples/) - Setup guides for each tool
 - [README](README.md)
 
