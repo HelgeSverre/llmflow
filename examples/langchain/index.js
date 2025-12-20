@@ -1,50 +1,39 @@
 /**
  * LangChain.js + LLMFlow Integration Example
  * 
- * This example shows how to trace LangChain applications using OpenLLMetry
- * and send the traces to LLMFlow.
+ * This example shows how to trace LangChain applications by routing
+ * API calls through the LLMFlow proxy.
  * 
  * Prerequisites:
  *   1. Start LLMFlow: cd ../.. && npm start
- *   2. Set your OpenAI API key: export OPENAI_API_KEY=sk-...
- *   3. Install dependencies: npm install
- *   4. Run: npm start
+ *   2. Set your OpenAI API key in .env at project root
+ *   3. Run: make examples (from project root)
  */
 
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { LangChainInstrumentation } from '@traceloop/instrumentation-langchain';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 
-// Configure OpenTelemetry to export traces to LLMFlow
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000';
+const LLMFLOW_PROXY = process.env.LLMFLOW_PROXY || 'http://localhost:8080/v1';
+const LLMFLOW_DASHBOARD = process.env.LLMFLOW_DASHBOARD || process.env.LLMFLOW_URL || 'http://localhost:3000';
 
-const sdk = new NodeSDK({
-    serviceName: 'langchain-example',
-    traceExporter: new OTLPTraceExporter({
-        url: `${LLMFLOW_URL}/v1/traces`
-    }),
-    instrumentations: [new LangChainInstrumentation()]
-});
+// Check for API key early
+if (!process.env.OPENAI_API_KEY) {
+    console.error('Error: OPENAI_API_KEY not set');
+    console.error('Add it to .env in project root');
+    process.exit(1);
+}
 
-sdk.start();
-console.log('OpenTelemetry initialized, exporting traces to LLMFlow');
+console.log(`LangChain routing through LLMFlow proxy at ${LLMFLOW_PROXY}`);
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    sdk.shutdown()
-        .then(() => console.log('SDK shut down'))
-        .catch((err) => console.error('Error shutting down SDK', err))
-        .finally(() => process.exit(0));
-});
-
-// Create a simple LangChain pipeline
 async function runExample() {
+    // Configure LangChain to use LLMFlow proxy
     const model = new ChatOpenAI({
         modelName: 'gpt-4o-mini',
-        temperature: 0.7
+        temperature: 0.7,
+        configuration: {
+            baseURL: LLMFLOW_PROXY
+        }
     });
 
     const prompt = ChatPromptTemplate.fromTemplate(
@@ -84,12 +73,9 @@ async function runExample() {
     console.log(`A: ${result3}\n`);
 
     console.log('--- Example Complete ---');
-    console.log(`View traces at: ${LLMFLOW_URL}`);
-
-    // Give time for traces to flush
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log(`View traces at: ${LLMFLOW_DASHBOARD}`);
 }
 
 runExample()
     .catch(console.error)
-    .finally(() => process.exit(0));
+    .then(() => process.exit(0));
