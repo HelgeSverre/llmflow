@@ -7,6 +7,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(os.homedir(), '.llmflow');
 const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'data.db');
 const MAX_TRACES = parseInt(process.env.MAX_TRACES || '10000', 10);
 const MAX_LOGS = parseInt(process.env.MAX_LOGS || '100000', 10);
+const MAX_METRICS = parseInt(process.env.MAX_METRICS || '1000000', 10);
 
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -106,6 +107,40 @@ function initSchema() {
         CREATE INDEX IF NOT EXISTS idx_logs_service_name ON logs(service_name);
         CREATE INDEX IF NOT EXISTS idx_logs_severity ON logs(severity_number);
     `);
+
+    // Metrics table for OTLP metrics ingestion (v0.2.2+)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS metrics (
+            id TEXT PRIMARY KEY,
+            timestamp INTEGER NOT NULL,
+            
+            -- Metric identification
+            name TEXT NOT NULL,
+            description TEXT,
+            unit TEXT,
+            metric_type TEXT,
+            
+            -- Value (for simple metrics)
+            value_int INTEGER,
+            value_double REAL,
+            
+            -- Histogram buckets (JSON for complex data)
+            histogram_data TEXT,
+            
+            -- Context
+            service_name TEXT,
+            scope_name TEXT,
+            
+            -- Dimensions
+            attributes TEXT,
+            resource_attributes TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics(name);
+        CREATE INDEX IF NOT EXISTS idx_metrics_service_name ON metrics(service_name);
+        CREATE INDEX IF NOT EXISTS idx_metrics_type ON metrics(metric_type);
+    `);
 }
 
 initSchema();
@@ -162,9 +197,33 @@ const deleteLogOverflowStmt = db.prepare(`
     )
 `);
 
+const insertMetricStmt = db.prepare(`
+    INSERT INTO metrics (
+        id, timestamp,
+        name, description, unit, metric_type,
+        value_int, value_double, histogram_data,
+        service_name, scope_name,
+        attributes, resource_attributes
+    ) VALUES (
+        @id, @timestamp,
+        @name, @description, @unit, @metric_type,
+        @value_int, @value_double, @histogram_data,
+        @service_name, @scope_name,
+        @attributes, @resource_attributes
+    )
+`);
+
+const deleteMetricOverflowStmt = db.prepare(`
+    DELETE FROM metrics
+    WHERE id NOT IN (
+        SELECT id FROM metrics ORDER BY timestamp DESC LIMIT ?
+    )
+`);
+
 // Hook for real-time updates
 let onInsertTrace = null;
 let onInsertLog = null;
+let onInsertMetric = null;
 
 function setInsertTraceHook(fn) {
     onInsertTrace = fn;
@@ -172,6 +231,10 @@ function setInsertTraceHook(fn) {
 
 function setInsertLogHook(fn) {
     onInsertLog = fn;
+}
+
+function setInsertMetricHook(fn) {
+    onInsertMetric = fn;
 }
 
 function insertTrace(trace) {
@@ -496,6 +559,265 @@ function getDistinctLogServices() {
         .map(r => r.service_name);
 }
 
+// ==================== Metrics Functions ====================
+
+function insertMetric(metric) {
+    insertMetricStmt.run({
+        id: metric.id,
+        timestamp: metric.timestamp,
+        name: metric.name,
+        description: metric.description || null,
+        unit: metric.unit || null,
+        metric_type: metric.metric_type || 'gauge',
+        value_int: metric.value_int != null ? metric.value_int : null,
+        value_double: metric.value_double != null ? metric.value_double : null,
+        histogram_data: metric.histogram_data ? JSON.stringify(metric.histogram_data) : null,
+        service_name: metric.service_name || null,
+        scope_name: metric.scope_name || null,
+        attributes: JSON.stringify(metric.attributes || {}),
+        resource_attributes: JSON.stringify(metric.resource_attributes || {})
+    });
+
+    const count = getMetricCount();
+    if (count > MAX_METRICS) {
+        deleteMetricOverflowStmt.run(MAX_METRICS);
+    }
+
+    if (onInsertMetric) {
+        const summary = {
+            id: metric.id,
+            timestamp: metric.timestamp,
+            name: metric.name,
+            metric_type: metric.metric_type || 'gauge',
+            value_int: metric.value_int,
+            value_double: metric.value_double,
+            service_name: metric.service_name || null
+        };
+        try {
+            onInsertMetric(summary);
+        } catch (err) {
+            // Don't let hook errors break insertion
+        }
+    }
+}
+
+function getMetrics({ limit = 50, offset = 0, filters = {} } = {}) {
+    const where = [];
+    const params = {};
+
+    if (filters.name) {
+        where.push('name = @name');
+        params.name = filters.name;
+    }
+
+    if (filters.service_name) {
+        where.push('service_name = @service_name');
+        params.service_name = filters.service_name;
+    }
+
+    if (filters.metric_type) {
+        where.push('metric_type = @metric_type');
+        params.metric_type = filters.metric_type;
+    }
+
+    if (filters.date_from) {
+        where.push('timestamp >= @date_from');
+        params.date_from = filters.date_from;
+    }
+
+    if (filters.date_to) {
+        where.push('timestamp <= @date_to');
+        params.date_to = filters.date_to;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const stmt = db.prepare(`
+        SELECT 
+            id, timestamp, name, description, unit, metric_type,
+            value_int, value_double, histogram_data,
+            service_name, scope_name, attributes, resource_attributes
+        FROM metrics
+        ${whereSql}
+        ORDER BY timestamp DESC
+        LIMIT @limit OFFSET @offset
+    `);
+
+    return stmt.all({ ...params, limit, offset });
+}
+
+function getMetricById(id) {
+    const metric = db.prepare('SELECT * FROM metrics WHERE id = ?').get(id);
+    if (metric) {
+        metric.attributes = JSON.parse(metric.attributes || '{}');
+        metric.resource_attributes = JSON.parse(metric.resource_attributes || '{}');
+        if (metric.histogram_data) {
+            metric.histogram_data = JSON.parse(metric.histogram_data);
+        }
+    }
+    return metric;
+}
+
+function getMetricCount(filters = {}) {
+    if (Object.keys(filters).length === 0) {
+        return db.prepare('SELECT COUNT(*) as cnt FROM metrics').get().cnt;
+    }
+    
+    const where = [];
+    const params = {};
+
+    if (filters.name) {
+        where.push('name = @name');
+        params.name = filters.name;
+    }
+
+    if (filters.service_name) {
+        where.push('service_name = @service_name');
+        params.service_name = filters.service_name;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    return db.prepare(`SELECT COUNT(*) as cnt FROM metrics ${whereSql}`).get(params).cnt;
+}
+
+function getMetricsSummary(filters = {}) {
+    const fromTs = filters.date_from || 0;
+    const toTs = filters.date_to || Date.now();
+    
+    return db.prepare(`
+        SELECT 
+            name,
+            service_name,
+            metric_type,
+            COUNT(*) as data_points,
+            MIN(timestamp) as first_seen,
+            MAX(timestamp) as last_seen,
+            SUM(value_int) as sum_int,
+            AVG(value_double) as avg_double,
+            MAX(value_int) as max_int,
+            MIN(value_int) as min_int
+        FROM metrics
+        WHERE timestamp >= ? AND timestamp <= ?
+        GROUP BY name, service_name
+        ORDER BY data_points DESC
+    `).all(fromTs, toTs);
+}
+
+function getTokenUsage(filters = {}) {
+    return db.prepare(`
+        SELECT 
+            service_name,
+            json_extract(attributes, '$.model') as model,
+            json_extract(attributes, '$.type') as token_type,
+            SUM(value_int) as total_tokens
+        FROM metrics
+        WHERE name LIKE '%token%' OR name LIKE '%usage%'
+        GROUP BY service_name, model, token_type
+    `).all();
+}
+
+function getDistinctMetricNames() {
+    return db.prepare('SELECT DISTINCT name FROM metrics WHERE name IS NOT NULL ORDER BY name').all()
+        .map(r => r.name);
+}
+
+function getDistinctMetricServices() {
+    return db.prepare('SELECT DISTINCT service_name FROM metrics WHERE service_name IS NOT NULL ORDER BY service_name').all()
+        .map(r => r.service_name);
+}
+
+// ==================== Analytics Functions ====================
+
+function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
+    const fromTs = Date.now() - (days * 24 * 60 * 60 * 1000);
+    
+    let bucketSize;
+    let dateFormat;
+    
+    switch (interval) {
+        case 'day':
+            bucketSize = 24 * 60 * 60 * 1000;
+            dateFormat = '%Y-%m-%d';
+            break;
+        case 'hour':
+        default:
+            bucketSize = 60 * 60 * 1000;
+            dateFormat = '%Y-%m-%d %H:00';
+            break;
+    }
+    
+    return db.prepare(`
+        SELECT 
+            (timestamp / @bucketSize) * @bucketSize as bucket,
+            strftime(@dateFormat, timestamp / 1000, 'unixepoch') as label,
+            SUM(prompt_tokens) as prompt_tokens,
+            SUM(completion_tokens) as completion_tokens,
+            SUM(total_tokens) as total_tokens,
+            SUM(estimated_cost) as total_cost,
+            COUNT(*) as request_count
+        FROM traces
+        WHERE timestamp >= @fromTs
+        GROUP BY bucket
+        ORDER BY bucket ASC
+    `).all({ bucketSize, dateFormat, fromTs });
+}
+
+function getCostByTool({ days = 30 } = {}) {
+    const fromTs = Date.now() - (days * 24 * 60 * 60 * 1000);
+    
+    return db.prepare(`
+        SELECT 
+            provider,
+            service_name,
+            SUM(estimated_cost) as total_cost,
+            SUM(total_tokens) as total_tokens,
+            SUM(prompt_tokens) as prompt_tokens,
+            SUM(completion_tokens) as completion_tokens,
+            COUNT(*) as request_count,
+            AVG(duration_ms) as avg_duration
+        FROM traces
+        WHERE timestamp >= @fromTs
+        GROUP BY provider, service_name
+        ORDER BY total_cost DESC
+    `).all({ fromTs });
+}
+
+function getCostByModel({ days = 30 } = {}) {
+    const fromTs = Date.now() - (days * 24 * 60 * 60 * 1000);
+    
+    return db.prepare(`
+        SELECT 
+            model,
+            provider,
+            SUM(estimated_cost) as total_cost,
+            SUM(total_tokens) as total_tokens,
+            SUM(prompt_tokens) as prompt_tokens,
+            SUM(completion_tokens) as completion_tokens,
+            COUNT(*) as request_count
+        FROM traces
+        WHERE timestamp >= @fromTs AND model IS NOT NULL
+        GROUP BY model
+        ORDER BY total_cost DESC
+    `).all({ fromTs });
+}
+
+function getDailyStats({ days = 30 } = {}) {
+    const fromTs = Date.now() - (days * 24 * 60 * 60 * 1000);
+    const bucketSize = 24 * 60 * 60 * 1000;
+    
+    return db.prepare(`
+        SELECT 
+            (timestamp / @bucketSize) * @bucketSize as bucket,
+            strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch') as date,
+            SUM(total_tokens) as tokens,
+            SUM(estimated_cost) as cost,
+            COUNT(*) as requests
+        FROM traces
+        WHERE timestamp >= @fromTs
+        GROUP BY bucket
+        ORDER BY bucket ASC
+    `).all({ bucketSize, fromTs });
+}
+
 module.exports = {
     insertTrace,
     getTraces,
@@ -514,6 +836,21 @@ module.exports = {
     getDistinctEventNames,
     getDistinctLogServices,
     setInsertLogHook,
+    // Metrics
+    insertMetric,
+    getMetrics,
+    getMetricById,
+    getMetricCount,
+    getMetricsSummary,
+    getTokenUsage,
+    getDistinctMetricNames,
+    getDistinctMetricServices,
+    setInsertMetricHook,
+    // Analytics
+    getTokenTrends,
+    getCostByTool,
+    getCostByModel,
+    getDailyStats,
     // Constants
     DB_PATH,
     DATA_DIR
