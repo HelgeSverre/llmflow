@@ -33,9 +33,10 @@ npm install && npm start
 | 🌲 **Hierarchical Spans** | Trace agents, chains, tools, retrievals, and LLM calls |
 | 🔍 **Span Tree View** | Visualize the full execution flow of your AI pipelines |
 | 🔌 **Multi-Provider Proxy** | OpenAI, Anthropic, Ollama, Groq, Mistral & more |
-| 📡 **OTLP Support** | Works with OpenTelemetry & OpenLLMetry |
+| 🤖 **AI CLI Tools Support** | Claude Code, Codex CLI, Gemini CLI, Aider |
+| 📡 **OTLP Support** | Traces, logs, and metrics from OpenTelemetry |
 | 💰 **Cost Tracking** | Real-time pricing for 1000+ models |
-| 🔎 **Search & Filter** | Find spans by type, model, status, or content |
+| 🔎 **Unified Timeline** | See all activity from all tools in one view |
 | 💾 **SQLite Storage** | Persistent, queryable, no database setup |
 
 ---
@@ -157,7 +158,43 @@ const client = new OpenAI({
 });
 ```
 
-### 2. JavaScript SDK
+### 2. Passthrough Mode (AI CLI Tools)
+
+For AI CLI tools that use native API formats (Claude Code, Gemini CLI), use passthrough mode to proxy requests without transformation while still getting full observability.
+
+#### Claude Code
+
+```bash
+# Set Claude Code to use LLMFlow passthrough
+export ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic
+
+# Run Claude Code - all requests are logged with full observability
+claude
+```
+
+#### Gemini CLI
+
+```bash
+# Configure Gemini CLI
+# In .gemini/settings.json or via environment
+export GEMINI_API_BASE=http://localhost:8080/passthrough/gemini
+```
+
+#### Passthrough Routes
+
+| Provider | Passthrough Path | Native API |
+|----------|------------------|------------|
+| Anthropic | `/passthrough/anthropic/*` | api.anthropic.com |
+| Gemini | `/passthrough/gemini/*` | generativelanguage.googleapis.com |
+| OpenAI | `/passthrough/openai/*` | api.openai.com |
+
+**Key difference from regular proxy:**
+- Regular proxy (`/anthropic/*`) transforms OpenAI format ↔ native format
+- Passthrough (`/passthrough/anthropic/*`) forwards native format as-is
+
+Both modes provide full observability: request/response logging, token counting, cost tracking.
+
+### 3. JavaScript SDK
 
 Create custom spans for complex workflows.
 
@@ -200,7 +237,7 @@ const client = wrapOpenAI(new OpenAI());
 // All chat.completions.create calls now include trace headers automatically
 ```
 
-### 3. OpenTelemetry / OpenLLMetry
+### 4. OpenTelemetry / OpenLLMetry
 
 Export traces from existing OTEL instrumentation:
 
@@ -368,13 +405,24 @@ LLMFlow automatically extracts these OpenTelemetry semantic conventions:
 
 ## API Endpoints
 
+### OTLP Ingestion
+
 | Endpoint | Description |
 |----------|-------------|
 | `POST /v1/traces` | OTLP/HTTP trace ingestion |
-| `POST /api/spans` | SDK span ingestion |
+| `POST /v1/logs` | OTLP/HTTP log ingestion |
+| `POST /v1/metrics` | OTLP/HTTP metrics ingestion |
+
+### Dashboard API
+
+| Endpoint | Description |
+|----------|-------------|
 | `GET /api/traces` | List traces with filters |
 | `GET /api/traces/:id` | Get trace details |
 | `GET /api/traces/:id/tree` | Get span tree |
+| `GET /api/logs` | List logs with filters |
+| `GET /api/logs/:id` | Get log details |
+| `GET /api/metrics` | List metrics with filters |
 | `GET /api/stats` | Aggregate statistics |
 | `GET /api/health` | Health check |
 
@@ -492,11 +540,17 @@ Your App
 - [x] Dynamic pricing (2000+ models)
 - [x] Streaming support
 - [x] Search & filtering
-- [x] OTLP/HTTP support
+- [x] OTLP/HTTP traces support
+- [x] OTLP/HTTP logs support
+- [x] OTLP/HTTP metrics support
 - [x] Real-time WebSocket updates
 - [x] Dark mode
 - [x] Multi-provider proxy (OpenAI, Anthropic, Gemini, Cohere, Azure, Ollama, Groq, Mistral, Together, OpenRouter, Perplexity)
+- [x] Passthrough mode for AI CLI tools (Claude Code, Gemini CLI)
+- [x] Unified timeline view
+- [x] Tool-specific filtering (Claude, Codex, Gemini, Aider)
 - [ ] Trace export (JSON, OTLP)
+- [ ] Cost alerts and budgets
 
 ---
 
