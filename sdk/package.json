@@ -1,6 +1,6 @@
 {
   "name": "llmflow-sdk",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Minimal tracing SDK for LLM applications",
   "type": "module",
   "main": "index.js",
