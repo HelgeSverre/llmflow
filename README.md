@@ -38,6 +38,7 @@ npm install && npm start
 | 💰 **Cost Tracking** | Real-time pricing for 1000+ models |
 | 🔎 **Unified Timeline** | See all activity from all tools in one view |
 | 💾 **SQLite Storage** | Persistent, queryable, no database setup |
+| 📊 **Analytics Dashboard** | Token trends, cost by tool/model charts |
 
 ---
 
@@ -91,6 +92,19 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer $GROQ_API_KEY" \
   -d '{"model":"llama-3.1-8b-instant","messages":[{"role":"user","content":"Hi"}]}'
 ```
+
+#### Custom Tags
+
+Add custom tags to traces using the `X-LLMFlow-Tag` header for better filtering:
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "X-LLMFlow-Tag: user:alice, env:prod, feature:chat" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hi"}]}'
+```
+
+Tags appear in the dashboard and can be used for filtering and analytics.
 
 #### Provider Examples
 
@@ -420,11 +434,17 @@ LLMFlow automatically extracts these OpenTelemetry semantic conventions:
 | `GET /api/traces` | List traces with filters |
 | `GET /api/traces/:id` | Get trace details |
 | `GET /api/traces/:id/tree` | Get span tree |
+| `GET /api/traces/export` | Export traces as JSON/JSONL |
 | `GET /api/logs` | List logs with filters |
 | `GET /api/logs/:id` | Get log details |
 | `GET /api/metrics` | List metrics with filters |
 | `GET /api/stats` | Aggregate statistics |
+| `GET /api/analytics/token-trends` | Token usage over time |
+| `GET /api/analytics/cost-by-tool` | Cost breakdown by tool |
+| `GET /api/analytics/cost-by-model` | Cost breakdown by model |
+| `GET /api/analytics/daily` | Daily summary stats |
 | `GET /api/health` | Health check |
+| `GET /api/health/providers` | Check provider API key validity |
 
 ### Query Parameters
 
@@ -475,6 +495,58 @@ LLMFlow automatically extracts these OpenTelemetry semantic conventions:
 | `AZURE_OPENAI_API_KEY` | - | Azure OpenAI API key |
 | `AZURE_OPENAI_API_VERSION` | `2024-02-01` | Azure OpenAI API version |
 
+### OTLP Export Settings
+
+Export traces to external observability backends like Jaeger, Phoenix, Langfuse, Opik:
+
+| Variable | Description |
+|----------|-------------|
+| `OTLP_EXPORT_ENDPOINT` | Primary export endpoint |
+| `OTLP_EXPORT_TRACES_ENDPOINT` | Traces-specific endpoint |
+| `OTLP_EXPORT_LOGS_ENDPOINT` | Logs-specific endpoint |
+| `OTLP_EXPORT_METRICS_ENDPOINT` | Metrics-specific endpoint |
+| `OTLP_EXPORT_HEADERS` | Auth headers (comma-separated `key=value`) |
+| `OTLP_EXPORT_BATCH_SIZE` | Batch size (default: 100) |
+| `OTLP_EXPORT_FLUSH_INTERVAL` | Flush interval in ms (default: 5000) |
+
+---
+
+## Observability Backends
+
+LLMFlow can export traces to external observability platforms while keeping a local copy.
+
+### Quick Setup
+
+```bash
+# Jaeger (local)
+OTLP_EXPORT_ENDPOINT=http://localhost:4318/v1/traces
+
+# Phoenix (Arize)
+OTLP_EXPORT_ENDPOINT=http://localhost:6006/v1/traces
+
+# Langfuse (requires auth)
+OTLP_EXPORT_ENDPOINT=http://localhost:3001/api/public/otel/v1/traces
+OTLP_EXPORT_HEADERS=Authorization=Basic base64(pk:sk)
+
+# Opik (Comet)
+OTLP_EXPORT_ENDPOINT=http://localhost:5173/api/v1/private/otel/v1/traces
+```
+
+### Helicone Integration
+
+For LLM cost tracking with Helicone, use the passthrough route:
+
+```javascript
+const client = new OpenAI({
+    baseURL: 'http://localhost:8080/passthrough/helicone/v1',
+    defaultHeaders: {
+        'Helicone-Auth': 'Bearer sk-helicone-xxx'
+    }
+});
+```
+
+See [docs/guides/observability-backends.md](docs/guides/observability-backends.md) and [examples/observability/](examples/observability/) for detailed setup guides.
+
 ---
 
 ## Examples
@@ -485,7 +557,15 @@ See the [examples/](examples/) folder for complete integration examples:
 |---------|-----------|-------------|
 | [langchain](examples/langchain) | LangChain.js | OpenLLMetry auto-instrumentation |
 | [vercel-ai-sdk](examples/vercel-ai-sdk) | Vercel AI SDK | Built-in telemetry |
-| [voltagent](examples/voltagent) | VoltAgent | Agent framework tracing |
+| [claude-code](examples/claude-code) | Claude Code | Passthrough mode setup |
+| [codex-cli](examples/codex-cli) | Codex CLI | OTLP logs configuration |
+| [gemini-cli](examples/gemini-cli) | Gemini CLI | OTLP metrics configuration |
+| [aider](examples/aider) | Aider | Proxy mode setup |
+| [observability/jaeger](examples/observability/jaeger) | Jaeger | Distributed tracing export |
+| [observability/phoenix](examples/observability/phoenix) | Phoenix (Arize) | LLM observability export |
+| [observability/langfuse](examples/observability/langfuse) | Langfuse | LLM monitoring export |
+| [observability/helicone](examples/observability/helicone) | Helicone | Cost tracking integration |
+| [observability/opik](examples/observability/opik) | Opik (Comet) | Experiment tracking export |
 
 ---
 
@@ -549,7 +629,9 @@ Your App
 - [x] Passthrough mode for AI CLI tools (Claude Code, Gemini CLI)
 - [x] Unified timeline view
 - [x] Tool-specific filtering (Claude, Codex, Gemini, Aider)
-- [ ] Trace export (JSON, OTLP)
+- [x] Analytics dashboard (token trends, cost by tool/model)
+- [x] OTLP export to external backends (Jaeger, Phoenix, Langfuse, Opik)
+- [x] Helicone passthrough integration
 - [ ] Cost alerts and budgets
 
 ---
