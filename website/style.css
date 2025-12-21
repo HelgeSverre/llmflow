@@ -111,14 +111,7 @@ a:hover {
     right: 0;
     z-index: 100;
     padding: 12px 16px;
-    background: rgba(248, 250, 252, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-primary);
-}
-
-[data-theme="dark"] .header-wrapper {
-    background: rgba(0, 0, 0, 0.8);
+    background: transparent;
 }
 
 .header-spacer {
@@ -345,6 +338,23 @@ header {
     border: 1px solid var(--border-primary);
     border-right: none;
     box-shadow: var(--shadow-lg);
+}
+
+/* Screenshot theme switching */
+.screenshot-dark {
+    display: none;
+}
+
+.screenshot-light {
+    display: block;
+}
+
+[data-theme="dark"] .screenshot-dark {
+    display: block;
+}
+
+[data-theme="dark"] .screenshot-light {
+    display: none;
 }
 
 .hero h1 {
