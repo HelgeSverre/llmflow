@@ -1,0 +1,436 @@
+# LLMFlow
+
+> Local-first LLM observability tool. Track costs, tokens, and latency for OpenAI, Anthropic, Gemini, and 10+ providers.
+> One command to run. Zero config. No signup required.
+
+LLMFlow is a **proxy + dashboard** for LLM API calls. It sits between your application and the LLM provider, logging
+every request with cost calculations, token counts, and latency metrics. Designed for solo developers, hobbyists, and
+anyone who wants visibility into their AI usage without paying for SaaS observability tools.
+
+## Quick Start
+
+```bash
+# Start LLMFlow (choose one)
+npx llmflow
+docker run -p 3000:3000 -p 8080:8080 helgesverre/llmflow
+git clone https://github.com/HelgeSverre/llmflow && cd llmflow && npm install && npm start
+
+# Point your SDK at the proxy
+# Python: client = OpenAI(base_url="http://localhost:8080/v1")
+# JS: const client = new OpenAI({ baseURL: "http://localhost:8080/v1" })
+
+# View dashboard
+open http://localhost:3000
+```
+
+## Architecture Overview
+
+```
+Your Application
+       │
+       ▼
+┌──────────────────┐
+│  LLMFlow Proxy   │ ← Port 8080 (configurable)
+│  - Intercepts    │
+│  - Logs request  │
+│  - Forwards      │
+│  - Logs response │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐      ┌──────────────────┐
+│   LLM Provider   │      │ LLMFlow Dashboard│ ← Port 3000
+│ (OpenAI, etc.)   │      │ - View traces    │
+└──────────────────┘      │ - Search/filter  │
+                          │ - Cost analytics │
+                          │ - OTLP ingestion │
+                          └──────────────────┘
+                                   │
+                                   ▼
+                          ┌──────────────────┐
+                          │     SQLite       │
+                          │  ~/.llmflow/     │
+                          │    data.db       │
+                          └──────────────────┘
+```
+
+## Integration Methods
+
+### Method 1: Proxy Mode (Recommended)
+
+Point your LLM SDK's base URL at LLMFlow. Works with any OpenAI-compatible client.
+
+| Provider | Base URL |
+|----------|----------|
+| OpenAI | `http://localhost:8080/v1` |
+| Anthropic | `http://localhost:8080/anthropic/v1` |
+| Gemini | `http://localhost:8080/gemini/v1` |
+| Ollama | `http://localhost:8080/ollama/v1` |
+| Groq | `http://localhost:8080/groq/v1` |
+| Mistral | `http://localhost:8080/mistral/v1` |
+| Azure OpenAI | `http://localhost:8080/azure/v1` |
+| Cohere | `http://localhost:8080/cohere/v1` |
+| Together | `http://localhost:8080/together/v1` |
+| OpenRouter | `http://localhost:8080/openrouter/v1` |
+| Perplexity | `http://localhost:8080/perplexity/v1` |
+
+**Python example:**
+```python
+from openai import OpenAI
+
+# Before: client = OpenAI()
+# After:
+client = OpenAI(base_url="http://localhost:8080/v1")
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+**JavaScript example:**
+```javascript
+import OpenAI from 'openai';
+
+const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' });
+
+const response = await client.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: 'Hello' }]
+});
+```
+
+**Provider header override:**
+```bash
+# Use X-LLMFlow-Provider header to override provider detection
+curl http://localhost:8080/v1/chat/completions \
+  -H "X-LLMFlow-Provider: groq" \
+  -H "Authorization: Bearer $GROQ_API_KEY" \
+  -d '{"model":"llama-3.1-8b-instant","messages":[{"role":"user","content":"Hi"}]}'
+```
+
+### Method 2: OpenTelemetry / OTLP
+
+Send traces from LangChain, LlamaIndex, or any OTLP-instrumented application.
+
+**OTLP Endpoints:**
+- Traces: `POST http://localhost:3000/v1/traces`
+- Logs: `POST http://localhost:3000/v1/logs`
+- Metrics: `POST http://localhost:3000/v1/metrics`
+
+**Python with OpenLLMetry:**
+```python
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+exporter = OTLPSpanExporter(endpoint="http://localhost:3000/v1/traces")
+provider.add_span_processor(BatchSpanProcessor(exporter))
+```
+
+**JavaScript with OpenTelemetry:**
+```javascript
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+
+const exporter = new OTLPTraceExporter({
+    url: 'http://localhost:3000/v1/traces'
+});
+```
+
+### Method 3: Passthrough Mode (AI CLI Tools)
+
+For tools that use native API formats (not OpenAI-compatible), use passthrough routes.
+
+| Tool | Configuration |
+|------|---------------|
+| Claude Code | `export ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic` |
+| Aider | `aider --openai-api-base http://localhost:8080/v1` |
+| Codex CLI | Set `endpoint = "http://localhost:3000/v1/logs"` in `~/.codex/config.toml` |
+
+**Passthrough routes:**
+- `/passthrough/anthropic/*` → api.anthropic.com
+- `/passthrough/gemini/*` → generativelanguage.googleapis.com
+- `/passthrough/openai/*` → api.openai.com
+- `/passthrough/helicone/*` → oai.helicone.ai
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PROXY_PORT` | `8080` | Proxy server port |
+| `DASHBOARD_PORT` | `3000` | Dashboard and OTLP ingestion port |
+| `DATA_DIR` | `~/.llmflow` | SQLite database directory |
+| `MAX_TRACES` | `10000` | Maximum traces to retain (older pruned) |
+| `VERBOSE` | `0` | Enable verbose logging (0 or 1) |
+
+### Provider API Keys
+
+Set these if you want LLMFlow to forward requests (otherwise pass in Authorization header):
+
+| Variable | Provider |
+|----------|----------|
+| `OPENAI_API_KEY` | OpenAI |
+| `ANTHROPIC_API_KEY` | Anthropic |
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Google Gemini |
+| `GROQ_API_KEY` | Groq |
+| `MISTRAL_API_KEY` | Mistral |
+| `COHERE_API_KEY` | Cohere |
+| `TOGETHER_API_KEY` | Together AI |
+| `OPENROUTER_API_KEY` | OpenRouter |
+| `PERPLEXITY_API_KEY` | Perplexity |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI |
+| `AZURE_OPENAI_RESOURCE` | Azure OpenAI resource name |
+
+### OTLP Export (Optional)
+
+Forward traces to external observability backends:
+
+| Variable | Description |
+|----------|-------------|
+| `OTLP_EXPORT_ENDPOINT` | Export endpoint (e.g., `http://localhost:4318/v1/traces`) |
+| `OTLP_EXPORT_HEADERS` | Auth headers (e.g., `Authorization=Bearer xxx`) |
+| `OTLP_EXPORT_BATCH_SIZE` | Batch size (default: 100) |
+| `OTLP_EXPORT_FLUSH_INTERVAL` | Flush interval in ms (default: 5000) |
+
+Supported backends: Jaeger, Phoenix (Arize), Langfuse, Opik (Comet), Grafana Tempo.
+
+## API Endpoints
+
+### Dashboard API
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/traces` | List traces with filters |
+| `GET /api/traces/:id` | Get trace details |
+| `GET /api/traces/:id/tree` | Get hierarchical span tree |
+| `GET /api/traces/export` | Export traces as JSON/JSONL |
+| `GET /api/logs` | List OTLP logs |
+| `GET /api/metrics` | List OTLP metrics |
+| `GET /api/stats` | Aggregate statistics |
+| `GET /api/health` | Health check |
+| `GET /api/health/providers` | Check provider API key validity |
+| `GET /api/analytics/token-trends` | Token usage over time |
+| `GET /api/analytics/cost-by-tool` | Cost breakdown by tool |
+| `GET /api/analytics/cost-by-model` | Cost breakdown by model |
+
+### Query Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `q` | Full-text search |
+| `model` | Filter by model name |
+| `status` | Filter by status (`success` or `error`) |
+| `date_from` | Start timestamp (milliseconds) |
+| `date_to` | End timestamp (milliseconds) |
+| `limit` | Results per page (default: 50) |
+| `offset` | Pagination offset |
+
+### Custom Tags
+
+Add tags to traces via header for filtering:
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "X-LLMFlow-Tag: user:alice, env:prod, feature:chat" \
+  -d '{"model":"gpt-4o-mini","messages":[...]}'
+```
+
+## Span Types
+
+LLMFlow recognizes these span types from OpenTelemetry semantic conventions:
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| `llm` | LLM API call | Chat completions, embeddings |
+| `trace` | Root span | Workflow entry point |
+| `agent` | Agent execution | ReAct loops, tool-using agents |
+| `chain` | Chain step | LangChain chains, pipelines |
+| `tool` | Tool call | Function calls, API calls |
+| `retrieval` | Vector search | RAG retrieval, document lookup |
+| `embedding` | Embedding generation | Text to vector |
+| `custom` | Custom span | Application-specific |
+
+## Workflow Examples
+
+### Workflow 1: Track OpenAI Costs in Python App
+
+```bash
+# Terminal 1: Start LLMFlow
+npx llmflow
+```
+
+```python
+# app.py
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8080/v1")
+
+# All calls now tracked
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Explain quantum computing"}]
+)
+
+# View at http://localhost:3000
+```
+
+### Workflow 2: Track LangChain with OpenLLMetry
+
+```bash
+# Terminal 1: Start LLMFlow
+npx llmflow
+```
+
+```python
+# langchain_app.py
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from traceloop.sdk import Traceloop
+
+# Initialize with LLMFlow as exporter
+Traceloop.init(
+    exporter=OTLPSpanExporter(endpoint="http://localhost:3000/v1/traces")
+)
+
+# Now use LangChain normally - traces sent to LLMFlow
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+llm = ChatOpenAI(model="gpt-4o-mini")
+chain = ChatPromptTemplate.from_template("Tell me about {topic}") | llm
+result = chain.invoke({"topic": "Python"})
+```
+
+### Workflow 3: Track Claude Code Usage
+
+```bash
+# Terminal 1: Start LLMFlow
+npx llmflow
+
+# Terminal 2: Configure and run Claude Code
+export ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic
+claude
+```
+
+All Claude Code requests now logged in LLMFlow dashboard.
+
+### Workflow 4: Multiple Providers in One App
+
+```python
+from openai import OpenAI
+
+# OpenAI
+openai_client = OpenAI(base_url="http://localhost:8080/v1")
+
+# Anthropic (via OpenAI-compatible endpoint)
+anthropic_client = OpenAI(
+    base_url="http://localhost:8080/anthropic/v1",
+    api_key="your-anthropic-key"
+)
+
+# Ollama (local)
+ollama_client = OpenAI(
+    base_url="http://localhost:8080/ollama/v1",
+    api_key="not-needed"
+)
+
+# All three tracked in same dashboard
+```
+
+### Workflow 5: Export Traces for Analysis
+
+```bash
+# Export last 1000 traces as JSON
+curl "http://localhost:3000/api/traces/export?limit=1000" > traces.json
+
+# Export as JSONL
+curl "http://localhost:3000/api/traces/export?format=jsonl" > traces.jsonl
+
+# Export filtered by model
+curl "http://localhost:3000/api/traces/export?model=gpt-4o" > gpt4_traces.json
+
+# Export filtered by date range
+curl "http://localhost:3000/api/traces/export?date_from=1700000000000&date_to=1700100000000" > traces.json
+```
+
+### Workflow 6: Check Provider Health
+
+```bash
+# Check if all configured API keys are valid
+curl http://localhost:3000/api/health/providers | jq
+
+# Response:
+# {
+#   "summary": "3/4 providers healthy",
+#   "providers": {
+#     "openai": { "status": "ok", "latency_ms": 245 },
+#     "anthropic": { "status": "ok", "latency_ms": 312 },
+#     "gemini": { "status": "unconfigured" },
+#     "ollama": { "status": "ok", "latency_ms": 12 }
+#   }
+# }
+```
+
+## Troubleshooting
+
+### Connection Refused
+
+```bash
+# Check if LLMFlow is running
+curl http://localhost:3000/api/health
+
+# Check if ports are in use
+lsof -i :3000
+lsof -i :8080
+```
+
+### No Traces Appearing
+
+1. Verify SDK is pointing to proxy: `base_url="http://localhost:8080/v1"`
+2. Check proxy logs: `VERBOSE=1 npx llmflow`
+3. Ensure requests complete (don't cancel mid-stream)
+
+### Provider Authentication Errors
+
+1. Set API key in environment: `export OPENAI_API_KEY=sk-...`
+2. Or pass in Authorization header with each request
+3. Check health: `curl http://localhost:3000/api/health/providers`
+
+### Database Issues
+
+```bash
+# Database location
+ls ~/.llmflow/data.db
+
+# Reset database (loses all data)
+rm ~/.llmflow/data.db
+npx llmflow
+```
+
+## Documentation
+
+- [README.md](https://github.com/HelgeSverre/llmflow/blob/main/README.md): Quick start and overview
+- [docs/guides/ai-cli-tools.md](https://github.com/HelgeSverre/llmflow/blob/main/docs/guides/ai-cli-tools.md): Claude Code, Codex, Aider setup
+- [docs/guides/observability-backends.md](https://github.com/HelgeSverre/llmflow/blob/main/docs/guides/observability-backends.md): Jaeger, Langfuse, Phoenix export
+
+## Source Code
+
+- [server.js](https://github.com/HelgeSverre/llmflow/blob/main/server.js): Main proxy and dashboard server
+- [db.js](https://github.com/HelgeSverre/llmflow/blob/main/db.js): SQLite database operations
+- [pricing.js](https://github.com/HelgeSverre/llmflow/blob/main/pricing.js): Cost calculation for 2000+ models
+- [providers/](https://github.com/HelgeSverre/llmflow/tree/main/providers): Provider implementations
+- [otlp.js](https://github.com/HelgeSverre/llmflow/blob/main/otlp.js): OTLP trace ingestion
+- [otlp-logs.js](https://github.com/HelgeSverre/llmflow/blob/main/otlp-logs.js): OTLP log ingestion
+- [otlp-metrics.js](https://github.com/HelgeSverre/llmflow/blob/main/otlp-metrics.js): OTLP metrics ingestion
+- [otlp-export.js](https://github.com/HelgeSverre/llmflow/blob/main/otlp-export.js): Export to external backends
+- [public/](https://github.com/HelgeSverre/llmflow/tree/main/public): Dashboard frontend
+
+## Distribution
+
+- **npm**: `npx llmflow` or `npm install -g llmflow`
+- **Docker**: `docker run -p 3000:3000 -p 8080:8080 helgesverre/llmflow`
+- **Source**: `git clone https://github.com/HelgeSverre/llmflow && npm install && npm start`
+
+## License
+
+MIT License - https://github.com/HelgeSverre/llmflow/blob/main/LICENSE
