@@ -1,6 +1,6 @@
 {
   "name": "llmflow",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "See what your LLM calls cost. One command. No signup.",
   "main": "server.js",
   "bin": {
