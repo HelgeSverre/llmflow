@@ -1312,6 +1312,14 @@ async function loadAnalytics() {
         renderDailySummary(dailyData.daily || []);
     } catch (e) {
         console.error('Failed to load analytics:', e);
+        const setError = (id) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '<p class="empty-state">Failed to load data.</p>';
+        };
+        setError('tokenTrendsChart');
+        setError('costByToolChart');
+        setError('costByModelChart');
+        setError('dailySummaryTable');
     }
 }
 
