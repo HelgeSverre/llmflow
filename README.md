@@ -10,6 +10,8 @@ npx llmflow
 
 Dashboard: [localhost:3000](http://localhost:3000) · Proxy: [localhost:8080](http://localhost:8080)
 
+![LLMFlow Dashboard](art/screenshot-dark.png)
+
 ---
 
 ## Quick Start
