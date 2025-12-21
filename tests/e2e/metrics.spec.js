@@ -54,11 +54,22 @@ test.describe('Metrics Tab', () => {
     });
 
     test('type filter shows only sum metrics', async ({ page }) => {
-        await page.selectOption('[data-testid="metrics-type-filter"]', 'sum');
-        await page.waitForTimeout(300);
+        const metricsBody = page.locator('[data-testid="metrics-body"]');
         
-        // All visible metric badges should be sum type
-        const badges = page.locator('[data-testid="metrics-body"] .metric-badge');
+        await page.selectOption('[data-testid="metrics-type-filter"]', 'sum');
+        
+        // Wait for table to update - either shows sum badges or becomes empty
+        await expect(async () => {
+            const badges = metricsBody.locator('.metric-badge');
+            const count = await badges.count();
+            if (count > 0) {
+                const firstClass = await badges.first().getAttribute('class');
+                expect(firstClass).toContain('metric-sum');
+            }
+        }).toPass({ timeout: 5000 });
+        
+        // Verify all visible metric badges are sum type
+        const badges = metricsBody.locator('.metric-badge');
         const count = await badges.count();
         
         if (count > 0) {
@@ -70,10 +81,21 @@ test.describe('Metrics Tab', () => {
     });
 
     test('type filter shows only gauge metrics', async ({ page }) => {
-        await page.selectOption('[data-testid="metrics-type-filter"]', 'gauge');
-        await page.waitForTimeout(300);
+        const metricsBody = page.locator('[data-testid="metrics-body"]');
         
-        const badges = page.locator('[data-testid="metrics-body"] .metric-badge');
+        await page.selectOption('[data-testid="metrics-type-filter"]', 'gauge');
+        
+        // Wait for table to update
+        await expect(async () => {
+            const badges = metricsBody.locator('.metric-badge');
+            const count = await badges.count();
+            if (count > 0) {
+                const firstClass = await badges.first().getAttribute('class');
+                expect(firstClass).toContain('metric-gauge');
+            }
+        }).toPass({ timeout: 5000 });
+        
+        const badges = metricsBody.locator('.metric-badge');
         const count = await badges.count();
         
         if (count > 0) {
@@ -85,10 +107,21 @@ test.describe('Metrics Tab', () => {
     });
 
     test('type filter shows only histogram metrics', async ({ page }) => {
-        await page.selectOption('[data-testid="metrics-type-filter"]', 'histogram');
-        await page.waitForTimeout(300);
+        const metricsBody = page.locator('[data-testid="metrics-body"]');
         
-        const badges = page.locator('[data-testid="metrics-body"] .metric-badge');
+        await page.selectOption('[data-testid="metrics-type-filter"]', 'histogram');
+        
+        // Wait for table to update
+        await expect(async () => {
+            const badges = metricsBody.locator('.metric-badge');
+            const count = await badges.count();
+            if (count > 0) {
+                const firstClass = await badges.first().getAttribute('class');
+                expect(firstClass).toContain('metric-histogram');
+            }
+        }).toPass({ timeout: 5000 });
+        
+        const badges = metricsBody.locator('.metric-badge');
         const count = await badges.count();
         
         if (count > 0) {
@@ -100,23 +133,33 @@ test.describe('Metrics Tab', () => {
     });
 
     test('clear filters button resets all filters', async ({ page }) => {
+        const metricsBody = page.locator('[data-testid="metrics-body"]');
+        const typeFilter = page.locator('[data-testid="metrics-type-filter"]');
+        
         // Apply a filter
         await page.selectOption('[data-testid="metrics-type-filter"]', 'gauge');
-        await page.waitForTimeout(300);
         
-        const filteredCount = await page.locator('[data-testid="metrics-body"] tr').count();
+        // Wait for filter to apply
+        await expect(async () => {
+            const badges = metricsBody.locator('.metric-badge');
+            const count = await badges.count();
+            if (count > 0) {
+                const firstClass = await badges.first().getAttribute('class');
+                expect(firstClass).toContain('metric-gauge');
+            }
+        }).toPass({ timeout: 5000 });
+        
+        const filteredCount = await metricsBody.locator('tr').count();
         
         // Clear filters
         await page.click('[data-testid="metrics-clear-filters"]');
-        await page.waitForTimeout(300);
+        
+        // Wait for filter to reset
+        await expect(typeFilter).toHaveValue('');
         
         // Should have more or equal rows
-        const allCount = await page.locator('[data-testid="metrics-body"] tr').count();
+        const allCount = await metricsBody.locator('tr').count();
         expect(allCount).toBeGreaterThanOrEqual(filteredCount);
-        
-        // Filter should be reset
-        const typeValue = await page.locator('[data-testid="metrics-type-filter"]').inputValue();
-        expect(typeValue).toBe('');
     });
 
     test('metrics table shows type badges', async ({ page }) => {
