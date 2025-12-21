@@ -360,6 +360,52 @@ header {
     display: none;
 }
 
+/* Hero features row */
+.hero-features {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    padding: 24px 32px;
+    border-top: 1px solid var(--border-primary);
+    background: rgba(248, 250, 252, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] .hero-features {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.hero-feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hero-feature-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--accent-primary);
+    flex-shrink: 0;
+}
+
+.hero-feature-text h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.hero-feature-text p {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin: 0;
+}
+
 .hero h1 {
     font-size: 36px;
     font-weight: 700;
@@ -764,6 +810,17 @@ footer a:hover {
         max-width: 100%;
         border-radius: var(--radius-lg);
         border-right: 1px solid var(--border-primary);
+    }
+    
+    .hero-features {
+        position: relative;
+        flex-wrap: wrap;
+        gap: 24px 32px;
+        padding: 20px 16px;
+    }
+    
+    .hero-feature-text p {
+        display: none;
     }
     
     .section {

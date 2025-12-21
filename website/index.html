@@ -90,84 +90,81 @@
                 <img src="screenshot-dark.png" alt="LLMFlow Dashboard" class="screenshot-dark">
             </div>
         </div>
+        
+        <!-- Features row at bottom of hero -->
+        <div class="hero-features">
+            <div class="hero-feature">
+                <svg class="hero-feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <div class="hero-feature-text">
+                    <h3>Cost Tracking</h3>
+                    <p>Real-time pricing for 2000+ models</p>
+                </div>
+            </div>
+            <div class="hero-feature">
+                <svg class="hero-feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3v18h18"/>
+                    <path d="M18 17V9"/>
+                    <path d="M13 17V5"/>
+                    <path d="M8 17v-3"/>
+                </svg>
+                <div class="hero-feature-text">
+                    <h3>Request Logging</h3>
+                    <p>Every request, response, and latency</p>
+                </div>
+            </div>
+            <div class="hero-feature">
+                <svg class="hero-feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18"/>
+                    <path d="M8 7l4-4 4 4"/>
+                    <path d="M8 12H4"/>
+                    <path d="M20 12h-4"/>
+                    <path d="M8 17H4"/>
+                    <path d="M20 17h-4"/>
+                </svg>
+                <div class="hero-feature-text">
+                    <h3>Hierarchical Traces</h3>
+                    <p>Agents, chains, tools in a tree view</p>
+                </div>
+            </div>
+            <div class="hero-feature">
+                <svg class="hero-feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/>
+                    <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/>
+                    <circle cx="12" cy="12" r="2"/>
+                    <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/>
+                    <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>
+                </svg>
+                <div class="hero-feature-text">
+                    <h3>OpenTelemetry</h3>
+                    <p>LangChain, LlamaIndex, OTLP support</p>
+                </div>
+            </div>
+            <div class="hero-feature">
+                <svg class="hero-feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+                <div class="hero-feature-text">
+                    <h3>Zero Config</h3>
+                    <p>No API keys, no setup, no accounts</p>
+                </div>
+            </div>
+            <div class="hero-feature">
+                <svg class="hero-feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                </svg>
+                <div class="hero-feature-text">
+                    <h3>Local Storage</h3>
+                    <p>SQLite. Your data stays local.</p>
+                </div>
+            </div>
+        </div>
     </section>
 
     <div class="container">
-        <!-- Features -->
-        <section class="section" id="features">
-            <h2>Features</h2>
-            <div class="features-grid">
-                <div class="feature">
-                    <div class="feature-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                        </svg>
-                        <h3>Cost Tracking</h3>
-                    </div>
-                    <p>Real-time pricing for 2000+ models. See exactly what each request costs.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 3v18h18"/>
-                            <path d="M18 17V9"/>
-                            <path d="M13 17V5"/>
-                            <path d="M8 17v-3"/>
-                        </svg>
-                        <h3>Request Logging</h3>
-                    </div>
-                    <p>Every request, response, tokens, and latency. Searchable and filterable.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 3v18"/>
-                            <path d="M8 7l4-4 4 4"/>
-                            <path d="M8 12H4"/>
-                            <path d="M20 12h-4"/>
-                            <path d="M8 17H4"/>
-                            <path d="M20 17h-4"/>
-                        </svg>
-                        <h3>Hierarchical Traces</h3>
-                    </div>
-                    <p>See your agents, chains, tools, and LLM calls in a tree view.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/>
-                            <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/>
-                            <circle cx="12" cy="12" r="2"/>
-                            <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/>
-                            <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>
-                        </svg>
-                        <h3>OpenTelemetry</h3>
-                    </div>
-                    <p>Accept traces from LangChain, LlamaIndex, and any OTLP-compatible tool.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                        </svg>
-                        <h3>Zero Config</h3>
-                    </div>
-                    <p>Just run it and point your SDK. No API keys, no setup, no accounts.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                        </svg>
-                        <h3>Local Storage</h3>
-                    </div>
-                    <p>SQLite database. Your data stays on your machine. Query it however you want.</p>
-                </div>
-            </div>
-        </section>
-
         <!-- Quick Start -->
         <section class="section" id="quickstart">
             <h2>Quick Start</h2>
