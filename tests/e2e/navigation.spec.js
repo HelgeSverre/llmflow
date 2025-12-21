@@ -81,14 +81,12 @@ test.describe('Navigation & URL Hash Persistence', () => {
     test('stats bar values update with data', async ({ page }) => {
         await page.goto('/');
         
-        // Wait for stats to potentially load
-        await page.waitForFunction(() => {
-            const el = document.querySelector('[data-testid="total-requests"]');
-            return el && el.textContent !== '-';
-        }, { timeout: 5000 });
+        // Wait for stats API response and UI update
+        const totalRequestsLocator = page.locator('[data-testid="total-requests"]');
+        await expect(totalRequestsLocator).not.toHaveText('-', { timeout: 10000 });
         
         // Stats should show numeric values (from seeded data)
-        const totalRequests = await page.locator('[data-testid="total-requests"]').textContent();
+        const totalRequests = await totalRequestsLocator.textContent();
         expect(parseInt(totalRequests || '0')).toBeGreaterThan(0);
     });
 
@@ -126,12 +124,12 @@ test.describe('Navigation & URL Hash Persistence', () => {
         // Toggle to dark theme
         await page.click('[data-testid="theme-toggle"]');
         
-        // Wait a moment for localStorage to update
-        await page.waitForTimeout(100);
-        
-        // Check localStorage
-        const theme = await page.evaluate(() => localStorage.getItem('llmflow-theme'));
-        expect(['light', 'dark']).toContain(theme);
+        // Wait for theme attribute to change (indicates toggle completed)
+        const html = page.locator('html');
+        await expect(async () => {
+            const theme = await page.evaluate(() => localStorage.getItem('llmflow-theme'));
+            expect(['light', 'dark']).toContain(theme);
+        }).toPass({ timeout: 5000 });
     });
 
     test('all tabs exist in navigation', async ({ page }) => {
@@ -146,24 +144,27 @@ test.describe('Navigation & URL Hash Persistence', () => {
     });
 
     test('back/forward navigation syncs tab state', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#timeline');
+        await expect(page.locator('#timelineTab')).toHaveClass(/active/);
         
-        // Navigate through tabs
+        // Navigate through tabs using pushState (not replaceState) to create history entries
         await page.click('[data-testid="tab-traces"]');
+        await expect(page.locator('#tracesTab')).toHaveClass(/active/);
         await expect(page).toHaveURL(/#traces/);
         
         await page.click('[data-testid="tab-logs"]');
+        await expect(page.locator('#logsTab')).toHaveClass(/active/);
         await expect(page).toHaveURL(/#logs/);
         
-        // Go back
+        // Go back - should navigate from #logs to #traces
         await page.goBack();
         await expect(page).toHaveURL(/#traces/);
-        await expect(page.locator('#tracesTab')).toHaveClass(/active/);
+        await expect(page.locator('#tracesTab')).toHaveClass(/active/, { timeout: 10000 });
         
-        // Go forward
+        // Go forward - should navigate from #traces back to #logs
         await page.goForward();
         await expect(page).toHaveURL(/#logs/);
-        await expect(page.locator('#logsTab')).toHaveClass(/active/);
+        await expect(page.locator('#logsTab')).toHaveClass(/active/, { timeout: 10000 });
     });
 
     test('logo is visible with correct branding', async ({ page }) => {

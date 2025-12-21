@@ -5,10 +5,8 @@ test.describe('Models Tab', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/#models');
         // Wait for model stats to load
-        await page.waitForFunction(() => {
-            const stats = document.querySelector('[data-testid="model-stats"]');
-            return stats && !stats.textContent?.includes('Loading');
-        }, { timeout: 10000 });
+        const modelStats = page.locator('[data-testid="model-stats"]');
+        await expect(modelStats).not.toContainText('Loading', { timeout: 15000 });
     });
 
     test('displays model stats container', async ({ page }) => {

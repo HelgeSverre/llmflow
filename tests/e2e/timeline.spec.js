@@ -27,17 +27,24 @@ test.describe('Timeline Tab', () => {
     });
 
     test('search filter filters timeline items', async ({ page }) => {
-        // Search for specific text
-        await page.fill('[data-testid="timeline-search"]', 'Timeline E2E Hit');
-        await page.waitForTimeout(400);
+        const searchInput = page.locator('[data-testid="timeline-search"]');
+        const timelineList = page.locator('[data-testid="timeline-list"]');
         
-        const content = await page.locator('[data-testid="timeline-list"]').textContent();
-        // Should either find matching items or show fewer results
+        // Wait for API response after search input
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200),
+            searchInput.fill('Timeline E2E Hit')
+        ]);
+        
+        // Wait for list to update
+        await expect(timelineList).toBeVisible();
+        const content = await timelineList.textContent();
         expect(content).toBeDefined();
     });
 
     test('tool filter has expected options', async ({ page }) => {
         const options = page.locator('[data-testid="timeline-tool-filter"] option');
+        await expect(options).toHaveCount.call(expect(options.first()), await options.count());
         const count = await options.count();
         expect(count).toBeGreaterThan(1); // "All Tools" + tool options
         
@@ -49,45 +56,69 @@ test.describe('Timeline Tab', () => {
     });
 
     test('type filter shows only traces', async ({ page }) => {
-        await page.selectOption('[data-testid="timeline-type-filter"]', 'trace');
-        await page.waitForTimeout(300);
+        const typeFilter = page.locator('[data-testid="timeline-type-filter"]');
+        const timelineList = page.locator('[data-testid="timeline-list"]');
         
-        // List should still be visible
-        await expect(page.locator('[data-testid="timeline-list"]')).toBeVisible();
+        // Wait for API response after filter change
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200),
+            typeFilter.selectOption('trace')
+        ]);
+        
+        await expect(timelineList).toBeVisible();
     });
 
     test('type filter shows only logs', async ({ page }) => {
-        await page.selectOption('[data-testid="timeline-type-filter"]', 'log');
-        await page.waitForTimeout(300);
+        const typeFilter = page.locator('[data-testid="timeline-type-filter"]');
+        const timelineList = page.locator('[data-testid="timeline-list"]');
         
-        // List should still be visible
-        await expect(page.locator('[data-testid="timeline-list"]')).toBeVisible();
+        // Wait for API response after filter change
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200),
+            typeFilter.selectOption('log')
+        ]);
+        
+        await expect(timelineList).toBeVisible();
     });
 
     test('date filter limits results to time range', async ({ page }) => {
-        await page.selectOption('[data-testid="timeline-date-filter"]', '24h');
-        await page.waitForTimeout(300);
+        const dateFilter = page.locator('[data-testid="timeline-date-filter"]');
+        const timelineList = page.locator('[data-testid="timeline-list"]');
         
-        // Should still have visible timeline
-        await expect(page.locator('[data-testid="timeline-list"]')).toBeVisible();
+        // Wait for API response after filter change
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200),
+            dateFilter.selectOption('24h')
+        ]);
+        
+        await expect(timelineList).toBeVisible();
     });
 
     test('clear filters button resets all filters', async ({ page }) => {
-        // Apply some filters
-        await page.selectOption('[data-testid="timeline-type-filter"]', 'trace');
-        await page.fill('[data-testid="timeline-search"]', 'test');
-        await page.waitForTimeout(400);
+        const typeFilter = page.locator('[data-testid="timeline-type-filter"]');
+        const searchInput = page.locator('[data-testid="timeline-search"]');
+        const clearButton = page.locator('[data-testid="timeline-clear-filters"]');
         
-        // Clear filters
-        await page.click('[data-testid="timeline-clear-filters"]');
-        await page.waitForTimeout(300);
+        // Apply some filters and wait for API response
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200),
+            typeFilter.selectOption('trace')
+        ]);
+        
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200),
+            searchInput.fill('test')
+        ]);
+        
+        // Clear filters and wait for API response
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200),
+            clearButton.click()
+        ]);
         
         // Filters should be reset
-        const typeValue = await page.locator('[data-testid="timeline-type-filter"]').inputValue();
-        expect(typeValue).toBe('');
-        
-        const searchValue = await page.locator('[data-testid="timeline-search"]').inputValue();
-        expect(searchValue).toBe('');
+        await expect(typeFilter).toHaveValue('');
+        await expect(searchInput).toHaveValue('');
     });
 
     test('clicking timeline item updates detail panel', async ({ page }) => {
@@ -98,11 +129,9 @@ test.describe('Timeline Tab', () => {
         if (count > 0) {
             await items.first().click();
             
-            // Detail panel should update
-            await page.waitForFunction(() => {
-                const title = document.querySelector('[data-testid="timeline-detail-title"]');
-                return title && title.textContent !== 'Select an item';
-            }, { timeout: 5000 });
+            // Wait for detail title to update
+            const detailTitle = page.locator('[data-testid="timeline-detail-title"]');
+            await expect(detailTitle).not.toHaveText('Select an item', { timeout: 5000 });
             
             const data = await page.locator('[data-testid="timeline-detail-data"]').textContent();
             expect(data?.startsWith('{')).toBeTruthy();
@@ -116,12 +145,11 @@ test.describe('Timeline Tab', () => {
         if (count > 0) {
             await items.first().click();
             
-            await page.waitForFunction(() => {
-                const data = document.querySelector('[data-testid="timeline-detail-data"]');
-                return data && data.textContent !== '{}';
-            }, { timeout: 5000 });
+            // Wait for detail data to populate
+            const detailData = page.locator('[data-testid="timeline-detail-data"]');
+            await expect(detailData).not.toHaveText('{}', { timeout: 5000 });
             
-            const data = await page.locator('[data-testid="timeline-detail-data"]').textContent();
+            const data = await detailData.textContent();
             // Should be valid JSON
             expect(() => JSON.parse(data || '')).not.toThrow();
         }
