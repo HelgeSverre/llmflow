@@ -87,6 +87,7 @@ function init() {
     setupLogFilters();
     setupMetricFilters();
     setupTimelineFilters();
+    setupAnalyticsFilters();
     setupKeyboardShortcuts();
     loadModels();
     loadStats();
@@ -1508,9 +1509,4 @@ function getToolClass(provider, serviceName) {
     return 'tool-proxy';
 }
 
-// Initialize analytics filters when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupAnalyticsFilters);
-} else {
-    setupAnalyticsFilters();
-}
+
