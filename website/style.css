@@ -284,18 +284,19 @@ header {
 .hero {
     position: relative;
     min-height: 80vh;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 50vw;
     align-items: center;
-    padding: 64px 0;
     margin-bottom: 0;
+    overflow: hidden;
     background: 
-        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37, 99, 235, 0.15), transparent),
+        radial-gradient(ellipse 60% 60% at 20% 40%, rgba(37, 99, 235, 0.12), transparent),
         var(--bg-primary);
 }
 
 [data-theme="dark"] .hero {
     background: 
-        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.12), transparent),
+        radial-gradient(ellipse 60% 60% at 20% 40%, rgba(59, 130, 246, 0.1), transparent),
         var(--bg-primary);
 }
 
@@ -310,33 +311,40 @@ header {
 }
 
 .hero-inner {
-    width: 100%;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 48px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 64px;
-    align-items: center;
+    display: contents;
+}
+
+.hero-content {
+    padding: 64px 64px 64px calc((100vw - 1200px) / 2 + 16px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+@media (max-width: 1232px) {
+    .hero-content {
+        padding-left: 32px;
+    }
 }
 
 .hero-screenshot {
+    height: 100%;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    padding: 48px 0;
 }
 
 .hero-screenshot img {
     width: 100%;
-    max-width: 50vw;
-    border-radius: var(--radius-lg);
+    height: auto;
+    max-height: 80vh;
+    object-fit: cover;
+    object-position: left center;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
     border: 1px solid var(--border-primary);
+    border-right: none;
     box-shadow: var(--shadow-lg);
-}
-
-.hero-content {
-    display: flex;
-    flex-direction: column;
 }
 
 .hero h1 {
@@ -712,17 +720,12 @@ footer a:hover {
     
     .hero {
         min-height: auto;
-        padding: 40px 0;
-    }
-    
-    .hero-inner {
         grid-template-columns: 1fr;
-        gap: 32px;
-        padding: 0 16px;
-        text-align: center;
     }
     
     .hero-content {
+        padding: 40px 16px;
+        text-align: center;
         align-items: center;
     }
     
@@ -740,11 +743,14 @@ footer a:hover {
     
     .hero-screenshot {
         order: -1;
+        padding: 0 16px 32px;
         justify-content: center;
     }
     
     .hero-screenshot img {
         max-width: 100%;
+        border-radius: var(--radius-lg);
+        border-right: 1px solid var(--border-primary);
     }
     
     .section {
