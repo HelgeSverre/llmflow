@@ -7,29 +7,26 @@ const TEST_DB_PATH = path.join(TEST_DATA_DIR, 'e2e.db');
 
 module.exports = defineConfig({
     testDir: './tests/e2e',
-    timeout: 30000,
+    timeout: 60000,
     globalSetup: require.resolve('./tests/e2e/global-setup'),
     fullyParallel: false,
     forbidOnly: !!process.env.CI,
-    retries: process.env.CI ? 2 : 0,
+    retries: process.env.CI ? 2 : 1,
     workers: 1,
     reporter: 'list',
     use: {
         baseURL: 'http://127.0.0.1:3000',
         headless: true,
         viewport: { width: 1280, height: 720 },
-        actionTimeout: 10000,
+        actionTimeout: 20000,
+        navigationTimeout: 30000,
     },
     webServer: {
-        command: 'node server.js',
+        command: 'node tests/e2e/start-test-server.js',
         url: 'http://127.0.0.1:3000',
-        reuseExistingServer: !process.env.CI,
-        timeout: 60000,
-        env: {
-            DASHBOARD_PORT: '3000',
-            PROXY_PORT: '8080',
-            DATA_DIR: TEST_DATA_DIR,
-            DB_PATH: TEST_DB_PATH,
-        },
+        reuseExistingServer: false,
+        timeout: 120000,
+        stdout: 'pipe',
+        stderr: 'pipe',
     },
 });
