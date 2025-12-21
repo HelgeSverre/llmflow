@@ -82,31 +82,34 @@ test.describe('Analytics Tab', () => {
     });
 
     test('days filter triggers data reload', async ({ page }) => {
-        // Get initial content
-        const initialContent = await page.locator('[data-testid="daily-summary-table"]').textContent();
-        
-        // Change to 7 days
-        await page.selectOption('[data-testid="analytics-days-filter"]', '7');
-        
-        // Click refresh
-        await page.click('[data-testid="analytics-refresh"]');
-        
-        // Wait for reload
-        await page.waitForTimeout(500);
-        
-        // Content should still be present (may or may not change based on data)
-        const newContent = await page.locator('[data-testid="daily-summary-table"]').textContent();
-        expect(newContent?.length).toBeGreaterThan(5);
+        // Change to 7 days and wait for API response (should trigger automatically on change)
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/analytics') && resp.status() === 200),
+            page.selectOption('[data-testid="analytics-days-filter"]', '7')
+        ]);
+
+        // Wait for table to finish loading
+        await expect(page.locator('[data-testid="daily-summary-table"]')).not.toContainText('Loading');
+
+        // Content should be present
+        const content = await page.locator('[data-testid="daily-summary-table"]').textContent();
+        expect(content?.length).toBeGreaterThan(5);
     });
 
     test('refresh button reloads analytics data', async ({ page }) => {
-        // Click refresh
-        await page.click('[data-testid="analytics-refresh"]');
+        // Click refresh and wait for API response
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/analytics') && resp.status() === 200),
+            page.click('[data-testid="analytics-refresh"]')
+        ]);
         
-        // Wait for potential reload
-        await page.waitForTimeout(500);
+        // Wait for all charts to finish loading
+        await expect(page.locator('[data-testid="token-trends-chart"]')).not.toContainText('Loading');
+        await expect(page.locator('[data-testid="cost-by-tool-chart"]')).not.toContainText('Loading');
+        await expect(page.locator('[data-testid="cost-by-model-chart"]')).not.toContainText('Loading');
+        await expect(page.locator('[data-testid="daily-summary-table"]')).not.toContainText('Loading');
         
-        // All charts should still be visible and populated
+        // All charts should be visible and populated
         await expect(page.locator('[data-testid="token-trends-chart"]')).toBeVisible();
         await expect(page.locator('[data-testid="cost-by-tool-chart"]')).toBeVisible();
         await expect(page.locator('[data-testid="cost-by-model-chart"]')).toBeVisible();
@@ -147,16 +150,16 @@ test.describe('Analytics Tab', () => {
     });
 
     test('90 days filter shows extended date range', async ({ page }) => {
-        await page.selectOption('[data-testid="analytics-days-filter"]', '90');
-        await page.click('[data-testid="analytics-refresh"]');
-        
-        // Wait for update
-        await page.waitForFunction(() => {
-            const chart = document.querySelector('[data-testid="token-trends-chart"]');
-            return chart && !chart.textContent?.includes('Loading');
-        }, { timeout: 5000 });
-        
-        // Charts should still be visible
+        // Change to 90 days and wait for API response (should trigger automatically on change)
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/analytics') && resp.status() === 200),
+            page.selectOption('[data-testid="analytics-days-filter"]', '90')
+        ]);
+
+        // Wait for chart to finish loading
+        await expect(page.locator('[data-testid="token-trends-chart"]')).not.toContainText('Loading');
+
+        // Charts should be visible
         await expect(page.locator('[data-testid="token-trends-chart"]')).toBeVisible();
     });
 });
