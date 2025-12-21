@@ -276,7 +276,7 @@ header {
     position: relative;
     min-height: 94vh;
     display: grid;
-    grid-template-columns: 1fr 55vw;
+    grid-template-columns: 1fr 50vw;
     align-items: center;
     margin-bottom: 0;
     overflow: hidden;
@@ -324,11 +324,13 @@ header {
     display: flex;
     align-items: center;
     padding: 48px 0;
+    overflow: visible;
 }
 
 .hero-screenshot img {
-    width: 100%;
+    width: auto;
     height: auto;
+    min-width: 100%;
     max-height: 85vh;
     object-fit: cover;
     object-position: left center;
