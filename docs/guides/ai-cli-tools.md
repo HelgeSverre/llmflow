@@ -9,13 +9,13 @@ AI CLI tools can be integrated with LLMFlow in two ways:
 1. **Passthrough Proxy** - Forward native API requests through LLMFlow for logging
 2. **OTLP Telemetry** - Send OpenTelemetry logs/metrics directly to LLMFlow
 
-| Tool | Passthrough | OTLP Logs | OTLP Metrics |
-|------|-------------|-----------|--------------|
-| Claude Code | ✅ | ✅ | ✅ |
-| Codex CLI | ✅ | ✅ | - |
-| Gemini CLI | ✅ | ✅ | ✅ |
-| Aider | ✅ | - | - |
-| Cline | ✅ | - | - |
+| Tool        | Passthrough | OTLP Logs | OTLP Metrics |
+| ----------- | ----------- | --------- | ------------ |
+| Claude Code | ✅          | ✅        | ✅           |
+| Codex CLI   | ✅          | ✅        | -            |
+| Gemini CLI  | ✅          | ✅        | ✅           |
+| Aider       | ✅          | -         | -            |
+| Cline       | ✅          | -         | -            |
 
 ---
 
@@ -34,6 +34,7 @@ claude
 ```
 
 All requests will be proxied through LLMFlow with:
+
 - Full request/response logging
 - Token usage tracking
 - Cost calculation
@@ -153,12 +154,14 @@ export GEMINI_TELEMETRY_OTLP_PROTOCOL=http
 #### Exported Telemetry
 
 **Metrics:**
+
 - `gemini_cli.session.count`
 - `gemini_cli.tool.call.count`
 - `gemini_cli.api.request.count`
 - `gemini_cli.token.usage`
 
 **Logs:**
+
 - `gemini_cli.user_prompt`
 - `gemini_cli.tool_call`
 - `gemini_cli.api_request`
@@ -206,13 +209,13 @@ The LLMFlow dashboard includes a unified **Timeline** view that shows activity f
 
 ### Tool Colors
 
-| Tool | Color |
-|------|-------|
-| Claude Code | 🟣 Purple |
-| Codex CLI | 🟢 Green |
-| Gemini CLI | 🔵 Blue |
-| Aider | 🟠 Orange |
-| Proxy (other) | ⚪ Gray |
+| Tool          | Color     |
+| ------------- | --------- |
+| Claude Code   | 🟣 Purple |
+| Codex CLI     | 🟢 Green  |
+| Gemini CLI    | 🔵 Blue   |
+| Aider         | 🟠 Orange |
+| Proxy (other) | ⚪ Gray   |
 
 ---
 
@@ -241,6 +244,7 @@ The LLMFlow dashboard includes a unified **Timeline** view that shows activity f
    - Metrics: `http://localhost:3000/v1/metrics`
 
 2. Check protocol is set to HTTP/JSON (not gRPC):
+
    ```bash
    export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
    ```
@@ -250,6 +254,7 @@ The LLMFlow dashboard includes a unified **Timeline** view that shows activity f
 ### Tool not detected correctly
 
 LLMFlow auto-detects tools based on:
+
 - Provider name (e.g., `anthropic-passthrough`)
 - Service name in OTLP telemetry
 - Event name patterns

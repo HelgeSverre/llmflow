@@ -14,22 +14,26 @@ LangChain is configured to send OpenAI API calls through the LLMFlow proxy at `h
 ## Setup
 
 1. Start LLMFlow from the project root:
+
    ```bash
    npm install
    npm start
    ```
 
 2. Install example dependencies:
+
    ```bash
    npm install
    ```
 
 3. Set your OpenAI API key in `.env` at the project root:
+
    ```bash
    OPENAI_API_KEY=sk-your-key
    ```
 
 4. Run the example:
+
    ```bash
    npm start
    ```
@@ -39,15 +43,15 @@ LangChain is configured to send OpenAI API calls through the LLMFlow proxy at `h
 ## Key Code
 
 ```javascript
-import { ChatOpenAI } from '@langchain/openai';
+import { ChatOpenAI } from "@langchain/openai";
 
 // Configure LangChain to use LLMFlow proxy
 const model = new ChatOpenAI({
-    modelName: 'gpt-4o-mini',
-    temperature: 0.7,
-    configuration: {
-        baseURL: 'http://localhost:8080/v1'
-    }
+  modelName: "gpt-4o-mini",
+  temperature: 0.7,
+  configuration: {
+    baseURL: "http://localhost:8080/v1",
+  },
 });
 ```
 
@@ -64,8 +68,8 @@ LLMFlow automatically captures:
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LLMFLOW_PROXY` | `http://localhost:8080/v1` | LLMFlow proxy URL |
-| `LLMFLOW_DASHBOARD` | `http://localhost:3000` | Dashboard URL for viewing traces |
-| `OPENAI_API_KEY` | (required) | Your OpenAI API key |
+| Variable            | Default                    | Description                      |
+| ------------------- | -------------------------- | -------------------------------- |
+| `LLMFLOW_PROXY`     | `http://localhost:8080/v1` | LLMFlow proxy URL                |
+| `LLMFLOW_DASHBOARD` | `http://localhost:3000`    | Dashboard URL for viewing traces |
+| `OPENAI_API_KEY`    | (required)                 | Your OpenAI API key              |

@@ -5,10 +5,11 @@
 ## Quick Start
 
 1. Start Opik:
+
    ```bash
    docker compose up -d
    ```
-   
+
    **Note**: Opik has a slow startup time (30-60 seconds). Wait for it to be ready.
 
 2. Create account at http://localhost:5173:
@@ -17,12 +18,14 @@
    - Get your API key from settings
 
 3. Configure LLMFlow (add to `.env` in project root):
+
    ```bash
    OTLP_EXPORT_ENDPOINT=http://localhost:8081/api/v1/private/otel/v1/traces
    # OTLP_EXPORT_HEADERS=Authorization=your-api-key,projectName=your-project
    ```
 
 4. Restart LLMFlow:
+
    ```bash
    npm start
    ```
@@ -45,6 +48,7 @@ OTLP_EXPORT_HEADERS=Authorization=your-api-key,projectName=your-project,Comet-Wo
 ## Features
 
 Opik provides:
+
 - LLM trace visualization
 - Experiment tracking and comparison
 - Dataset management

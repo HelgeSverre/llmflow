@@ -5,16 +5,19 @@
 ## Quick Start
 
 1. Start Jaeger:
+
    ```bash
    docker compose up -d
    ```
 
 2. Configure LLMFlow (add to `.env` in project root):
+
    ```bash
    OTLP_EXPORT_ENDPOINT=http://localhost:4318/v1/traces
    ```
 
 3. Restart LLMFlow:
+
    ```bash
    npm start
    ```
@@ -27,8 +30,8 @@
 
 ## Configuration
 
-| Environment Variable | Value | Description |
-|---------------------|-------|-------------|
+| Environment Variable   | Value                             | Description               |
+| ---------------------- | --------------------------------- | ------------------------- |
 | `OTLP_EXPORT_ENDPOINT` | `http://localhost:4318/v1/traces` | Jaeger OTLP HTTP endpoint |
 
 ## Viewing Traces

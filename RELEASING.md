@@ -15,11 +15,13 @@ LLMFlow follows [Semantic Versioning](https://semver.org/):
 Before creating a release:
 
 1. **Run tests**
+
    ```bash
    npm test
    ```
 
 2. **Test the demo**
+
    ```bash
    npm start &
    npm run demo
@@ -68,6 +70,7 @@ git push origin v0.X.X
 ```
 
 Then on GitHub:
+
 1. Go to [Releases](https://github.com/HelgeSverre/llmflow/releases)
 2. Click "Draft a new release"
 3. Select the tag you just pushed
@@ -76,7 +79,7 @@ Then on GitHub:
 
 ### Release Notes Template
 
-```markdown
+````markdown
 ## What's New
 
 - Feature 1 description
@@ -96,11 +99,13 @@ Then on GitHub:
 git pull origin main
 npm install
 ```
+````
 
 ## Full Changelog
 
 [v0.X.X...v0.Y.Y](https://github.com/HelgeSverre/llmflow/compare/v0.X.X...v0.Y.Y)
-```
+
+````
 
 ## Publishing the SDK to npm (Optional)
 
@@ -114,9 +119,10 @@ npm login
 
 # Publish
 npm publish --access public
-```
+````
 
 Then users can install via:
+
 ```bash
 npm install llmflow-sdk
 ```

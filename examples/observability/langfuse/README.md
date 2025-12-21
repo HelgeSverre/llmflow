@@ -5,6 +5,7 @@
 ## Quick Start
 
 1. Start Langfuse:
+
    ```bash
    docker compose up -d
    ```
@@ -17,6 +18,7 @@
    - Copy the Public Key and Secret Key
 
 3. Configure LLMFlow (add to `.env` in project root):
+
    ```bash
    # Base64 encode your keys: echo -n "pk_xxx:sk_xxx" | base64
    OTLP_EXPORT_ENDPOINT=http://localhost:3001/api/public/otel/v1/traces
@@ -24,6 +26,7 @@
    ```
 
 4. Restart LLMFlow:
+
    ```bash
    npm start
    ```
@@ -39,12 +42,14 @@
 For the hosted version:
 
 ### EU Region (cloud.langfuse.com)
+
 ```bash
 OTLP_EXPORT_ENDPOINT=https://cloud.langfuse.com/api/public/otel/v1/traces
 OTLP_EXPORT_HEADERS=Authorization=Basic $(echo -n 'pk_xxx:sk_xxx' | base64)
 ```
 
 ### US Region (us.cloud.langfuse.com)
+
 ```bash
 OTLP_EXPORT_ENDPOINT=https://us.cloud.langfuse.com/api/public/otel/v1/traces
 OTLP_EXPORT_HEADERS=Authorization=Basic $(echo -n 'pk_xxx:sk_xxx' | base64)
@@ -53,6 +58,7 @@ OTLP_EXPORT_HEADERS=Authorization=Basic $(echo -n 'pk_xxx:sk_xxx' | base64)
 ## Features
 
 Langfuse provides:
+
 - LLM trace visualization
 - Prompt versioning and management
 - A/B testing prompts

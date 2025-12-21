@@ -5,16 +5,19 @@
 ## Quick Start
 
 1. Start Phoenix:
+
    ```bash
    docker compose up -d
    ```
 
 2. Configure LLMFlow (add to `.env` in project root):
+
    ```bash
    OTLP_EXPORT_ENDPOINT=http://localhost:6006/v1/traces
    ```
 
 3. Restart LLMFlow:
+
    ```bash
    npm start
    ```
@@ -38,6 +41,7 @@ OTLP_EXPORT_HEADERS=api_key=your-api-key
 ## Features
 
 Phoenix provides:
+
 - LLM trace visualization
 - Token usage analytics
 - Span performance metrics

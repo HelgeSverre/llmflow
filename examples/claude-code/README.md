@@ -7,6 +7,7 @@ This example explores how to monitor Claude Code with OpenTelemetry.
 **Claude Code exports OTEL metrics and logs, NOT traces.**
 
 LLMFlow currently only supports trace ingestion (`/v1/traces`). Claude Code's telemetry uses:
+
 - `/v1/metrics` - for metrics like token usage, costs, session counts
 - `/v1/logs` - for events like user prompts, tool calls, API requests
 
@@ -17,6 +18,7 @@ This means **Claude Code's OTEL export doesn't work directly with LLMFlow's curr
 When you enable `CLAUDE_CODE_ENABLE_TELEMETRY=1`, Claude Code exports:
 
 ### Metrics
+
 - `claude_code.session.count` - CLI sessions started
 - `claude_code.token.usage` - Token usage (input/output/cache)
 - `claude_code.cost.usage` - Cost by model
@@ -26,6 +28,7 @@ When you enable `CLAUDE_CODE_ENABLE_TELEMETRY=1`, Claude Code exports:
 - `claude_code.code_edit_tool.decision` - Tool permission decisions
 
 ### Events (Logs)
+
 - `claude_code.user_prompt` - User prompt submissions
 - `claude_code.tool_result` - Tool execution results
 - `claude_code.api_request` - API requests with duration and tokens
@@ -62,6 +65,7 @@ See the [official docs](https://docs.anthropic.com/en/docs/claude-code/monitorin
 ### Option 3: Extend LLMFlow
 
 LLMFlow could be extended to support:
+
 - `/v1/metrics` endpoint for OTLP metrics
 - `/v1/logs` endpoint for OTLP logs
 
@@ -70,6 +74,7 @@ This would require implementing the OTLP metrics and logs protocols.
 ### Option 4: Use a Proxy (Not Supported)
 
 Claude Code uses the native Anthropic API format, not OpenAI-compatible format. The LLMFlow proxy expects OpenAI-style requests. You would need:
+
 - A proxy that translates Anthropic format to/from OpenAI format
 - Or modify LLMFlow's Anthropic provider to pass through native requests
 
@@ -90,21 +95,22 @@ chmod +x run-with-llmflow.sh
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `CLAUDE_CODE_ENABLE_TELEMETRY` | Enable telemetry (`1`) |
-| `OTEL_METRICS_EXPORTER` | `console`, `otlp`, `prometheus` |
-| `OTEL_LOGS_EXPORTER` | `console`, `otlp` |
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc`, `http/json`, `http/protobuf` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint |
-| `OTEL_EXPORTER_OTLP_HEADERS` | Auth headers |
-| `OTEL_METRIC_EXPORT_INTERVAL` | Export interval in ms (default: 60000) |
-| `OTEL_LOGS_EXPORT_INTERVAL` | Logs export interval in ms (default: 5000) |
-| `OTEL_LOG_USER_PROMPTS` | Include prompt content in logs (`1`) |
+| Variable                       | Description                                |
+| ------------------------------ | ------------------------------------------ |
+| `CLAUDE_CODE_ENABLE_TELEMETRY` | Enable telemetry (`1`)                     |
+| `OTEL_METRICS_EXPORTER`        | `console`, `otlp`, `prometheus`            |
+| `OTEL_LOGS_EXPORTER`           | `console`, `otlp`                          |
+| `OTEL_EXPORTER_OTLP_PROTOCOL`  | `grpc`, `http/json`, `http/protobuf`       |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`  | OTLP collector endpoint                    |
+| `OTEL_EXPORTER_OTLP_HEADERS`   | Auth headers                               |
+| `OTEL_METRIC_EXPORT_INTERVAL`  | Export interval in ms (default: 60000)     |
+| `OTEL_LOGS_EXPORT_INTERVAL`    | Logs export interval in ms (default: 5000) |
+| `OTEL_LOG_USER_PROMPTS`        | Include prompt content in logs (`1`)       |
 
 ## Isolated Configuration
 
 The script uses `CLAUDE_CONFIG_DIR` to avoid affecting your normal Claude Code setup:
+
 - Config stored in `./.claude-config/`
 - May need to authenticate: set `ANTHROPIC_API_KEY` in project root `.env`
 
