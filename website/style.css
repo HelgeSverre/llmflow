@@ -438,6 +438,136 @@ pre code {
 }
 
 /* ============================================
+   Hero Install Block
+============================================ */
+.hero-install {
+    margin: var(--space-md) auto;
+    max-width: 400px;
+}
+
+.code-block-hero pre {
+    background: #1a1a2e;
+    border-color: #27272a;
+    text-align: center;
+    padding: var(--space-md);
+}
+
+.code-block-hero code {
+    color: #22d3ee;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.hero-note {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+
+.hero-note code {
+    color: var(--color-accent);
+}
+
+/* ============================================
+   Who Section
+============================================ */
+.who-section {
+    text-align: center;
+}
+
+.who-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+}
+
+.who-card {
+    padding: var(--space-md);
+}
+
+.who-icon {
+    font-size: 2.5rem;
+    margin-bottom: var(--space-xs);
+}
+
+.who-card h3 {
+    color: var(--color-text);
+}
+
+.who-card p {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+/* ============================================
+   Providers Grid
+============================================ */
+.providers-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    justify-content: center;
+    margin-top: var(--space-md);
+}
+
+.provider {
+    padding: 0.5rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+/* ============================================
+   CTA Section
+============================================ */
+.cta {
+    text-align: center;
+    padding: var(--space-xl) 0;
+    margin-top: var(--space-xl);
+    border-top: 1px solid var(--color-border);
+}
+
+.cta h2 {
+    margin-bottom: var(--space-md);
+}
+
+.cta .code-block-hero {
+    margin: var(--space-md) auto;
+    max-width: 400px;
+}
+
+.cta-links {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: center;
+    margin-top: var(--space-md);
+}
+
+/* ============================================
+   Button Small
+============================================ */
+.btn-small {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
+/* ============================================
+   Step Alt Text
+============================================ */
+.step-alt {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-top: var(--space-xs);
+}
+
+.step-alt code {
+    font-size: 0.75rem;
+}
+
+/* ============================================
    Footer
 ============================================ */
 footer {
