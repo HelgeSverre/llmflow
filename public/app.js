@@ -1,6 +1,6 @@
 // State
 const validTabs = ['timeline', 'traces', 'logs', 'metrics', 'models', 'analytics'];
-let currentTab = getTabFromHash() || 'timeline';
+let currentTab = 'timeline';
 let traces = [];
 let logs = [];
 let stats = {};
@@ -50,7 +50,10 @@ function getTabFromHash() {
 
 function setTabHash(tab) {
     if (validTabs.includes(tab)) {
-        history.replaceState(null, '', '#' + tab);
+        // Use pushState to create history entries for back/forward navigation
+        if (window.location.hash !== '#' + tab) {
+            history.pushState(null, '', '#' + tab);
+        }
     }
 }
 
@@ -96,6 +99,7 @@ function init() {
     initWebSocket();
 
     // Load initial tab from hash or default to timeline
+    currentTab = getTabFromHash() || 'timeline';
     showTab(currentTab);
 
     // Polling as fallback (less frequent since we have WebSocket)
@@ -302,15 +306,15 @@ async function loadTraces() {
         }
 
         tbody.innerHTML = traces.map(t => `
-            <tr class="trace-row ${t.id === selectedTraceId ? 'selected' : ''}" onclick="selectTrace('${t.id}', this)">
-                <td>${formatTime(t.timestamp)}</td>
-                <td><span class="span-badge span-${t.span_type || 'llm'}">${t.span_type || 'llm'}</span></td>
-                <td>${escapeHtml(t.span_name || '-')}</td>
-                <td>${t.model ? `<span class="model-badge">${escapeHtml(t.model)}</span>` : '-'}</td>
-                <td>${formatNumber(t.total_tokens || 0)}</td>
-                <td>$${(t.estimated_cost || 0).toFixed(4)}</td>
-                <td>${t.duration_ms || 0}ms</td>
-                <td class="${(t.status || 200) < 400 ? 'status-success' : 'status-error'}">${t.status || 200}</td>
+            <tr class="trace-row ${t.id === selectedTraceId ? 'selected' : ''}" data-testid="trace-row" data-trace-id="${t.id}" onclick="selectTrace('${t.id}', this)">
+                <td data-testid="trace-time">${formatTime(t.timestamp)}</td>
+                <td data-testid="trace-type"><span class="span-badge span-${t.span_type || 'llm'}">${t.span_type || 'llm'}</span></td>
+                <td data-testid="trace-name">${escapeHtml(t.span_name || '-')}</td>
+                <td data-testid="trace-model">${t.model ? `<span class="model-badge">${escapeHtml(t.model)}</span>` : '-'}</td>
+                <td data-testid="trace-tokens">${formatNumber(t.total_tokens || 0)}</td>
+                <td data-testid="trace-cost">$${(t.estimated_cost || 0).toFixed(4)}</td>
+                <td data-testid="trace-latency">${t.duration_ms || 0}ms</td>
+                <td data-testid="trace-status" class="${(t.status || 200) < 400 ? 'status-success' : 'status-error'}">${t.status || 200}</td>
             </tr>
         `).join('');
     } catch (e) {
@@ -693,10 +697,12 @@ async function loadMetricsSummary() {
 
         const container = document.getElementById('metricsSummary');
         if (!metricsSummary || metricsSummary.length === 0) {
-            container.innerHTML = '<p class="empty-state">No metrics yet. Send OTLP metrics to /v1/metrics</p>';
+            container.style.display = 'none';
+            container.innerHTML = '';
             return;
         }
 
+        container.style.display = '';
         container.innerHTML = metricsSummary.slice(0, 8).map(m => `
             <div class="metric-card">
                 <div class="metric-card-header">
