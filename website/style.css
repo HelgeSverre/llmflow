@@ -90,7 +90,7 @@ body {
 .container {
     max-width: 960px;
     margin: 0 auto;
-    padding: 16px;
+    padding: 24px 16px;
 }
 
 a {
@@ -276,7 +276,7 @@ header {
     position: relative;
     min-height: 94vh;
     display: grid;
-    grid-template-columns: 1fr 50vw;
+    grid-template-columns: 1fr 55vw;
     align-items: center;
     margin-bottom: 0;
     overflow: hidden;
@@ -329,7 +329,7 @@ header {
 .hero-screenshot img {
     width: 100%;
     height: auto;
-    max-height: 80vh;
+    max-height: 85vh;
     object-fit: cover;
     object-position: left center;
     border-radius: var(--radius-lg) 0 0 var(--radius-lg);
@@ -457,7 +457,7 @@ header {
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-lg);
     padding: 36px;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
     box-shadow: var(--shadow-sm);
 }
 
