@@ -818,6 +818,10 @@ function getDailyStats({ days = 30 } = {}) {
     `).all({ bucketSize, fromTs });
 }
 
+function close() {
+    db.close();
+}
+
 module.exports = {
     insertTrace,
     getTraces,
@@ -853,5 +857,7 @@ module.exports = {
     getDailyStats,
     // Constants
     DB_PATH,
-    DATA_DIR
+    DATA_DIR,
+    // Lifecycle
+    close
 };
