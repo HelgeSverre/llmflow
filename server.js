@@ -228,24 +228,23 @@ function createProxyHandler() {
                         res.setHeader(key, value);
                     });
 
-                    let fullContent = '';
-                    let finalUsage = null;
+                    let streamBuffer = ''; // Buffer full stream for proper parsing
                     let chunkCount = 0;
 
                     upstreamRes.on('data', (chunk) => {
-                        const text = chunk.toString('utf8');
                         chunkCount++;
-                        
+                        streamBuffer += chunk.toString('utf8');
                         res.write(chunk);
-
-                        // Parse chunks through provider
-                        const parsed = provider.parseStreamChunk(text);
-                        if (parsed.content) fullContent += parsed.content;
-                        if (parsed.usage) finalUsage = parsed.usage;
                     });
 
                     upstreamRes.on('end', () => {
                         const duration = Date.now() - startTime;
+                        
+                        // Parse once over the complete SSE stream for accurate extraction
+                        const parsed = provider.parseStreamChunk(streamBuffer);
+                        const fullContent = parsed.content || '';
+                        const finalUsage = parsed.usage;
+                        
                         const usage = finalUsage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
                         const cost = calculateCost(req.body?.model || 'unknown', usage.prompt_tokens, usage.completion_tokens);
 
@@ -269,7 +268,7 @@ function createProxyHandler() {
                             status: upstreamRes.statusCode,
                             headers: upstreamRes.headers,
                             data: assembledResponse,
-                            usage: finalUsage,
+                            usage: usage,
                             model: req.body?.model
                         }, duration, null, provider.name);
 
@@ -331,26 +330,39 @@ function createPassthroughHandler(handler) {
 
             const upstreamReq = httpModule.request(options, (upstreamRes) => {
                 if (!isStreaming) {
-                    // Non-streaming: buffer entire response
+                    // Non-streaming: buffer for logging while forwarding raw bytes
                     let responseBody = '';
+
+                    // Set response status and headers immediately for passthrough
+                    res.status(upstreamRes.statusCode);
+                    Object.entries(upstreamRes.headers).forEach(([key, value]) => {
+                        if (key.toLowerCase() !== 'content-length' && 
+                            key.toLowerCase() !== 'transfer-encoding') {
+                            res.setHeader(key, value);
+                        }
+                    });
 
                     upstreamRes.on('data', (chunk) => {
                         responseBody += chunk;
+                        res.write(chunk); // Forward raw bytes immediately (passthrough)
                     });
 
                     upstreamRes.on('end', () => {
+                        res.end(); // Complete the response first
+                        
                         const duration = Date.now() - startTime;
-                        let rawResponse;
+                        let parsedResponse = null;
                         
                         try {
-                            rawResponse = JSON.parse(responseBody);
+                            parsedResponse = JSON.parse(responseBody);
                         } catch (e) {
-                            rawResponse = { error: 'Invalid JSON response', body: responseBody };
+                            // Failed to parse - still log the raw body for debugging
+                            parsedResponse = null;
                         }
 
-                        // Extract usage from native response format
-                        const usage = handler.defaultExtractUsage(rawResponse);
-                        const model = handler.defaultIdentifyModel(req.body, rawResponse);
+                        // Extract usage from native response format (for logging only)
+                        const usage = parsedResponse ? handler.defaultExtractUsage(parsedResponse) : { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+                        const model = handler.defaultIdentifyModel(req.body, parsedResponse);
                         const cost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens);
 
                         log.proxy({
@@ -366,48 +378,36 @@ function createPassthroughHandler(handler) {
                         logInteraction(traceId, req, {
                             status: upstreamRes.statusCode,
                             headers: upstreamRes.headers,
-                            data: rawResponse,
+                            data: parsedResponse || { _raw: responseBody.substring(0, 10000) },
                             usage: usage,
                             model: model
                         }, duration, null, handler.name);
-
-                        // Return original response as-is (no normalization)
-                        res.status(upstreamRes.statusCode);
-                        Object.entries(upstreamRes.headers).forEach(([key, value]) => {
-                            if (key.toLowerCase() !== 'content-length' && 
-                                key.toLowerCase() !== 'transfer-encoding') {
-                                res.setHeader(key, value);
-                            }
-                        });
-                        res.json(rawResponse);
                     });
                 } else {
-                    // Streaming: forward chunks while extracting usage
+                    // Streaming: forward chunks while buffering for usage extraction
                     res.status(upstreamRes.statusCode);
                     Object.entries(upstreamRes.headers).forEach(([key, value]) => {
                         res.setHeader(key, value);
                     });
 
-                    let fullContent = '';
-                    let finalUsage = null;
+                    let streamBuffer = ''; // Buffer full stream for proper parsing
                     let chunkCount = 0;
 
                     upstreamRes.on('data', (chunk) => {
-                        const text = chunk.toString('utf8');
                         chunkCount++;
-                        
-                        // Forward chunk immediately (passthrough)
-                        res.write(chunk);
-
-                        // Parse chunk for usage extraction
-                        const parsed = handler.defaultParseStreamChunk(text);
-                        if (parsed.content) fullContent += parsed.content;
-                        if (parsed.usage) finalUsage = parsed.usage;
+                        streamBuffer += chunk.toString('utf8');
+                        res.write(chunk); // Forward immediately (passthrough)
                     });
 
                     upstreamRes.on('end', () => {
                         const duration = Date.now() - startTime;
                         const model = handler.defaultIdentifyModel(req.body, {});
+                        
+                        // Parse once over the complete SSE stream for accurate extraction
+                        const parsed = handler.defaultParseStreamChunk(streamBuffer);
+                        const fullContent = parsed.content || '';
+                        const finalUsage = parsed.usage;
+                        
                         const usage = finalUsage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
                         const cost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens);
 
@@ -427,7 +427,7 @@ function createPassthroughHandler(handler) {
                             id: traceId,
                             model: model,
                             content: fullContent,
-                            usage: finalUsage,
+                            usage: usage,
                             _streaming: true,
                             _chunks: chunkCount,
                             _passthrough: true
@@ -437,7 +437,7 @@ function createPassthroughHandler(handler) {
                             status: upstreamRes.statusCode,
                             headers: upstreamRes.headers,
                             data: assembledResponse,
-                            usage: finalUsage,
+                            usage: usage,
                             model: model
                         }, duration, null, handler.name);
 
@@ -692,6 +692,8 @@ dashboardApp.get('/api/traces', (req, res) => {
         if (req.query.date_to) filters.date_to = parseInt(req.query.date_to, 10);
         if (req.query.cost_min) filters.cost_min = parseFloat(req.query.cost_min);
         if (req.query.cost_max) filters.cost_max = parseFloat(req.query.cost_max);
+        if (req.query.provider) filters.provider = req.query.provider;
+        if (req.query.tag) filters.tag = req.query.tag;
 
         const traces = db.getTraces({ limit, offset, filters });
         log.dashboard('GET', '/api/traces', Date.now() - start);
@@ -776,6 +778,7 @@ dashboardApp.get('/api/traces/export', (req, res) => {
         if (req.query.date_from) filters.date_from = parseInt(req.query.date_from, 10);
         if (req.query.date_to) filters.date_to = parseInt(req.query.date_to, 10);
         if (req.query.tag) filters.tag = req.query.tag;
+        if (req.query.provider) filters.provider = req.query.provider;
         
         const traces = db.getTraces({ limit, offset: 0, filters });
         

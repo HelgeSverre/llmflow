@@ -344,6 +344,16 @@ function getTraces({ limit = 50, offset = 0, filters = {} } = {}) {
         params.span_type = filters.span_type;
     }
 
+    if (filters.provider) {
+        where.push('provider = @provider');
+        params.provider = filters.provider;
+    }
+
+    if (filters.tag) {
+        where.push('tags LIKE @tag');
+        params.tag = `%${filters.tag}%`;
+    }
+
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const stmt = db.prepare(`
         SELECT 
@@ -727,12 +737,25 @@ function getDistinctMetricServices() {
 
 // ==================== Analytics Functions ====================
 
+function formatDateLabel(timestamp, interval) {
+    const date = new Date(timestamp);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    if (interval === 'day') {
+        return `${year}-${month}-${day}`;
+    }
+    const hour = String(date.getUTCHours()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hour}:00`;
+}
+
 function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
-    const fromTs = Date.now() - (days * 24 * 60 * 60 * 1000);
-    
+    const now = Date.now();
+    const fromTs = now - (days * 24 * 60 * 60 * 1000);
+
     let bucketSize;
     let dateFormat;
-    
+
     switch (interval) {
         case 'day':
             bucketSize = 24 * 60 * 60 * 1000;
@@ -744,10 +767,12 @@ function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
             dateFormat = '%Y-%m-%d %H:00';
             break;
     }
-    
-    return db.prepare(`
-        SELECT 
-            (timestamp / @bucketSize) * @bucketSize as bucket,
+
+    // Get actual data from database
+    // Use CAST to ensure integer division for proper bucket alignment
+    const data = db.prepare(`
+        SELECT
+            CAST(timestamp / @bucketSize AS INTEGER) * @bucketSize as bucket,
             strftime(@dateFormat, timestamp / 1000, 'unixepoch') as label,
             SUM(prompt_tokens) as prompt_tokens,
             SUM(completion_tokens) as completion_tokens,
@@ -759,6 +784,33 @@ function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
         GROUP BY bucket
         ORDER BY bucket ASC
     `).all({ bucketSize, dateFormat, fromTs });
+
+    // Create a map for quick lookup
+    const dataMap = new Map(data.map(d => [d.bucket, d]));
+
+    // Generate all buckets and fill gaps with zeros
+    const result = [];
+    const startBucket = Math.floor(fromTs / bucketSize) * bucketSize;
+    const endBucket = Math.floor(now / bucketSize) * bucketSize;
+
+    for (let bucket = startBucket; bucket <= endBucket; bucket += bucketSize) {
+        const existing = dataMap.get(bucket);
+        if (existing) {
+            result.push(existing);
+        } else {
+            result.push({
+                bucket,
+                label: formatDateLabel(bucket, interval),
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                total_cost: 0,
+                request_count: 0
+            });
+        }
+    }
+
+    return result;
 }
 
 function getCostByTool({ days = 30 } = {}) {
@@ -801,12 +853,15 @@ function getCostByModel({ days = 30 } = {}) {
 }
 
 function getDailyStats({ days = 30 } = {}) {
-    const fromTs = Date.now() - (days * 24 * 60 * 60 * 1000);
+    const now = Date.now();
+    const fromTs = now - (days * 24 * 60 * 60 * 1000);
     const bucketSize = 24 * 60 * 60 * 1000;
-    
-    return db.prepare(`
-        SELECT 
-            (timestamp / @bucketSize) * @bucketSize as bucket,
+
+    // Get actual data from database
+    // Use CAST to ensure integer division for proper bucket alignment
+    const data = db.prepare(`
+        SELECT
+            CAST(timestamp / @bucketSize AS INTEGER) * @bucketSize as bucket,
             strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch') as date,
             SUM(total_tokens) as tokens,
             SUM(estimated_cost) as cost,
@@ -816,6 +871,31 @@ function getDailyStats({ days = 30 } = {}) {
         GROUP BY bucket
         ORDER BY bucket ASC
     `).all({ bucketSize, fromTs });
+
+    // Create a map for quick lookup
+    const dataMap = new Map(data.map(d => [d.bucket, d]));
+
+    // Generate all buckets and fill gaps with zeros
+    const result = [];
+    const startBucket = Math.floor(fromTs / bucketSize) * bucketSize;
+    const endBucket = Math.floor(now / bucketSize) * bucketSize;
+
+    for (let bucket = startBucket; bucket <= endBucket; bucket += bucketSize) {
+        const existing = dataMap.get(bucket);
+        if (existing) {
+            result.push(existing);
+        } else {
+            result.push({
+                bucket,
+                date: formatDateLabel(bucket, 'day'),
+                tokens: 0,
+                cost: 0,
+                requests: 0
+            });
+        }
+    }
+
+    return result;
 }
 
 function close() {
