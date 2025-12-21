@@ -338,6 +338,9 @@ header {
     border: 1px solid var(--border-primary);
     border-right: none;
     box-shadow: var(--shadow-lg);
+    transform: scale(1.25);
+    transform-origin: left center;
+    transition: transform 200ms ease-in-out;
 }
 
 /* Screenshot theme switching */
