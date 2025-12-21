@@ -114,9 +114,7 @@ a:hover {
     background: transparent;
 }
 
-.header-spacer {
-    height: 72px;
-}
+
 
 header {
     max-width: 1200px;
@@ -276,7 +274,7 @@ header {
 /* Hero - full width with gradient */
 .hero {
     position: relative;
-    min-height: 80vh;
+    min-height: 94vh;
     display: grid;
     grid-template-columns: 1fr 50vw;
     align-items: center;
