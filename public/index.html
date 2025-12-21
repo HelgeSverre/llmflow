@@ -4,25 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LLMFlow</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233B82F6' stroke-width='2'><path d='M12 2L2 7l10 5 10-5-10-5z'/><path d='M2 17l10 5 10-5'/><path d='M2 12l10 5 10-5'/></svg>">
     <link rel="stylesheet" href="style.css" />
     <script defer src="app.js"></script>
   </head>
   <body>
     <div class="container">
-      <header>
+      <header data-testid="header">
         <div class="header-row">
           <div class="header-left">
-            <h1 class="logo">
+            <h1 class="logo" data-testid="logo">
               <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                 <path d="M2 17l10 5 10-5"/>
                 <path d="M2 12l10 5 10-5"/>
               </svg>
               LLMFlow
-              <span id="connectionStatus" class="status-dot" title="Connecting..."></span>
+              <span id="connectionStatus" class="status-dot" data-testid="connection-status" title="Connecting..."></span>
             </h1>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+            <button class="theme-toggle" data-testid="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
               <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
               </svg>
@@ -39,21 +39,21 @@
               </svg>
             </button>
           </div>
-          <div class="stats-bar">
-            <div class="stat">
-              <span class="stat-value" id="totalRequests">-</span>
+          <div class="stats-bar" data-testid="stats-bar">
+            <div class="stat" data-testid="stat-traces">
+              <span class="stat-value" id="totalRequests" data-testid="total-requests">-</span>
               <span class="stat-label">Traces</span>
             </div>
-            <div class="stat">
-              <span class="stat-value" id="totalTokens">-</span>
+            <div class="stat" data-testid="stat-tokens">
+              <span class="stat-value" id="totalTokens" data-testid="total-tokens">-</span>
               <span class="stat-label">Tokens</span>
             </div>
-            <div class="stat">
-              <span class="stat-value" id="totalCost">-</span>
+            <div class="stat" data-testid="stat-cost">
+              <span class="stat-value" id="totalCost" data-testid="total-cost">-</span>
               <span class="stat-label">Cost</span>
             </div>
-            <div class="stat">
-              <span class="stat-value" id="avgLatency">-</span>
+            <div class="stat" data-testid="stat-latency">
+              <span class="stat-value" id="avgLatency" data-testid="avg-latency">-</span>
               <span class="stat-label">Avg Latency</span>
             </div>
           </div>
@@ -61,19 +61,19 @@
       </header>
 
       <main>
-        <div class="tabs">
-          <button class="tab active" onclick="showTab('timeline')">Timeline</button>
-          <button class="tab" onclick="showTab('traces')">Traces</button>
-          <button class="tab" onclick="showTab('logs')">Logs</button>
-          <button class="tab" onclick="showTab('metrics')">Metrics</button>
-          <button class="tab" onclick="showTab('models')">Models</button>
-          <button class="tab" onclick="showTab('analytics')">Analytics</button>
+        <div class="tabs" data-testid="tabs">
+          <button class="tab active" data-testid="tab-timeline" onclick="showTab('timeline')">Timeline</button>
+          <button class="tab" data-testid="tab-traces" onclick="showTab('traces')">Traces</button>
+          <button class="tab" data-testid="tab-logs" onclick="showTab('logs')">Logs</button>
+          <button class="tab" data-testid="tab-metrics" onclick="showTab('metrics')">Metrics</button>
+          <button class="tab" data-testid="tab-models" onclick="showTab('models')">Models</button>
+          <button class="tab" data-testid="tab-analytics" onclick="showTab('analytics')">Analytics</button>
         </div>
 
-        <div id="timelineTab" class="tab-content active">
-          <div class="filter-bar">
-            <input type="text" id="timelineSearchInput" placeholder="Search timeline... (press /)" />
-            <select id="toolFilter">
+        <div id="timelineTab" class="tab-content active" data-testid="timeline-tab">
+          <div class="filter-bar" data-testid="timeline-filters">
+            <input type="text" id="timelineSearchInput" data-testid="timeline-search" placeholder="Search timeline... (press /)" />
+            <select id="toolFilter" data-testid="timeline-tool-filter">
               <option value="">All Tools</option>
               <option value="claude-code">Claude Code</option>
               <option value="codex-cli">Codex CLI</option>
@@ -81,69 +81,69 @@
               <option value="aider">Aider</option>
               <option value="proxy">Proxy</option>
             </select>
-            <select id="timelineTypeFilter">
+            <select id="timelineTypeFilter" data-testid="timeline-type-filter">
               <option value="">All Types</option>
               <option value="trace">Traces</option>
               <option value="log">Logs</option>
               <option value="metric">Metrics</option>
             </select>
-            <select id="timelineDateFilter">
+            <select id="timelineDateFilter" data-testid="timeline-date-filter">
               <option value="">All Time</option>
               <option value="1h">Last Hour</option>
               <option value="24h">Last 24h</option>
               <option value="7d">Last 7d</option>
             </select>
-            <button id="clearTimelineFilters" class="btn-secondary">Clear</button>
+            <button id="clearTimelineFilters" class="btn-secondary" data-testid="timeline-clear-filters">Clear</button>
           </div>
 
           <div class="split-layout">
             <div class="panel-left">
-              <div id="timelineList" class="timeline-list">
+              <div id="timelineList" class="timeline-list" data-testid="timeline-list">
                 <div class="empty-state">Loading timeline...</div>
               </div>
             </div>
 
-            <div class="panel-right" id="timelineDetailPanel">
+            <div class="panel-right" id="timelineDetailPanel" data-testid="timeline-detail-panel">
               <div class="detail-header">
-                <h2 id="timelineDetailTitle">Select an item</h2>
-                <span id="timelineDetailMeta" class="detail-meta"></span>
+                <h2 id="timelineDetailTitle" data-testid="timeline-detail-title">Select an item</h2>
+                <span id="timelineDetailMeta" class="detail-meta" data-testid="timeline-detail-meta"></span>
               </div>
               <div class="detail-body">
                 <div class="detail-section" id="timelineDetailContent">
-                  <pre id="timelineDetailData">{}</pre>
+                  <pre id="timelineDetailData" data-testid="timeline-detail-data">{}</pre>
                 </div>
                 <div class="detail-section" id="relatedLogsSection" style="display: none;">
                   <h3>Related Logs</h3>
-                  <div id="relatedLogs"></div>
+                  <div id="relatedLogs" data-testid="related-logs"></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div id="tracesTab" class="tab-content">
-          <div class="filter-bar">
-            <input type="text" id="searchInput" placeholder="Search... (press /)" />
-            <select id="modelFilter">
+        <div id="tracesTab" class="tab-content" data-testid="traces-tab">
+          <div class="filter-bar" data-testid="traces-filters">
+            <input type="text" id="searchInput" data-testid="traces-search" placeholder="Search... (press /)" />
+            <select id="modelFilter" data-testid="traces-model-filter">
               <option value="">All Models</option>
             </select>
-            <select id="statusFilter">
+            <select id="statusFilter" data-testid="traces-status-filter">
               <option value="">All Status</option>
               <option value="success">Success</option>
               <option value="error">Error</option>
             </select>
-            <select id="dateFilter">
+            <select id="dateFilter" data-testid="traces-date-filter">
               <option value="">All Time</option>
               <option value="1h">Last Hour</option>
               <option value="24h">Last 24h</option>
               <option value="7d">Last 7d</option>
             </select>
-            <button id="clearFilters" class="btn-secondary">Clear</button>
+            <button id="clearFilters" class="btn-secondary" data-testid="traces-clear-filters">Clear</button>
           </div>
 
           <div class="split-layout">
             <div class="panel-left">
-              <table id="tracesTable">
+              <table id="tracesTable" data-testid="traces-table">
                 <thead>
                   <tr>
                     <th>Time</th>
@@ -156,7 +156,7 @@
                     <th>Status</th>
                   </tr>
                 </thead>
-                <tbody id="tracesBody">
+                <tbody id="tracesBody" data-testid="traces-body">
                   <tr>
                     <td colspan="8" class="empty-state">Loading...</td>
                   </tr>
@@ -164,53 +164,53 @@
               </table>
             </div>
 
-            <div class="panel-right" id="detailPanel">
+            <div class="panel-right" id="detailPanel" data-testid="traces-detail-panel">
               <div class="detail-header">
-                <h2 id="detailTitle">Select a trace</h2>
-                <span id="detailMeta" class="detail-meta"></span>
+                <h2 id="detailTitle" data-testid="trace-detail-title">Select a trace</h2>
+                <span id="detailMeta" class="detail-meta" data-testid="trace-detail-meta"></span>
               </div>
               <div class="detail-body">
                 <div class="detail-section">
                   <h3>Info</h3>
-                  <pre id="traceInfo">{}</pre>
+                  <pre id="traceInfo" data-testid="trace-info">{}</pre>
                 </div>
                 <div class="detail-section">
                   <h3>Spans</h3>
-                  <div id="spanTree" class="span-tree">
+                  <div id="spanTree" class="span-tree" data-testid="span-tree">
                     <span class="empty-state">Click a trace to view spans</span>
                   </div>
                 </div>
                 <div class="detail-section">
                   <h3>Input / Output</h3>
-                  <pre id="traceIO">{}</pre>
+                  <pre id="traceIO" data-testid="trace-io">{}</pre>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div id="logsTab" class="tab-content">
-          <div class="filter-bar">
-            <input type="text" id="logSearchInput" placeholder="Search logs... (press /)" />
-            <select id="logServiceFilter">
+        <div id="logsTab" class="tab-content" data-testid="logs-tab">
+          <div class="filter-bar" data-testid="logs-filters">
+            <input type="text" id="logSearchInput" data-testid="logs-search" placeholder="Search logs... (press /)" />
+            <select id="logServiceFilter" data-testid="logs-service-filter">
               <option value="">All Services</option>
             </select>
-            <select id="logEventFilter">
+            <select id="logEventFilter" data-testid="logs-event-filter">
               <option value="">All Events</option>
             </select>
-            <select id="logSeverityFilter">
+            <select id="logSeverityFilter" data-testid="logs-severity-filter">
               <option value="">All Severity</option>
               <option value="17">Error+</option>
               <option value="13">Warn+</option>
               <option value="9">Info+</option>
               <option value="5">Debug+</option>
             </select>
-            <button id="clearLogFilters" class="btn-secondary">Clear</button>
+            <button id="clearLogFilters" class="btn-secondary" data-testid="logs-clear-filters">Clear</button>
           </div>
 
           <div class="split-layout">
             <div class="panel-left">
-              <table id="logsTable">
+              <table id="logsTable" data-testid="logs-table">
                 <thead>
                   <tr>
                     <th>Time</th>
@@ -220,7 +220,7 @@
                     <th>Body</th>
                   </tr>
                 </thead>
-                <tbody id="logsBody">
+                <tbody id="logsBody" data-testid="logs-body">
                   <tr>
                     <td colspan="5" class="empty-state">Loading...</td>
                   </tr>
@@ -228,53 +228,53 @@
               </table>
             </div>
 
-            <div class="panel-right" id="logDetailPanel">
+            <div class="panel-right" id="logDetailPanel" data-testid="logs-detail-panel">
               <div class="detail-header">
-                <h2 id="logDetailTitle">Select a log</h2>
-                <span id="logDetailMeta" class="detail-meta"></span>
+                <h2 id="logDetailTitle" data-testid="log-detail-title">Select a log</h2>
+                <span id="logDetailMeta" class="detail-meta" data-testid="log-detail-meta"></span>
               </div>
               <div class="detail-body">
                 <div class="detail-section">
                   <h3>Body</h3>
-                  <pre id="logBody">-</pre>
+                  <pre id="logBody" data-testid="log-body">-</pre>
                 </div>
                 <div class="detail-section">
                   <h3>Attributes</h3>
-                  <pre id="logAttributes">{}</pre>
+                  <pre id="logAttributes" data-testid="log-attributes">{}</pre>
                 </div>
                 <div class="detail-section">
                   <h3>Resource</h3>
-                  <pre id="logResource">{}</pre>
+                  <pre id="logResource" data-testid="log-resource">{}</pre>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div id="metricsTab" class="tab-content">
-          <div class="filter-bar">
-            <select id="metricNameFilter">
+        <div id="metricsTab" class="tab-content" data-testid="metrics-tab">
+          <div class="filter-bar" data-testid="metrics-filters">
+            <select id="metricNameFilter" data-testid="metrics-name-filter">
               <option value="">All Metrics</option>
             </select>
-            <select id="metricServiceFilter">
+            <select id="metricServiceFilter" data-testid="metrics-service-filter">
               <option value="">All Services</option>
             </select>
-            <select id="metricTypeFilter">
+            <select id="metricTypeFilter" data-testid="metrics-type-filter">
               <option value="">All Types</option>
               <option value="sum">Sum (Counter)</option>
               <option value="gauge">Gauge</option>
               <option value="histogram">Histogram</option>
             </select>
-            <button id="clearMetricFilters" class="btn-secondary">Clear</button>
+            <button id="clearMetricFilters" class="btn-secondary" data-testid="metrics-clear-filters">Clear</button>
           </div>
 
           <div class="metrics-layout">
-            <div class="metrics-summary" id="metricsSummary">
+            <div class="metrics-summary" id="metricsSummary" data-testid="metrics-summary">
               <p class="empty-state">Loading metrics summary...</p>
             </div>
 
             <div class="metrics-table-container">
-              <table id="metricsTable">
+              <table id="metricsTable" data-testid="metrics-table">
                 <thead>
                   <tr>
                     <th>Time</th>
@@ -284,7 +284,7 @@
                     <th>Service</th>
                   </tr>
                 </thead>
-                <tbody id="metricsBody">
+                <tbody id="metricsBody" data-testid="metrics-body">
                   <tr>
                     <td colspan="5" class="empty-state">Loading...</td>
                   </tr>
@@ -294,67 +294,67 @@
           </div>
         </div>
 
-        <div id="modelsTab" class="tab-content">
-          <div id="modelStats" class="model-grid">
+        <div id="modelsTab" class="tab-content" data-testid="models-tab">
+          <div id="modelStats" class="model-grid" data-testid="model-stats">
             <p class="empty-state">Loading...</p>
           </div>
         </div>
 
-        <div id="analyticsTab" class="tab-content">
-          <div class="analytics-controls">
-            <select id="analyticsDaysFilter">
+        <div id="analyticsTab" class="tab-content" data-testid="analytics-tab">
+          <div class="analytics-controls" data-testid="analytics-controls">
+            <select id="analyticsDaysFilter" data-testid="analytics-days-filter">
               <option value="7">Last 7 days</option>
               <option value="14">Last 14 days</option>
               <option value="30" selected>Last 30 days</option>
               <option value="90">Last 90 days</option>
             </select>
-            <button id="refreshAnalytics" class="btn-secondary">Refresh</button>
+            <button id="refreshAnalytics" class="btn-secondary" data-testid="analytics-refresh">Refresh</button>
           </div>
 
-          <div class="analytics-grid">
-            <div class="analytics-card analytics-card-wide">
+          <div class="analytics-grid" data-testid="analytics-grid">
+            <div class="analytics-card analytics-card-wide" data-testid="token-trends-card">
               <div class="analytics-card-header">
                 <h3>Token Usage Trends</h3>
                 <span class="analytics-subtitle">Daily token consumption</span>
               </div>
               <div class="analytics-card-body">
-                <div id="tokenTrendsChart" class="chart-container">
+                <div id="tokenTrendsChart" class="chart-container" data-testid="token-trends-chart">
                   <p class="empty-state">Loading chart...</p>
                 </div>
               </div>
             </div>
 
-            <div class="analytics-card">
+            <div class="analytics-card" data-testid="cost-by-tool-card">
               <div class="analytics-card-header">
                 <h3>Cost by Tool</h3>
                 <span class="analytics-subtitle">Total spend per AI tool</span>
               </div>
               <div class="analytics-card-body">
-                <div id="costByToolChart" class="chart-container">
+                <div id="costByToolChart" class="chart-container" data-testid="cost-by-tool-chart">
                   <p class="empty-state">Loading chart...</p>
                 </div>
               </div>
             </div>
 
-            <div class="analytics-card">
+            <div class="analytics-card" data-testid="cost-by-model-card">
               <div class="analytics-card-header">
                 <h3>Cost by Model</h3>
                 <span class="analytics-subtitle">Total spend per model</span>
               </div>
               <div class="analytics-card-body">
-                <div id="costByModelChart" class="chart-container">
+                <div id="costByModelChart" class="chart-container" data-testid="cost-by-model-chart">
                   <p class="empty-state">Loading chart...</p>
                 </div>
               </div>
             </div>
 
-            <div class="analytics-card analytics-card-wide">
+            <div class="analytics-card analytics-card-wide" data-testid="daily-summary-card">
               <div class="analytics-card-header">
                 <h3>Daily Summary</h3>
                 <span class="analytics-subtitle">Requests, tokens, and costs per day</span>
               </div>
               <div class="analytics-card-body">
-                <div id="dailySummaryTable" class="daily-summary-table">
+                <div id="dailySummaryTable" class="daily-summary-table" data-testid="daily-summary-table">
                   <p class="empty-state">Loading data...</p>
                 </div>
               </div>

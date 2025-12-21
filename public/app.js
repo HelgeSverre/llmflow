@@ -544,12 +544,12 @@ function renderLogsTable() {
     }
 
     tbody.innerHTML = logs.map(l => `
-        <tr class="trace-row ${l.id === selectedLogId ? 'selected' : ''}" onclick="selectLog('${l.id}', this)">
-            <td>${formatTime(l.timestamp)}</td>
-            <td><span class="severity-badge severity-${getSeverityClass(l.severity_text)}">${l.severity_text || 'INFO'}</span></td>
-            <td>${l.service_name ? `<span class="service-badge">${escapeHtml(l.service_name)}</span>` : '-'}</td>
-            <td>${l.event_name ? `<span class="event-badge">${escapeHtml(l.event_name)}</span>` : '-'}</td>
-            <td><span class="log-body-preview">${escapeHtml(l.body || '-')}</span></td>
+        <tr class="trace-row ${l.id === selectedLogId ? 'selected' : ''}" data-testid="log-row" data-log-id="${l.id}" onclick="selectLog('${l.id}', this)">
+            <td data-testid="log-time">${formatTime(l.timestamp)}</td>
+            <td data-testid="log-severity"><span class="severity-badge severity-${getSeverityClass(l.severity_text)}">${l.severity_text || 'INFO'}</span></td>
+            <td data-testid="log-service">${l.service_name ? `<span class="service-badge">${escapeHtml(l.service_name)}</span>` : '-'}</td>
+            <td data-testid="log-event">${l.event_name ? `<span class="event-badge">${escapeHtml(l.event_name)}</span>` : '-'}</td>
+            <td data-testid="log-body-preview"><span class="log-body-preview">${escapeHtml(l.body || '-')}</span></td>
         </tr>
     `).join('');
 }
@@ -1287,15 +1287,15 @@ function renderTracesTable() {
     }
 
     tbody.innerHTML = traces.map(t => `
-        <tr class="trace-row ${t.id === selectedTraceId ? 'selected' : ''}" onclick="selectTrace('${t.id}', this)">
-            <td>${formatTime(t.timestamp)}</td>
-            <td><span class="span-badge span-${t.span_type || 'llm'}">${t.span_type || 'llm'}</span></td>
-            <td>${escapeHtml(t.span_name || '-')}</td>
-            <td>${t.model ? `<span class="model-badge">${escapeHtml(t.model)}</span>` : '-'}</td>
-            <td>${formatNumber(t.total_tokens || 0)}</td>
-            <td>$${(t.estimated_cost || 0).toFixed(4)}</td>
-            <td>${t.duration_ms || 0}ms</td>
-            <td class="${(t.status || 200) < 400 ? 'status-success' : 'status-error'}">${t.status || 200}</td>
+        <tr class="trace-row ${t.id === selectedTraceId ? 'selected' : ''}" data-testid="trace-row" data-trace-id="${t.id}" onclick="selectTrace('${t.id}', this)">
+            <td data-testid="trace-time">${formatTime(t.timestamp)}</td>
+            <td data-testid="trace-type"><span class="span-badge span-${t.span_type || 'llm'}">${t.span_type || 'llm'}</span></td>
+            <td data-testid="trace-name">${escapeHtml(t.span_name || '-')}</td>
+            <td data-testid="trace-model">${t.model ? `<span class="model-badge">${escapeHtml(t.model)}</span>` : '-'}</td>
+            <td data-testid="trace-tokens">${formatNumber(t.total_tokens || 0)}</td>
+            <td data-testid="trace-cost">$${(t.estimated_cost || 0).toFixed(4)}</td>
+            <td data-testid="trace-latency">${t.duration_ms || 0}ms</td>
+            <td data-testid="trace-status" class="${(t.status || 200) < 400 ? 'status-success' : 'status-error'}">${t.status || 200}</td>
         </tr>
     `).join('');
 }
