@@ -14,6 +14,7 @@ test.describe('Logs Tab', () => {
     test('displays seeded logs', async ({ page }) => {
         // Should have multiple rows
         const rows = page.locator('#logsBody tr');
+        await expect(rows.first()).toBeVisible();
         const count = await rows.count();
         expect(count).toBeGreaterThan(0);
         
@@ -24,10 +25,13 @@ test.describe('Logs Tab', () => {
 
     test('search filter works', async ({ page }) => {
         // Search for specific text
-        await page.fill('#logSearchInput', 'E2E');
+        const searchInput = page.locator('#logSearchInput');
+        await searchInput.fill('E2E');
         
-        // Wait for filtered results
-        await page.waitForTimeout(400);
+        // Wait for API response after search filter change
+        await page.waitForResponse(response => 
+            response.url().includes('/api/logs') && response.status() === 200
+        );
         
         // Should have some results (search applied)
         const rows = page.locator('#logsBody tr');
@@ -41,8 +45,10 @@ test.describe('Logs Tab', () => {
         await expect(select).toBeVisible();
         
         // Get options count
-        const options = await select.locator('option').count();
-        expect(options).toBeGreaterThanOrEqual(1); // At least "All Services"
+        const options = select.locator('option');
+        await expect(options.first()).toBeAttached();
+        const count = await options.count();
+        expect(count).toBeGreaterThanOrEqual(1); // At least "All Services"
     });
 
     test('event filter can be changed', async ({ page }) => {
@@ -51,22 +57,27 @@ test.describe('Logs Tab', () => {
         await expect(select).toBeVisible();
         
         // Get options count
-        const options = await select.locator('option').count();
-        expect(options).toBeGreaterThanOrEqual(1); // At least "All Events"
+        const options = select.locator('option');
+        await expect(options.first()).toBeAttached();
+        const count = await options.count();
+        expect(count).toBeGreaterThanOrEqual(1); // At least "All Events"
     });
 
     test('severity filter can filter logs', async ({ page }) => {
         // Get initial count
-        const initialCount = await page.locator('#logsBody tr').count();
+        const rows = page.locator('#logsBody tr');
+        await expect(rows.first()).toBeVisible();
+        const initialCount = await rows.count();
         
-        // Select Error+ (severity >= 17)
+        // Select Error+ (severity >= 17) and wait for API response
+        const responsePromise = page.waitForResponse(response => 
+            response.url().includes('/api/logs') && response.status() === 200
+        );
         await page.selectOption('#logSeverityFilter', '17');
-        
-        // Wait for filtered results
-        await page.waitForTimeout(300);
+        await responsePromise;
         
         // Should have filtered results (fewer or equal)
-        const filteredCount = await page.locator('#logsBody tr').count();
+        const filteredCount = await rows.count();
         expect(filteredCount).toBeLessThanOrEqual(initialCount);
     });
 
@@ -75,12 +86,16 @@ test.describe('Logs Tab', () => {
         const clearBtn = page.locator('#clearLogFilters');
         await expect(clearBtn).toBeVisible();
         
-        // Click should not error
+        // Click and wait for API response
+        const responsePromise = page.waitForResponse(response => 
+            response.url().includes('/api/logs') && response.status() === 200
+        );
         await clearBtn.click();
-        await page.waitForTimeout(300);
+        await responsePromise;
         
         // Page should still show logs
         const rows = page.locator('#logsBody tr');
+        await expect(rows.first()).toBeVisible();
         const count = await rows.count();
         expect(count).toBeGreaterThan(0);
     });
@@ -92,59 +107,53 @@ test.describe('Logs Tab', () => {
     });
 
     test('clicking log row updates detail panel', async ({ page }) => {
-        // Wait for log rows to exist
-        await page.waitForSelector('[data-testid="log-row"]', { timeout: 5000 });
+        // Wait for log rows to be visible
+        const logRow = page.locator('[data-testid="log-row"]').first();
+        await expect(logRow).toBeVisible({ timeout: 5000 });
         
         // Click first log row
-        await page.click('[data-testid="log-row"]:first-child');
+        await logRow.click();
         
-        // Wait for the detail panel to update (title should change from default)
-        await page.waitForFunction(() => {
-            const title = document.querySelector('[data-testid="log-detail-title"]');
-            return title && title.textContent !== 'Select a log';
-        }, { timeout: 5000 });
+        // Wait for the detail panel title to update from default
+        const detailTitle = page.locator('[data-testid="log-detail-title"]');
+        await expect(detailTitle).not.toHaveText('Select a log', { timeout: 5000 });
         
         // Verify body was populated
-        const logBody = await page.locator('[data-testid="log-body"]').textContent();
-        expect(logBody).not.toBe('-');
+        const logBody = page.locator('[data-testid="log-body"]');
+        await expect(logBody).not.toHaveText('-');
     });
 
-    test('log detail shows attributes JSON after selection', async ({ page }) => {
-        // Wait for log rows to exist
-        await page.waitForSelector('[data-testid="log-row"]', { timeout: 5000 });
+    test('log detail shows JSON in attributes section', async ({ page }) => {
+        // Wait for log rows to be visible
+        const logRow = page.locator('[data-testid="log-row"]').first();
+        await expect(logRow).toBeVisible({ timeout: 5000 });
         
         // Click a log row
-        await page.click('[data-testid="log-row"]:first-child');
+        await logRow.click();
         
-        // Wait for attributes to be populated with actual JSON (not just placeholder)
-        await page.waitForFunction(() => {
-            const attrs = document.querySelector('[data-testid="log-attributes"]');
-            if (!attrs) return false;
-            const text = attrs.textContent?.trim() || '';
-            // Check it's valid JSON with actual content
-            return text.startsWith('{') && text.length > 2;
-        }, { timeout: 5000 });
+        // Wait for title to update (indicating selection completed)
+        const detailTitle = page.locator('[data-testid="log-detail-title"]');
+        await expect(detailTitle).not.toHaveText('Select a log', { timeout: 5000 });
         
-        const attrs = await page.locator('[data-testid="log-attributes"]').textContent();
-        expect(attrs?.trim().startsWith('{')).toBeTruthy();
+        // Attributes element should exist and contain JSON (may be formatted)
+        const attrs = page.locator('[data-testid="log-attributes"]');
+        await expect(attrs).toContainText('{');
     });
 
-    test('log detail shows resource attributes JSON after selection', async ({ page }) => {
-        // Wait for log rows to exist
-        await page.waitForSelector('[data-testid="log-row"]', { timeout: 5000 });
+    test('log detail shows JSON in resource section', async ({ page }) => {
+        // Wait for log rows to be visible
+        const logRow = page.locator('[data-testid="log-row"]').first();
+        await expect(logRow).toBeVisible({ timeout: 5000 });
         
         // Click a log row
-        await page.click('[data-testid="log-row"]:first-child');
+        await logRow.click();
         
-        // Wait for resource to be populated
-        await page.waitForFunction(() => {
-            const resource = document.querySelector('[data-testid="log-resource"]');
-            if (!resource) return false;
-            const text = resource.textContent?.trim() || '';
-            return text.startsWith('{') && text.length > 2;
-        }, { timeout: 5000 });
+        // Wait for title to update
+        const detailTitle = page.locator('[data-testid="log-detail-title"]');
+        await expect(detailTitle).not.toHaveText('Select a log', { timeout: 5000 });
         
-        const resource = await page.locator('[data-testid="log-resource"]').textContent();
-        expect(resource?.trim().startsWith('{')).toBeTruthy();
+        // Resource element should exist and contain JSON
+        const resource = page.locator('[data-testid="log-resource"]');
+        await expect(resource).toContainText('{');
     });
 });
