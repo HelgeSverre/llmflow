@@ -515,11 +515,8 @@ function getConfig() {
  */
 function initExportHooks(db) {
     if (!EXPORT_ENABLED) {
-        log.debug('OTLP export disabled');
         return;
     }
-
-    log.debug(`OTLP export enabled: traces=${!!EXPORT_ENDPOINTS.traces}, logs=${!!EXPORT_ENDPOINTS.logs}, metrics=${!!EXPORT_ENDPOINTS.metrics}`);
     
     if (EXPORT_ENDPOINTS.traces) {
         db.setInsertTraceHook((trace) => {
