@@ -66,8 +66,8 @@ if (!fs.existsSync(serverPath)) {
 const pkg = require('../package.json');
 console.log(`\n\x1b[34mLLMFlow\x1b[0m - Local LLM observability v${pkg.version}\n`);
 
-// Start the server
-const server = spawn(process.execPath, [serverPath], {
+// Start the server (pass args like --verbose)
+const server = spawn(process.execPath, [serverPath, ...args], {
     stdio: 'inherit',
     env: process.env
 });
