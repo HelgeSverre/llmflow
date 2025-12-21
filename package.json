@@ -17,7 +17,10 @@
     "test:logs": "node test/run-tests.js otlp-logs-e2e.js",
     "test:metrics": "node test/run-tests.js otlp-metrics-e2e.js",
     "test:providers": "node test/run-tests.js providers.js",
-    "test:providers-e2e": "node test/run-tests.js providers-e2e.js"
+    "test:providers-e2e": "node test/run-tests.js providers-e2e.js",
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed",
+    "test:e2e:ui": "npx playwright test --ui"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
@@ -58,5 +61,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
   }
 }
