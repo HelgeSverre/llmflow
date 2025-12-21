@@ -8,16 +8,16 @@
 
 ### What's Done
 
-| Feature | Status |
-|---------|--------|
-| SQLite Storage | ✅ Persistent, queryable, auto-cleanup |
-| Dynamic Pricing | ✅ 2000+ models via LiteLLM |
-| Streaming Support | ✅ SSE pass-through with buffering |
-| Search & Filtering | ✅ Full filter bar with URL sync |
-| Hierarchical Spans | ✅ Full span tree visualization |
-| JavaScript SDK | ✅ `trace()`, `span()`, context propagation |
-| Split-Panel UI | ✅ Langfuse-inspired layout |
-| OTLP/HTTP Support | ✅ OpenTelemetry/OpenLLMetry integration |
+| Feature            | Status                                      |
+| ------------------ | ------------------------------------------- |
+| SQLite Storage     | ✅ Persistent, queryable, auto-cleanup      |
+| Dynamic Pricing    | ✅ 2000+ models via LiteLLM                 |
+| Streaming Support  | ✅ SSE pass-through with buffering          |
+| Search & Filtering | ✅ Full filter bar with URL sync            |
+| Hierarchical Spans | ✅ Full span tree visualization             |
+| JavaScript SDK     | ✅ `trace()`, `span()`, context propagation |
+| Split-Panel UI     | ✅ Langfuse-inspired layout                 |
+| OTLP/HTTP Support  | ✅ OpenTelemetry/OpenLLMetry integration    |
 
 ### Architecture
 
@@ -39,21 +39,21 @@ Your App
 
 ### Files
 
-| File | Purpose |
-|------|---------|
-| `server.js` | Express servers (proxy + dashboard) |
-| `db.js` | SQLite database module |
-| `pricing.js` | Dynamic pricing from LiteLLM |
-| `logger.js` | Colored console output |
-| `otlp.js` | OTLP/HTTP trace ingestion |
-| `sdk/index.js` | JavaScript tracing SDK |
-| `public/app.js` | Dashboard frontend logic |
-| `public/index.html` | Dashboard HTML |
-| `public/style.css` | Dashboard styles |
-| `test/demo.js` | Demo trace generator |
-| `test/otlp-e2e.js` | OTLP integration e2e tests |
-| `test/run-tests.js` | Test runner with server lifecycle |
-| `website/` | Landing page (static HTML/CSS) |
+| File                | Purpose                             |
+| ------------------- | ----------------------------------- |
+| `server.js`         | Express servers (proxy + dashboard) |
+| `db.js`             | SQLite database module              |
+| `pricing.js`        | Dynamic pricing from LiteLLM        |
+| `logger.js`         | Colored console output              |
+| `otlp.js`           | OTLP/HTTP trace ingestion           |
+| `sdk/index.js`      | JavaScript tracing SDK              |
+| `public/app.js`     | Dashboard frontend logic            |
+| `public/index.html` | Dashboard HTML                      |
+| `public/style.css`  | Dashboard styles                    |
+| `test/demo.js`      | Demo trace generator                |
+| `test/otlp-e2e.js`  | OTLP integration e2e tests          |
+| `test/run-tests.js` | Test runner with server lifecycle   |
+| `website/`          | Landing page (static HTML/CSS)      |
 
 ---
 
@@ -61,25 +61,25 @@ Your App
 
 **Goal:** Support Anthropic, Ollama, and other providers.
 
-| Task | Priority | Effort |
-|------|----------|--------|
-| Provider abstraction layer | High | M |
-| Anthropic support | High | S |
-| Ollama support | Medium | S |
-| Auto-detect provider from request | Medium | S |
+| Task                              | Priority | Effort |
+| --------------------------------- | -------- | ------ |
+| Provider abstraction layer        | High     | M      |
+| Anthropic support                 | High     | S      |
+| Ollama support                    | Medium   | S      |
+| Auto-detect provider from request | Medium   | S      |
 
 ### Provider Interface
 
 ```javascript
 const provider = {
-    name: 'anthropic',
-    baseUrl: 'https://api.anthropic.com',
-    detectModel: (req) => req.body.model,
-    extractTokens: (res) => ({
-        prompt: res.usage.input_tokens,
-        completion: res.usage.output_tokens
-    }),
-    isStreaming: (req) => req.body.stream === true
+  name: "anthropic",
+  baseUrl: "https://api.anthropic.com",
+  detectModel: (req) => req.body.model,
+  extractTokens: (res) => ({
+    prompt: res.usage.input_tokens,
+    completion: res.usage.output_tokens,
+  }),
+  isStreaming: (req) => req.body.stream === true,
 };
 ```
 
@@ -87,39 +87,42 @@ const provider = {
 
 ## Phase 3 - Developer Experience
 
-| Task | Priority | Effort | Status |
-|------|----------|--------|--------|
-| Real-time WebSocket updates | Medium | M | ✅ Done |
-| Dark mode | Medium | S | ✅ Done |
-| Python SDK | High | M | |
-| Data export (JSON, CSV) | Low | S | |
-| Keyboard navigation | Low | S | |
+| Task                        | Priority | Effort | Status  |
+| --------------------------- | -------- | ------ | ------- |
+| Real-time WebSocket updates | Medium   | M      | ✅ Done |
+| Dark mode                   | Medium   | S      | ✅ Done |
+| Python SDK                  | High     | M      |         |
+| Data export (JSON, CSV)     | Low      | S      |         |
+| Keyboard navigation         | Low      | S      |         |
 
 ---
 
 ## Phase 4 - Distribution
 
-| Task | Priority | Effort |
-|------|----------|--------|
-| NPX installer (`npx create-llmflow`) | High | M |
-| Docker Hub publishing | Medium | S |
-| Homebrew formula | Low | M |
+| Task                                 | Priority | Effort |
+| ------------------------------------ | -------- | ------ |
+| NPX installer (`npx create-llmflow`) | High     | M      |
+| Docker Hub publishing                | Medium   | S      |
+| Homebrew formula                     | Low      | M      |
 
 ---
 
 ## Technical Decisions
 
 ### Why SQLite?
+
 - Zero config, single file
 - `better-sqlite3` is synchronous = simpler code
 - Fast enough for 100k+ traces
 
 ### Why No Frontend Framework?
+
 - Simpler distribution
 - No build step
 - Vanilla JS is sufficient for this scope
 
 ### Why Proxy Over SDK-Only?
+
 - Zero code changes
 - Works with any language
 - Captures everything uniformly
@@ -138,4 +141,4 @@ These are explicitly not planned:
 
 ---
 
-*Last updated: December 2024*
+_Last updated: December 2024_

@@ -11,6 +11,7 @@ This directory contains Request for Comments (RFC) documents that propose new fe
 Comprehensive support for AI CLI coding tools including Claude Code, Codex CLI, Gemini CLI, OpenCode, Aider, and Cline. This is the overarching RFC that ties together the other proposals.
 
 **Key findings**:
+
 - Claude Code and Codex CLI export OTEL logs (not traces)
 - Gemini CLI exports full OTEL (traces, metrics, logs)
 - Tools like Aider and Cline use PostHog analytics
@@ -23,6 +24,7 @@ Comprehensive support for AI CLI coding tools including Claude Code, Codex CLI, 
 Add `/v1/metrics` and `/v1/logs` OTLP endpoints to complement the existing `/v1/traces` endpoint. This enables LLMFlow to receive telemetry from AI CLI tools that export metrics and logs rather than traces.
 
 **Key features**:
+
 - `/v1/logs` endpoint for OTLP log records
 - `/v1/metrics` endpoint for OTLP metrics
 - Database schema for logs and metrics
@@ -36,6 +38,7 @@ Add `/v1/metrics` and `/v1/logs` OTLP endpoints to complement the existing `/v1/
 Forward requests to upstream providers without body transformation. Enables observability for AI CLI tools like Claude Code that use native API formats rather than OpenAI-compatible formats.
 
 **Key features**:
+
 - `/passthrough/:provider/*` routes
 - Native Anthropic API support (for Claude Code)
 - Native Gemini API support
@@ -70,14 +73,14 @@ Forward requests to upstream providers without body transformation. Enables obse
 
 After implementation, the following tools will be supported:
 
-| Tool | Proxy | OTEL Traces | OTEL Logs | OTEL Metrics | Native API |
-|------|-------|-------------|-----------|--------------|------------|
-| Claude Code | ✅ (passthrough) | ❌ | ✅ | ✅ | ✅ |
-| Codex CLI | ✅ | ❌ | ✅ | ❌ | ✅ |
-| Gemini CLI | ✅ (passthrough) | ✅ | ✅ | ✅ | ✅ |
-| OpenCode | ✅ | 🔜 | 🔜 | 🔜 | ✅ |
-| Aider | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Cline | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Tool        | Proxy            | OTEL Traces | OTEL Logs | OTEL Metrics | Native API |
+| ----------- | ---------------- | ----------- | --------- | ------------ | ---------- |
+| Claude Code | ✅ (passthrough) | ❌          | ✅        | ✅           | ✅         |
+| Codex CLI   | ✅               | ❌          | ✅        | ❌           | ✅         |
+| Gemini CLI  | ✅ (passthrough) | ✅          | ✅        | ✅           | ✅         |
+| OpenCode    | ✅               | 🔜          | 🔜        | 🔜           | ✅         |
+| Aider       | ✅               | ❌          | ❌        | ❌           | ✅         |
+| Cline       | ✅               | ❌          | ❌        | ❌           | ✅         |
 
 Legend: ✅ Supported | ❌ Not applicable | 🔜 Coming (pending upstream)
 

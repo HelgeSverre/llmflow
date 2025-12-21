@@ -34,6 +34,7 @@ npm install && npm start
 ### Framework Support
 
 Works out of the box with:
+
 - LangChain (via OpenLLMetry)
 - Vercel AI SDK (built-in telemetry)
 - VoltAgent
@@ -43,16 +44,16 @@ Works out of the box with:
 
 ### Features
 
-| Feature | Status |
-|---------|--------|
-| Hierarchical span tracing | ✅ |
-| Span tree visualization | ✅ |
-| JavaScript SDK | ✅ |
-| SQLite storage | ✅ |
-| Dynamic pricing (2000+ models) | ✅ |
-| Streaming support | ✅ |
-| Search & filtering | ✅ |
-| OTLP/HTTP support | ✅ |
+| Feature                        | Status |
+| ------------------------------ | ------ |
+| Hierarchical span tracing      | ✅     |
+| Span tree visualization        | ✅     |
+| JavaScript SDK                 | ✅     |
+| SQLite storage                 | ✅     |
+| Dynamic pricing (2000+ models) | ✅     |
+| Streaming support              | ✅     |
+| Search & filtering             | ✅     |
+| OTLP/HTTP support              | ✅     |
 
 ## 📁 New in This Release
 
@@ -72,12 +73,12 @@ cd llmflow/sdk && npm link
 ```
 
 ```javascript
-import { trace, span, currentTraceHeaders } from 'llmflow-sdk';
+import { trace, span, currentTraceHeaders } from "llmflow-sdk";
 
-await trace('my-pipeline', async () => {
-    const docs = await span('retrieval', 'search', async () => {
-        return await vectorDB.search(query);
-    });
+await trace("my-pipeline", async () => {
+  const docs = await span("retrieval", "search", async () => {
+    return await vectorDB.search(query);
+  });
 });
 ```
 

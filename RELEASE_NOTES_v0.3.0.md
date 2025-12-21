@@ -58,12 +58,12 @@ export ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic
 export GEMINI_API_BASE=http://localhost:8080/passthrough/gemini
 ```
 
-| Provider | Passthrough Path |
-|----------|------------------|
+| Provider  | Passthrough Path           |
+| --------- | -------------------------- |
 | Anthropic | `/passthrough/anthropic/*` |
-| Gemini | `/passthrough/gemini/*` |
-| OpenAI | `/passthrough/openai/*` |
-| Helicone | `/passthrough/helicone/*` |
+| Gemini    | `/passthrough/gemini/*`    |
+| OpenAI    | `/passthrough/openai/*`    |
+| Helicone  | `/passthrough/helicone/*`  |
 
 ### OTLP Export to External Backends
 
@@ -93,6 +93,7 @@ curl http://localhost:8080/v1/chat/completions \
 ### Analytics Dashboard
 
 New Analytics tab with:
+
 - **Token Usage Trends** - Daily token consumption chart
 - **Cost by Tool** - Spend breakdown by AI tool (Claude, Codex, Gemini, Aider)
 - **Cost by Model** - Spend breakdown by LLM model
@@ -101,6 +102,7 @@ New Analytics tab with:
 ### Unified Timeline
 
 New Timeline tab showing:
+
 - All traces, logs, and metrics in chronological order
 - Tool-specific icons and colors
 - Filter by tool (Claude Code, Codex CLI, Gemini CLI, Aider)
@@ -128,7 +130,7 @@ endpoint = "http://localhost:3000/v1/logs"
 
 ```json
 // ~/.gemini/settings.json
-{"telemetry": {"otlpEndpoint": "http://localhost:3000"}}
+{ "telemetry": { "otlpEndpoint": "http://localhost:3000" } }
 ```
 
 ### Aider
@@ -139,16 +141,16 @@ aider --openai-api-base http://localhost:8080/v1
 
 ## 📊 New API Endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `POST /v1/logs` | OTLP/HTTP log ingestion |
-| `POST /v1/metrics` | OTLP/HTTP metrics ingestion |
-| `GET /api/traces/export` | Export traces as JSON/JSONL |
-| `GET /api/health/providers` | Check provider API key validity |
-| `GET /api/analytics/token-trends` | Token usage over time |
-| `GET /api/analytics/cost-by-tool` | Cost breakdown by tool |
-| `GET /api/analytics/cost-by-model` | Cost breakdown by model |
-| `GET /api/analytics/daily` | Daily summary stats |
+| Endpoint                           | Description                     |
+| ---------------------------------- | ------------------------------- |
+| `POST /v1/logs`                    | OTLP/HTTP log ingestion         |
+| `POST /v1/metrics`                 | OTLP/HTTP metrics ingestion     |
+| `GET /api/traces/export`           | Export traces as JSON/JSONL     |
+| `GET /api/health/providers`        | Check provider API key validity |
+| `GET /api/analytics/token-trends`  | Token usage over time           |
+| `GET /api/analytics/cost-by-tool`  | Cost breakdown by tool          |
+| `GET /api/analytics/cost-by-model` | Cost breakdown by model         |
+| `GET /api/analytics/daily`         | Daily summary stats             |
 
 ## 🧪 Test Coverage
 
@@ -170,6 +172,7 @@ make test
 ## 🔄 Migration from v0.2.x
 
 No breaking changes. The new features are additive:
+
 - Database schema auto-migrates (adds logs and metrics tables)
 - Existing proxy routes continue to work
 - New passthrough routes are available at `/passthrough/*`

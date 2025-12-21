@@ -40,7 +40,7 @@ client = OpenAI(base_url="http://localhost:8080/v1")
 
 ```javascript
 // JavaScript
-const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' });
+const client = new OpenAI({ baseURL: "http://localhost:8080/v1" });
 ```
 
 ```php
@@ -64,14 +64,14 @@ Open [localhost:3000](http://localhost:3000) to see your traces, costs, and toke
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Cost Tracking** | Real-time pricing for 2000+ models |
-| **Request Logging** | See every request/response with latency |
-| **Multi-Provider** | OpenAI, Anthropic, Gemini, Ollama, Groq, Mistral, and more |
-| **OpenTelemetry** | Accept traces from LangChain, LlamaIndex, etc. |
-| **Zero Config** | Just run it, point your SDK, done |
-| **Local Storage** | SQLite database, no external services |
+| Feature             | Description                                                |
+| ------------------- | ---------------------------------------------------------- |
+| **Cost Tracking**   | Real-time pricing for 2000+ models                         |
+| **Request Logging** | See every request/response with latency                    |
+| **Multi-Provider**  | OpenAI, Anthropic, Gemini, Ollama, Groq, Mistral, and more |
+| **OpenTelemetry**   | Accept traces from LangChain, LlamaIndex, etc.             |
+| **Zero Config**     | Just run it, point your SDK, done                          |
+| **Local Storage**   | SQLite database, no external services                      |
 
 ---
 
@@ -79,19 +79,19 @@ Open [localhost:3000](http://localhost:3000) to see your traces, costs, and toke
 
 Use path prefixes or the `X-LLMFlow-Provider` header:
 
-| Provider | URL |
-|----------|-----|
-| OpenAI | `http://localhost:8080/v1` (default) |
-| Anthropic | `http://localhost:8080/anthropic/v1` |
-| Gemini | `http://localhost:8080/gemini/v1` |
-| Ollama | `http://localhost:8080/ollama/v1` |
-| Groq | `http://localhost:8080/groq/v1` |
-| Mistral | `http://localhost:8080/mistral/v1` |
-| Azure OpenAI | `http://localhost:8080/azure/v1` |
-| Cohere | `http://localhost:8080/cohere/v1` |
-| Together | `http://localhost:8080/together/v1` |
-| OpenRouter | `http://localhost:8080/openrouter/v1` |
-| Perplexity | `http://localhost:8080/perplexity/v1` |
+| Provider     | URL                                   |
+| ------------ | ------------------------------------- |
+| OpenAI       | `http://localhost:8080/v1` (default)  |
+| Anthropic    | `http://localhost:8080/anthropic/v1`  |
+| Gemini       | `http://localhost:8080/gemini/v1`     |
+| Ollama       | `http://localhost:8080/ollama/v1`     |
+| Groq         | `http://localhost:8080/groq/v1`       |
+| Mistral      | `http://localhost:8080/mistral/v1`    |
+| Azure OpenAI | `http://localhost:8080/azure/v1`      |
+| Cohere       | `http://localhost:8080/cohere/v1`     |
+| Together     | `http://localhost:8080/together/v1`   |
+| OpenRouter   | `http://localhost:8080/openrouter/v1` |
+| Perplexity   | `http://localhost:8080/perplexity/v1` |
 
 ---
 
@@ -108,22 +108,22 @@ exporter = OTLPSpanExporter(endpoint="http://localhost:3000/v1/traces")
 
 ```javascript
 // JavaScript
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 
-new OTLPTraceExporter({ url: 'http://localhost:3000/v1/traces' });
+new OTLPTraceExporter({ url: "http://localhost:3000/v1/traces" });
 ```
 
 ---
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PROXY_PORT` | `8080` | Proxy port |
-| `DASHBOARD_PORT` | `3000` | Dashboard port |
-| `DATA_DIR` | `~/.llmflow` | Data directory |
-| `MAX_TRACES` | `10000` | Max traces to retain |
-| `VERBOSE` | `0` | Enable verbose logging |
+| Variable         | Default      | Description            |
+| ---------------- | ------------ | ---------------------- |
+| `PROXY_PORT`     | `8080`       | Proxy port             |
+| `DASHBOARD_PORT` | `3000`       | Dashboard port         |
+| `DATA_DIR`       | `~/.llmflow` | Data directory         |
+| `MAX_TRACES`     | `10000`      | Max traces to retain   |
+| `VERBOSE`        | `0`          | Enable verbose logging |
 
 Set provider API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) if you want the proxy to forward requests.
 

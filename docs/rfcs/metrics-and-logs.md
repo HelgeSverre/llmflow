@@ -12,12 +12,12 @@ This RFC proposes adding OTLP/HTTP endpoints for metrics (`/v1/metrics`) and log
 
 LLMFlow currently only supports OTLP trace ingestion. However, major AI CLI tools export different signal types:
 
-| Tool | Traces | Metrics | Logs |
-|------|--------|---------|------|
-| Claude Code | ❌ | ✅ | ✅ |
-| Codex CLI | ❌ | ❌ | ✅ |
-| Gemini CLI | ✅ | ✅ | ✅ |
-| OpenLLMetry | ✅ | ❌ | ❌ |
+| Tool        | Traces | Metrics | Logs |
+| ----------- | ------ | ------- | ---- |
+| Claude Code | ❌     | ✅      | ✅   |
+| Codex CLI   | ❌     | ❌      | ✅   |
+| Gemini CLI  | ✅     | ✅      | ✅   |
+| OpenLLMetry | ✅     | ❌      | ❌   |
 
 To achieve universal AI observability, LLMFlow needs to support all three OTLP signal types.
 
@@ -27,11 +27,11 @@ To achieve universal AI observability, LLMFlow needs to support all three OTLP s
 
 Per the [OTLP specification](https://opentelemetry.io/docs/specs/otlp/):
 
-| Signal | Default Path | Port (HTTP) | Port (gRPC) |
-|--------|-------------|-------------|-------------|
-| Traces | `/v1/traces` | 4318 | 4317 |
-| Metrics | `/v1/metrics` | 4318 | 4317 |
-| Logs | `/v1/logs` | 4318 | 4317 |
+| Signal  | Default Path  | Port (HTTP) | Port (gRPC) |
+| ------- | ------------- | ----------- | ----------- |
+| Traces  | `/v1/traces`  | 4318        | 4317        |
+| Metrics | `/v1/metrics` | 4318        | 4317        |
+| Logs    | `/v1/logs`    | 4318        | 4317        |
 
 ### Content Types
 
@@ -67,7 +67,10 @@ LLMFlow will initially support JSON encoding only (matching current `/v1/traces`
               "severityText": "INFO",
               "body": { "stringValue": "User prompt submitted" },
               "attributes": [
-                { "key": "event.name", "value": { "stringValue": "claude_code.user_prompt" } },
+                {
+                  "key": "event.name",
+                  "value": { "stringValue": "claude_code.user_prompt" }
+                },
                 { "key": "session_id", "value": { "stringValue": "abc123" } }
               ],
               "traceId": "5b8efff798038103d269b633813fc60c",
@@ -90,27 +93,27 @@ CREATE TABLE IF NOT EXISTS logs (
     id TEXT PRIMARY KEY,
     timestamp INTEGER NOT NULL,
     observed_timestamp INTEGER,
-    
+
     -- Severity
     severity_number INTEGER,
     severity_text TEXT,
-    
+
     -- Content
     body TEXT,
-    
+
     -- Context
     trace_id TEXT,
     span_id TEXT,
-    
+
     -- Classification
     event_name TEXT,
     service_name TEXT,
     scope_name TEXT,
-    
+
     -- Structured data
     attributes TEXT,  -- JSON
     resource_attributes TEXT,  -- JSON
-    
+
     -- Indexes
     FOREIGN KEY (trace_id) REFERENCES traces(trace_id)
 );
@@ -127,125 +130,134 @@ CREATE INDEX IF NOT EXISTS idx_logs_service_name ON logs(service_name);
 // otlp-logs.js
 
 function extractLogEventName(attrs) {
-    // Common patterns for AI CLI tools
-    return attrs['event.name'] 
-        || attrs['log.event.name']
-        || attrs['name']
-        || null;
+  // Common patterns for AI CLI tools
+  return (
+    attrs["event.name"] || attrs["log.event.name"] || attrs["name"] || null
+  );
 }
 
 function processOtlpLogs(body) {
-    const results = { accepted: 0, rejected: 0, errors: [] };
-    
-    if (!body || !body.resourceLogs) {
-        return results;
-    }
-    
-    for (const resourceLog of body.resourceLogs) {
-        const resourceAttrs = extractAttributes(resourceLog.resource?.attributes);
-        
-        for (const scopeLog of (resourceLog.scopeLogs || [])) {
-            const scopeInfo = scopeLog.scope || {};
-            
-            for (const logRecord of (scopeLog.logRecords || [])) {
-                try {
-                    const attrs = extractAttributes(logRecord.attributes);
-                    
-                    db.insertLog({
-                        id: generateId(),
-                        timestamp: nanoToMs(logRecord.timeUnixNano),
-                        observed_timestamp: nanoToMs(logRecord.observedTimeUnixNano),
-                        severity_number: logRecord.severityNumber,
-                        severity_text: logRecord.severityText,
-                        body: extractBody(logRecord.body),
-                        trace_id: normalizeId(logRecord.traceId),
-                        span_id: normalizeId(logRecord.spanId),
-                        event_name: extractLogEventName(attrs),
-                        service_name: resourceAttrs['service.name'] || 'unknown',
-                        scope_name: scopeInfo.name,
-                        attributes: attrs,
-                        resource_attributes: resourceAttrs
-                    });
-                    results.accepted++;
-                } catch (err) {
-                    results.rejected++;
-                    results.errors.push(err.message);
-                }
-            }
-        }
-    }
-    
+  const results = { accepted: 0, rejected: 0, errors: [] };
+
+  if (!body || !body.resourceLogs) {
     return results;
+  }
+
+  for (const resourceLog of body.resourceLogs) {
+    const resourceAttrs = extractAttributes(resourceLog.resource?.attributes);
+
+    for (const scopeLog of resourceLog.scopeLogs || []) {
+      const scopeInfo = scopeLog.scope || {};
+
+      for (const logRecord of scopeLog.logRecords || []) {
+        try {
+          const attrs = extractAttributes(logRecord.attributes);
+
+          db.insertLog({
+            id: generateId(),
+            timestamp: nanoToMs(logRecord.timeUnixNano),
+            observed_timestamp: nanoToMs(logRecord.observedTimeUnixNano),
+            severity_number: logRecord.severityNumber,
+            severity_text: logRecord.severityText,
+            body: extractBody(logRecord.body),
+            trace_id: normalizeId(logRecord.traceId),
+            span_id: normalizeId(logRecord.spanId),
+            event_name: extractLogEventName(attrs),
+            service_name: resourceAttrs["service.name"] || "unknown",
+            scope_name: scopeInfo.name,
+            attributes: attrs,
+            resource_attributes: resourceAttrs,
+          });
+          results.accepted++;
+        } catch (err) {
+          results.rejected++;
+          results.errors.push(err.message);
+        }
+      }
+    }
+  }
+
+  return results;
 }
 
 function createLogsHandler() {
-    return (req, res) => {
-        const contentType = req.headers['content-type'] || '';
-        
-        if (!contentType.includes('application/json')) {
-            return res.status(415).json({
-                error: 'Unsupported Media Type',
-                message: 'Only application/json is supported'
-            });
-        }
-        
-        try {
-            const results = processOtlpLogs(req.body);
-            
-            res.status(200).json({
-                partialSuccess: results.rejected > 0 ? {
-                    rejectedLogRecords: results.rejected,
-                    errorMessage: results.errors.slice(0, 5).join('; ')
-                } : undefined
-            });
-        } catch (err) {
-            res.status(500).json({
-                error: 'Internal Server Error',
-                message: err.message
-            });
-        }
-    };
+  return (req, res) => {
+    const contentType = req.headers["content-type"] || "";
+
+    if (!contentType.includes("application/json")) {
+      return res.status(415).json({
+        error: "Unsupported Media Type",
+        message: "Only application/json is supported",
+      });
+    }
+
+    try {
+      const results = processOtlpLogs(req.body);
+
+      res.status(200).json({
+        partialSuccess:
+          results.rejected > 0
+            ? {
+                rejectedLogRecords: results.rejected,
+                errorMessage: results.errors.slice(0, 5).join("; "),
+              }
+            : undefined,
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: err.message,
+      });
+    }
+  };
 }
 ```
 
 ### AI CLI Tool Event Mapping
 
-| Tool | Event Name Pattern | Key Attributes |
-|------|-------------------|----------------|
-| Claude Code | `claude_code.*` | `session_id`, `tool_name`, `model` |
-| Codex CLI | `codex.*` | `call_id`, `tool_name`, `decision` |
-| Gemini CLI | `gemini_cli.*` | `model`, `tool_name`, `status_code` |
+| Tool        | Event Name Pattern | Key Attributes                      |
+| ----------- | ------------------ | ----------------------------------- |
+| Claude Code | `claude_code.*`    | `session_id`, `tool_name`, `model`  |
+| Codex CLI   | `codex.*`          | `call_id`, `tool_name`, `decision`  |
+| Gemini CLI  | `gemini_cli.*`     | `model`, `tool_name`, `status_code` |
 
 ### Dashboard Logs API
 
 ```javascript
 // GET /api/logs
-app.get('/api/logs', (req, res) => {
-    const { 
-        limit = 50, 
-        offset = 0, 
-        service, 
-        event_name,
-        trace_id,
-        severity_min,
-        date_from,
-        date_to
-    } = req.query;
-    
-    const logs = db.getLogs({
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        filters: { service, event_name, trace_id, severity_min, date_from, date_to }
-    });
-    
-    res.json({ logs, total: db.getLogCount(filters) });
+app.get("/api/logs", (req, res) => {
+  const {
+    limit = 50,
+    offset = 0,
+    service,
+    event_name,
+    trace_id,
+    severity_min,
+    date_from,
+    date_to,
+  } = req.query;
+
+  const logs = db.getLogs({
+    limit: parseInt(limit),
+    offset: parseInt(offset),
+    filters: {
+      service,
+      event_name,
+      trace_id,
+      severity_min,
+      date_from,
+      date_to,
+    },
+  });
+
+  res.json({ logs, total: db.getLogCount(filters) });
 });
 
 // GET /api/logs/:id
-app.get('/api/logs/:id', (req, res) => {
-    const log = db.getLogById(req.params.id);
-    if (!log) return res.status(404).json({ error: 'Log not found' });
-    res.json(log);
+app.get("/api/logs/:id", (req, res) => {
+  const log = db.getLogById(req.params.id);
+  if (!log) return res.status(404).json({ error: "Log not found" });
+  res.json(log);
 });
 ```
 
@@ -280,7 +292,10 @@ app.get('/api/logs/:id', (req, res) => {
                     "asInt": "1500",
                     "attributes": [
                       { "key": "type", "value": { "stringValue": "input" } },
-                      { "key": "model", "value": { "stringValue": "claude-sonnet-4-20250514" } }
+                      {
+                        "key": "model",
+                        "value": { "stringValue": "claude-sonnet-4-20250514" }
+                      }
                     ]
                   }
                 ],
@@ -313,24 +328,24 @@ Add `metrics` table for time-series data:
 CREATE TABLE IF NOT EXISTS metrics (
     id TEXT PRIMARY KEY,
     timestamp INTEGER NOT NULL,
-    
+
     -- Metric identification
     name TEXT NOT NULL,
     description TEXT,
     unit TEXT,
     metric_type TEXT,  -- 'sum', 'gauge', 'histogram', 'summary'
-    
+
     -- Value (for simple metrics)
     value_int INTEGER,
     value_double REAL,
-    
+
     -- Histogram buckets (JSON for complex data)
     histogram_data TEXT,
-    
+
     -- Context
     service_name TEXT,
     scope_name TEXT,
-    
+
     -- Dimensions
     attributes TEXT,  -- JSON
     resource_attributes TEXT  -- JSON
@@ -348,7 +363,9 @@ For dashboard display, aggregate metrics into useful views:
 ```javascript
 // Aggregated metrics view
 function getMetricsSummary(filters = {}) {
-    return db.prepare(`
+  return db
+    .prepare(
+      `
         SELECT 
             name,
             service_name,
@@ -364,12 +381,16 @@ function getMetricsSummary(filters = {}) {
         WHERE timestamp >= @from AND timestamp <= @to
         GROUP BY name, service_name
         ORDER BY data_points DESC
-    `).all(filters);
+    `,
+    )
+    .all(filters);
 }
 
 // Token usage aggregation (common for AI tools)
 function getTokenUsage(filters = {}) {
-    return db.prepare(`
+  return db
+    .prepare(
+      `
         SELECT 
             service_name,
             json_extract(attributes, '$.model') as model,
@@ -378,7 +399,9 @@ function getTokenUsage(filters = {}) {
         FROM metrics
         WHERE name LIKE '%token%' OR name LIKE '%usage%'
         GROUP BY service_name, model, token_type
-    `).all();
+    `,
+    )
+    .all();
 }
 ```
 
@@ -386,27 +409,27 @@ function getTokenUsage(filters = {}) {
 
 ```javascript
 // GET /api/metrics
-app.get('/api/metrics', (req, res) => {
-    const { name, service, from, to, aggregation } = req.query;
-    
-    if (aggregation === 'summary') {
-        return res.json(db.getMetricsSummary({ from, to }));
-    }
-    
-    const metrics = db.getMetrics({
-        name,
-        service,
-        from: parseInt(from),
-        to: parseInt(to)
-    });
-    
-    res.json({ metrics });
+app.get("/api/metrics", (req, res) => {
+  const { name, service, from, to, aggregation } = req.query;
+
+  if (aggregation === "summary") {
+    return res.json(db.getMetricsSummary({ from, to }));
+  }
+
+  const metrics = db.getMetrics({
+    name,
+    service,
+    from: parseInt(from),
+    to: parseInt(to),
+  });
+
+  res.json({ metrics });
 });
 
 // GET /api/metrics/tokens - Token usage summary
-app.get('/api/metrics/tokens', (req, res) => {
-    const usage = db.getTokenUsage(req.query);
-    res.json({ usage });
+app.get("/api/metrics/tokens", (req, res) => {
+  const usage = db.getTokenUsage(req.query);
+  res.json({ usage });
 });
 ```
 
@@ -418,28 +441,28 @@ When logs and spans share `trace_id`, display them together:
 
 ```javascript
 // GET /api/traces/:id/telemetry
-app.get('/api/traces/:id/telemetry', (req, res) => {
-    const traceId = req.params.id;
-    
-    const spans = db.getSpansByTraceId(traceId);
-    const logs = db.getLogsByTraceId(traceId);
-    
-    // Merge and sort by timestamp
-    const timeline = [...spans, ...logs]
-        .map(item => ({
-            ...item,
-            type: item.span_type ? 'span' : 'log'
-        }))
-        .sort((a, b) => a.timestamp - b.timestamp);
-    
-    res.json({
-        trace_id: traceId,
-        timeline,
-        stats: {
-            span_count: spans.length,
-            log_count: logs.length
-        }
-    });
+app.get("/api/traces/:id/telemetry", (req, res) => {
+  const traceId = req.params.id;
+
+  const spans = db.getSpansByTraceId(traceId);
+  const logs = db.getLogsByTraceId(traceId);
+
+  // Merge and sort by timestamp
+  const timeline = [...spans, ...logs]
+    .map((item) => ({
+      ...item,
+      type: item.span_type ? "span" : "log",
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  res.json({
+    trace_id: traceId,
+    timeline,
+    stats: {
+      span_count: spans.length,
+      log_count: logs.length,
+    },
+  });
 });
 ```
 
@@ -450,20 +473,20 @@ Extend WebSocket broadcasts for new signals:
 ```javascript
 // Hook for log insertions
 db.setInsertLogHook((logSummary) => {
-    broadcast({ type: 'new_log', payload: logSummary });
-    
-    // If log has trace_id, notify trace subscribers
-    if (logSummary.trace_id) {
-        broadcast({ 
-            type: 'trace_log_added', 
-            payload: { trace_id: logSummary.trace_id, log: logSummary }
-        });
-    }
+  broadcast({ type: "new_log", payload: logSummary });
+
+  // If log has trace_id, notify trace subscribers
+  if (logSummary.trace_id) {
+    broadcast({
+      type: "trace_log_added",
+      payload: { trace_id: logSummary.trace_id, log: logSummary },
+    });
+  }
 });
 
 // Hook for metric insertions
 db.setInsertMetricHook((metricSummary) => {
-    broadcast({ type: 'new_metric', payload: metricSummary });
+  broadcast({ type: "new_metric", payload: metricSummary });
 });
 ```
 

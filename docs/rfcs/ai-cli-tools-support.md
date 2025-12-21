@@ -12,14 +12,14 @@ This RFC proposes comprehensive observability support for AI CLI coding tools in
 
 AI CLI tools have become essential for modern software development. Each tool has different telemetry mechanisms:
 
-| Tool | Telemetry Type | Protocol | Current Status |
-|------|---------------|----------|----------------|
-| Claude Code | Metrics + Logs | OTLP (gRPC/HTTP) | Not supported by LLMFlow |
-| Codex CLI | Log Events | OTLP (HTTP/gRPC) | Not supported by LLMFlow |
-| Gemini CLI | Metrics + Logs + Traces | OTLP (HTTP/gRPC) | Partially supported (traces only) |
-| OpenCode | File-based logs | Local files | Not applicable |
-| Aider | PostHog analytics | HTTP | Not applicable |
-| Cline | PostHog analytics | VS Code telemetry | Not applicable |
+| Tool        | Telemetry Type          | Protocol          | Current Status                    |
+| ----------- | ----------------------- | ----------------- | --------------------------------- |
+| Claude Code | Metrics + Logs          | OTLP (gRPC/HTTP)  | Not supported by LLMFlow          |
+| Codex CLI   | Log Events              | OTLP (HTTP/gRPC)  | Not supported by LLMFlow          |
+| Gemini CLI  | Metrics + Logs + Traces | OTLP (HTTP/gRPC)  | Partially supported (traces only) |
+| OpenCode    | File-based logs         | Local files       | Not applicable                    |
+| Aider       | PostHog analytics       | HTTP              | Not applicable                    |
+| Cline       | PostHog analytics       | VS Code telemetry | Not applicable                    |
 
 LLMFlow currently only supports trace ingestion (`/v1/traces`), which means most AI CLI tools' native telemetry cannot be collected.
 
@@ -30,6 +30,7 @@ LLMFlow currently only supports trace ingestion (`/v1/traces`), which means most
 **Telemetry Mechanism**: OpenTelemetry metrics and logs (NOT traces)
 
 **Environment Variables**:
+
 ```bash
 CLAUDE_CODE_ENABLE_TELEMETRY=1
 OTEL_METRICS_EXPORTER=otlp|console
@@ -39,6 +40,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ```
 
 **Exported Metrics**:
+
 - `claude_code.session.count` - CLI sessions started
 - `claude_code.token.usage` - Token usage (input/output/cache)
 - `claude_code.cost.usage` - Cost by model
@@ -48,6 +50,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 - `claude_code.code_edit_tool.decision` - Tool permission decisions
 
 **Exported Log Events**:
+
 - `claude_code.user_prompt` - User prompt submissions
 - `claude_code.tool_result` - Tool execution results
 - `claude_code.api_request` - API requests with duration and tokens
@@ -56,6 +59,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 **API Format**: Native Anthropic API (not OpenAI-compatible)
 
 **LLMFlow Integration Requirements**:
+
 1. Implement `/v1/logs` OTLP endpoint
 2. Implement `/v1/metrics` OTLP endpoint
 3. Implement passthrough proxy mode for native Anthropic API
@@ -65,6 +69,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 **Telemetry Mechanism**: OpenTelemetry log events (NOT traces)
 
 **Configuration** (in `~/.codex/config.toml`):
+
 ```toml
 [otel]
 environment = "staging"   # defaults to "dev"
@@ -80,6 +85,7 @@ protocol = "binary"  # or "json"
 ```
 
 **Exported Log Events**:
+
 - `codex.run_started` - Session start
 - `codex.user_input` - User prompts (redacted by default)
 - `codex.model_response` - Model responses
@@ -89,6 +95,7 @@ protocol = "binary"  # or "json"
 **API Format**: Native OpenAI API (chat completions or responses)
 
 **LLMFlow Integration Requirements**:
+
 1. Implement `/v1/logs` OTLP endpoint
 2. Default OpenAI proxy already works for API calls
 
@@ -97,13 +104,14 @@ protocol = "binary"  # or "json"
 **Telemetry Mechanism**: Full OpenTelemetry (metrics, logs, traces)
 
 **Configuration** (in `.gemini/settings.json`):
+
 ```json
 {
   "telemetry": {
     "enabled": true,
-    "target": "local",  // or "gcp"
+    "target": "local", // or "gcp"
     "otlpEndpoint": "http://localhost:4317",
-    "otlpProtocol": "grpc",  // or "http"
+    "otlpProtocol": "grpc", // or "http"
     "logPrompts": true,
     "outfile": ".gemini/telemetry.log"
   }
@@ -111,6 +119,7 @@ protocol = "binary"  # or "json"
 ```
 
 **Environment Variables**:
+
 ```bash
 GEMINI_TELEMETRY_ENABLED=true
 GEMINI_TELEMETRY_TARGET=local|gcp
@@ -120,6 +129,7 @@ GEMINI_TELEMETRY_LOG_PROMPTS=true
 ```
 
 **Exported Metrics**:
+
 - `gemini_cli.session.count` - Sessions started
 - `gemini_cli.tool.call.count` - Tool call counts
 - `gemini_cli.tool.call.latency` - Tool call latency
@@ -129,6 +139,7 @@ GEMINI_TELEMETRY_LOG_PROMPTS=true
 - `gen_ai.client.token.usage` - GenAI semantic convention compliant
 
 **Exported Log Events**:
+
 - `gemini_cli.config` - Configuration at startup
 - `gemini_cli.user_prompt` - User prompts
 - `gemini_cli.tool_call` - Tool invocations
@@ -140,6 +151,7 @@ GEMINI_TELEMETRY_LOG_PROMPTS=true
 **API Format**: Native Google Gemini API
 
 **LLMFlow Integration Requirements**:
+
 1. Implement `/v1/logs` OTLP endpoint
 2. Implement `/v1/metrics` OTLP endpoint
 3. Traces already work with existing `/v1/traces`
@@ -150,11 +162,13 @@ GEMINI_TELEMETRY_LOG_PROMPTS=true
 **Telemetry Mechanism**: Local file-based logging (OTEL integration in progress via PR #5245)
 
 **Current State**:
+
 - Logs written to `~/.local/share/opencode/log/`
 - Debug mode via `--log-level DEBUG`
 - Session data stored in `~/.local/share/opencode/project/`
 
 **Future OTEL Support** (per PR #5245):
+
 - Span wrapping for CLI operations
 - Error event logging
 - Likely metrics support
@@ -162,6 +176,7 @@ GEMINI_TELEMETRY_LOG_PROMPTS=true
 **API Format**: Uses various providers (OpenAI, Anthropic, Google, etc.)
 
 **LLMFlow Integration Requirements**:
+
 1. Currently best integrated via proxy (supports multiple providers)
 2. Monitor OTEL PR for future native integration
 
@@ -170,6 +185,7 @@ GEMINI_TELEMETRY_LOG_PROMPTS=true
 **Telemetry Mechanism**: PostHog analytics (opt-in)
 
 **Configuration**:
+
 ```bash
 aider --analytics              # Enable for session
 aider --no-analytics           # Disable for session
@@ -178,16 +194,19 @@ aider --analytics-log file.jsonl  # Log to file
 ```
 
 **Collected Data**:
+
 - Model usage and token counts
 - Edit format usage
 - Feature and command usage
 - Exception/error information
 
-**Proxy Support**: 
+**Proxy Support**:
+
 - Uses LiteLLM internally
 - Supports `--openai-api-base` for proxy configuration
 
 **LLMFlow Integration Requirements**:
+
 1. Use LLMFlow as proxy via `--openai-api-base http://localhost:8080/v1`
 2. Analytics cannot be directly integrated (PostHog-based)
 
@@ -196,17 +215,20 @@ aider --analytics-log file.jsonl  # Log to file
 **Telemetry Mechanism**: PostHog analytics (opt-in, respects VS Code settings)
 
 **Collected Data**:
+
 - Task interactions (start/finish, no content)
 - Mode and tool usage
 - Token usage metrics
 - System context (OS, VS Code environment)
 - UI activity patterns
 
-**MCP Integration**: 
+**MCP Integration**:
+
 - Supports MCP servers for tool access
 - Can connect to external data sources
 
 **LLMFlow Integration Requirements**:
+
 1. Use LLMFlow as API proxy via Cline's provider configuration
 2. Potentially create MCP server for LLMFlow data access
 3. Analytics cannot be directly integrated (PostHog-based)
@@ -234,6 +256,7 @@ See [RFC: Passthrough Proxy Mode](./passthrough-mode.md) for implementation deta
 ### Priority 4: Provider Extensions
 
 Add native provider support for:
+
 - Google Gemini API
 - Enhanced Anthropic passthrough
 
@@ -302,23 +325,27 @@ To fully support AI CLI tools, the dashboard should:
 ## Implementation Phases
 
 ### Phase 1: OTLP Logs (2-3 weeks)
+
 - Implement `/v1/logs` endpoint
 - Add log storage to database schema
 - Create log viewer in dashboard
 - Test with Codex CLI
 
 ### Phase 2: OTLP Metrics (2-3 weeks)
+
 - Implement `/v1/metrics` endpoint
 - Add metrics aggregation
 - Create metrics dashboard
 - Test with Claude Code and Gemini CLI
 
 ### Phase 3: Passthrough Mode (1-2 weeks)
+
 - Implement passthrough proxy mode
 - Add native Anthropic API support
 - Test with Claude Code
 
 ### Phase 4: Dashboard Enhancements (2-3 weeks)
+
 - Tool-specific filtering
 - Session grouping
 - Enhanced analytics views
