@@ -1,8 +1,11 @@
 {
   "name": "llmflow",
   "version": "0.3.0",
-  "description": "Local-first LLM observability with hierarchical span tracing",
+  "description": "See what your LLM calls cost. One command. No signup.",
   "main": "server.js",
+  "bin": {
+    "llmflow": "./bin/llmflow.js"
+  },
   "scripts": {
     "start": "node server.js",
     "start:verbose": "VERBOSE=1 node server.js",
@@ -22,14 +25,30 @@
     "uuid": "^9.0.0",
     "ws": "^8.18.3"
   },
+  "files": [
+    "bin/",
+    "providers/",
+    "public/",
+    "server.js",
+    "db.js",
+    "pricing.js",
+    "pricing.fallback.json",
+    "logger.js",
+    "otlp.js",
+    "otlp-logs.js",
+    "otlp-metrics.js",
+    "otlp-export.js"
+  ],
   "keywords": [
     "llm",
     "observability",
     "tracing",
-    "spans",
     "openai",
+    "anthropic",
     "langchain",
-    "agents"
+    "opentelemetry",
+    "cost-tracking",
+    "ai"
   ],
   "author": "Helge Sverre",
   "license": "MIT",

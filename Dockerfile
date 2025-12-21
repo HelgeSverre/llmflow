@@ -7,15 +7,26 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --production
 
+# Core files
 COPY server.js ./
 COPY db.js ./
 COPY pricing.js ./
 COPY pricing.fallback.json ./
 COPY logger.js ./
-COPY otlp.js ./
-COPY public ./public/
-COPY test ./test/
 
+# OTLP modules
+COPY otlp.js ./
+COPY otlp-logs.js ./
+COPY otlp-metrics.js ./
+COPY otlp-export.js ./
+
+# Providers
+COPY providers ./providers/
+
+# Frontend
+COPY public ./public/
+
+# Create data directory
 RUN mkdir -p /root/.llmflow
 
 ENV NODE_ENV=production
