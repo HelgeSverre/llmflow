@@ -1,5 +1,6 @@
 // State
-let currentTab = 'timeline';
+const validTabs = ['timeline', 'traces', 'logs', 'metrics', 'models', 'analytics'];
+let currentTab = getTabFromHash() || 'timeline';
 let traces = [];
 let logs = [];
 let stats = {};
@@ -41,6 +42,18 @@ let ws = null;
 let wsRetryDelay = 1000;
 const WS_MAX_RETRY = 30000;
 
+// URL hash for tab persistence
+function getTabFromHash() {
+    const hash = window.location.hash.slice(1);
+    return validTabs.includes(hash) ? hash : null;
+}
+
+function setTabHash(tab) {
+    if (validTabs.includes(tab)) {
+        history.replaceState(null, '', '#' + tab);
+    }
+}
+
 // Theme
 function initTheme() {
     const savedTheme = localStorage.getItem('llmflow-theme');
@@ -77,10 +90,12 @@ function init() {
     setupKeyboardShortcuts();
     loadModels();
     loadStats();
-    loadTimeline();
     loadLogFilterOptions();
     loadMetricFilterOptions();
     initWebSocket();
+
+    // Load initial tab from hash or default to timeline
+    showTab(currentTab);
 
     // Polling as fallback (less frequent since we have WebSocket)
     setInterval(loadStats, 30000);
@@ -88,6 +103,14 @@ function init() {
         if (currentTab === 'timeline') loadTimeline();
         else if (currentTab === 'traces') loadTraces();
     }, 30000);
+
+    // Handle hash changes (back/forward navigation)
+    window.addEventListener('hashchange', () => {
+        const tab = getTabFromHash();
+        if (tab && tab !== currentTab) {
+            showTab(tab);
+        }
+    });
 }
 
 if (document.readyState === 'loading') {
@@ -195,8 +218,9 @@ function clearFilters() {
 // Tab switching
 function showTab(tab) {
     currentTab = tab;
+    setTabHash(tab);
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    event.target.classList.add('active');
+    document.querySelector(`.tab[onclick*="'${tab}'"]`)?.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
 
     if (tab === 'timeline') {

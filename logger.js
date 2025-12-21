@@ -38,6 +38,11 @@ const logger = {
         console.log(`${c.cyan}[llmflow]${c.reset} ${message}`);
     },
 
+    // URL highlighting (yellow)
+    url(urlString) {
+        return `${c.yellow}${urlString}${c.reset}`;
+    },
+
     info(message) {
         console.log(`${c.dim}[llmflow]${c.reset} ${message}`);
     },

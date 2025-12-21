@@ -64,12 +64,7 @@ if (!fs.existsSync(serverPath)) {
 
 // Print startup banner
 const pkg = require('../package.json');
-console.log(`
-╔═══════════════════════════════════════════════╗
-║                   LLMFlow                     ║
-║       Local LLM Observability v${pkg.version.padEnd(13)}║
-╚═══════════════════════════════════════════════╝
-`);
+console.log(`\n\x1b[34mLLMFlow\x1b[0m - Local LLM observability v${pkg.version}\n`);
 
 // Start the server
 const server = spawn(process.execPath, [serverPath], {

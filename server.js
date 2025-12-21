@@ -1121,10 +1121,34 @@ dashboardApp.get('/api/traces/:id/tree', (req, res) => {
     }
 });
 
-// Start servers
+// Start servers - coordinate startup messages
+let proxyReady = false;
+let dashboardReady = false;
+
+function printStartupIfReady() {
+    if (!proxyReady || !dashboardReady) return;
+
+    // Always show URLs (yellow colored, dashboard first)
+    log.startup(`Dashboard: ${log.url(`http://localhost:${DASHBOARD_PORT}`)}`);
+    log.startup(`Proxy:     ${log.url(`http://localhost:${PROXY_PORT}`)}`);
+
+    // Verbose only
+    log.debug(`Set base_url to http://localhost:${PROXY_PORT}/v1`);
+    log.debug(`Database: ${db.DB_PATH}`);
+    log.debug(`Traces: ${db.getTraceCount()}, Logs: ${db.getLogCount()}, Metrics: ${db.getMetricCount()}`);
+    log.debug(`WebSocket: ws://localhost:${DASHBOARD_PORT}/ws`);
+
+    const exportConfig = getExportConfig();
+    if (exportConfig.enabled) {
+        log.debug(`OTLP Export: ${exportConfig.endpoints.traces || 'disabled'}`);
+    }
+
+    console.log('');
+}
+
 proxyApp.listen(PROXY_PORT, () => {
-    log.startup(`Proxy running on http://localhost:${PROXY_PORT}`);
-    log.info(`Set base_url to http://localhost:${PROXY_PORT}/v1`);
+    proxyReady = true;
+    printStartupIfReady();
 });
 
 // Create HTTP server for dashboard (needed for WebSocket)
@@ -1205,18 +1229,6 @@ db.setInsertMetricHook((metricSummary) => {
 initExportHooks(db);
 
 dashboardServer.listen(DASHBOARD_PORT, () => {
-    log.startup(`Dashboard running on http://localhost:${DASHBOARD_PORT}`);
-    log.info(`Database: ${db.DB_PATH}`);
-    log.info(`Traces: ${db.getTraceCount()}, Logs: ${db.getLogCount()}, Metrics: ${db.getMetricCount()}`);
-    log.info(`WebSocket: ws://localhost:${DASHBOARD_PORT}/ws`);
-    
-    const exportConfig = getExportConfig();
-    if (exportConfig.enabled) {
-        log.info(`OTLP Export: ${exportConfig.endpoints.traces || 'disabled'}`);
-    }
-    
-    if (log.isVerbose()) {
-        log.info('Verbose logging enabled');
-    }
-    console.log('');
+    dashboardReady = true;
+    printStartupIfReady();
 });
