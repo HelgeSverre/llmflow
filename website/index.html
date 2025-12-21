@@ -6,104 +6,154 @@
     <title>LLMFlow — See what your LLM calls cost</title>
     <meta name="description" content="Local LLM observability. One command. No signup. Track costs, tokens, and latency for OpenAI, Anthropic, and more.">
     
-    <!-- Open Graph -->
     <meta property="og:title" content="LLMFlow — See what your LLM calls cost">
-    <meta property="og:description" content="Local LLM observability. One command. No signup. Track costs, tokens, and latency.">
+    <meta property="og:description" content="Local LLM observability. One command. No signup.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://llmflow.dev">
+    <meta property="og:image" content="https://raw.githubusercontent.com/HelgeSverre/llmflow/main/art/screenshot-dark.png">
     
-    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
-    
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <nav>
-        <div class="nav-content">
-            <a href="#" class="logo">
-                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5"/>
-                    <path d="M2 12l10 5 10-5"/>
-                </svg>
-                LLMFlow
-            </a>
-            <div class="nav-links">
-                <a href="#quickstart">Quick Start</a>
-                <a href="#features">Features</a>
-                <a href="https://github.com/HelgeSverre/llmflow" class="btn btn-small">GitHub</a>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-left">
+                <a href="#" class="logo">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                    LLMFlow
+                </a>
             </div>
-        </div>
-    </nav>
+            <nav class="header-nav">
+                <a href="#features">Features</a>
+                <a href="#quickstart">Quick Start</a>
+                <a href="#integrations">Integrations</a>
+                <a href="https://github.com/HelgeSverre/llmflow" class="btn btn-secondary btn-small">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    GitHub
+                </a>
+            </nav>
+        </header>
 
-    <main>
         <!-- Hero -->
         <section class="hero">
-            <h1>See what your LLM calls cost</h1>
-            <p class="subtitle">One command. No signup.</p>
-            <p class="description">
-                Local observability for your AI projects. Track costs, tokens, and latency 
-                for OpenAI, Anthropic, Gemini, and more.
-            </p>
-            
-            <div class="hero-install">
-                <div class="code-block code-block-hero">
-                    <pre><code>npx llmflow</code></pre>
-                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="hero-content">
+                <h1>See what your LLM calls cost</h1>
+                <p class="hero-subtitle">One command. No signup. No cloud.</p>
+                <p class="hero-description">
+                    Local observability for your AI projects. Track costs, tokens, and latency 
+                    for OpenAI, Anthropic, Gemini, Ollama, and more.
+                </p>
+                
+                <div class="hero-install">
+                    <div class="install-box">
+                        <code>npx llmflow</code>
+                        <button class="copy-btn" onclick="copyText('npx llmflow', this)">Copy</button>
+                    </div>
+                    <p class="install-note">Then point your SDK at <code>localhost:8080/v1</code></p>
+                </div>
+
+                <div class="hero-actions">
+                    <a href="#quickstart" class="btn btn-primary">Get Started</a>
+                    <a href="https://github.com/HelgeSverre/llmflow" class="btn btn-secondary">View Source</a>
                 </div>
             </div>
             
-            <p class="hero-note">
-                Then point your SDK at <code>http://localhost:8080/v1</code>
-            </p>
-            
             <div class="hero-screenshot">
-                <img src="screenshot.png" alt="LLMFlow Dashboard showing traces, costs, and latency" />
+                <img src="screenshot.png" alt="LLMFlow Dashboard">
             </div>
         </section>
 
         <!-- Who is this for -->
-        <section id="who" class="who-section">
+        <section class="section" id="who">
             <h2>Built for developers who ship</h2>
-            <div class="who-grid">
-                <div class="who-card">
-                    <div class="who-icon">🛠️</div>
-                    <h3>Solo founders</h3>
-                    <p>Track your AI costs without another SaaS subscription</p>
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-icon">🛠️</div>
+                    <h3>Solo Founders</h3>
+                    <p>Track your AI costs without another SaaS subscription eating into your runway.</p>
                 </div>
-                <div class="who-card">
-                    <div class="who-icon">🧪</div>
+                <div class="card">
+                    <div class="card-icon">🧪</div>
                     <h3>Hobbyists</h3>
-                    <p>See what your weekend AI projects actually cost</p>
+                    <p>See what your weekend AI projects actually cost. No surprise bills.</p>
                 </div>
-                <div class="who-card">
-                    <div class="who-icon">🚀</div>
-                    <h3>Indie hackers</h3>
-                    <p>Debug your LLM calls without cloud vendor lock-in</p>
+                <div class="card">
+                    <div class="card-icon">🚀</div>
+                    <h3>Indie Hackers</h3>
+                    <p>Debug your LLM calls locally without sending data to third parties.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="section" id="features">
+            <h2>What you get</h2>
+            <div class="features-grid">
+                <div class="feature">
+                    <div class="feature-header">
+                        <span class="feature-icon">💰</span>
+                        <h3>Cost Tracking</h3>
+                    </div>
+                    <p>Real-time pricing for 2000+ models. See exactly what each request costs.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-header">
+                        <span class="feature-icon">📊</span>
+                        <h3>Request Logging</h3>
+                    </div>
+                    <p>Every request, response, tokens, and latency. Searchable and filterable.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-header">
+                        <span class="feature-icon">🌲</span>
+                        <h3>Hierarchical Traces</h3>
+                    </div>
+                    <p>See your agents, chains, tools, and LLM calls in a tree view.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-header">
+                        <span class="feature-icon">📡</span>
+                        <h3>OpenTelemetry</h3>
+                    </div>
+                    <p>Accept traces from LangChain, LlamaIndex, and any OTLP-compatible tool.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-header">
+                        <span class="feature-icon">⚡</span>
+                        <h3>Zero Config</h3>
+                    </div>
+                    <p>Just run it and point your SDK. No API keys, no setup, no accounts.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-header">
+                        <span class="feature-icon">💾</span>
+                        <h3>Local Storage</h3>
+                    </div>
+                    <p>SQLite database. Your data stays on your machine. Query it however you want.</p>
                 </div>
             </div>
         </section>
 
         <!-- Quick Start -->
-        <section id="quickstart">
+        <section class="section" id="quickstart">
             <h2>Quick Start</h2>
-            <div class="steps">
+            <div class="quickstart-steps">
                 <div class="step">
                     <div class="step-number">1</div>
                     <div class="step-content">
                         <h3>Start LLMFlow</h3>
                         <div class="code-block">
-                            <pre><code>npx llmflow</code></pre>
-                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            <pre><code><span class="comment"># Using npx (recommended)</span>
+npx llmflow
+
+<span class="comment"># Or with Docker</span>
+docker run -p 3000:3000 -p 8080:8080 helgesverre/llmflow</code></pre>
                         </div>
-                        <p class="step-alt">
-                            Or: <code>docker run -p 3000:3000 -p 8080:8080 helgesverre/llmflow</code>
-                        </p>
                     </div>
                 </div>
                 <div class="step">
@@ -111,12 +161,12 @@
                     <div class="step-content">
                         <h3>Point your SDK</h3>
                         <div class="code-block">
-                            <pre><code># Python
+                            <pre><code><span class="comment"># Python</span>
+from openai import OpenAI
 client = OpenAI(base_url="http://localhost:8080/v1")
 
-# JavaScript  
-const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' });</code></pre>
-                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<span class="comment"># JavaScript</span>
+const client = new OpenAI({ baseURL: "http://localhost:8080/v1" });</code></pre>
                         </div>
                     </div>
                 </div>
@@ -124,93 +174,140 @@ const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' });</code></pre>
                     <div class="step-number">3</div>
                     <div class="step-content">
                         <h3>View your traces</h3>
-                        <p>Open <a href="http://localhost:3000">localhost:3000</a> to see costs, tokens, and latency.</p>
+                        <p>Open <a href="http://localhost:3000">localhost:3000</a> to see costs, tokens, latency, and full request/response details.</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Features -->
-        <section id="features">
-            <h2>What you get</h2>
-            <div class="features-grid">
-                <div class="feature">
-                    <div class="feature-icon">💰</div>
-                    <h3>Cost Tracking</h3>
-                    <p>Real-time pricing for 2000+ models</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">📊</div>
-                    <h3>Request Logging</h3>
-                    <p>Every request, response, and latency</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🔌</div>
-                    <h3>11 Providers</h3>
-                    <p>OpenAI, Anthropic, Gemini, Ollama, Groq...</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">📡</div>
-                    <h3>OpenTelemetry</h3>
-                    <p>Works with LangChain, LlamaIndex, etc.</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Zero Config</h3>
-                    <p>Just run it and point your SDK</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">💾</div>
-                    <h3>Local Storage</h3>
-                    <p>SQLite database, no cloud required</p>
+        <!-- Integrations -->
+        <section class="section" id="integrations">
+            <h2>Integrations</h2>
+            <p class="section-subtitle">Works with your existing tools. Pick your integration method.</p>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="proxy">Proxy Mode</button>
+                <button class="tab" data-tab="otel">OpenTelemetry</button>
+                <button class="tab" data-tab="cli">AI CLI Tools</button>
+            </div>
+
+            <div class="tab-content active" id="tab-proxy">
+                <p>Point your SDK's base URL at LLMFlow. Works with any OpenAI-compatible client.</p>
+                <div class="providers-table">
+                    <div class="provider-row">
+                        <span class="provider-name">OpenAI</span>
+                        <code>http://localhost:8080/v1</code>
+                    </div>
+                    <div class="provider-row">
+                        <span class="provider-name">Anthropic</span>
+                        <code>http://localhost:8080/anthropic/v1</code>
+                    </div>
+                    <div class="provider-row">
+                        <span class="provider-name">Gemini</span>
+                        <code>http://localhost:8080/gemini/v1</code>
+                    </div>
+                    <div class="provider-row">
+                        <span class="provider-name">Ollama</span>
+                        <code>http://localhost:8080/ollama/v1</code>
+                    </div>
+                    <div class="provider-row">
+                        <span class="provider-name">Groq</span>
+                        <code>http://localhost:8080/groq/v1</code>
+                    </div>
+                    <div class="provider-row">
+                        <span class="provider-name">Mistral</span>
+                        <code>http://localhost:8080/mistral/v1</code>
+                    </div>
+                    <div class="provider-row">
+                        <span class="provider-name">Azure OpenAI</span>
+                        <code>http://localhost:8080/azure/v1</code>
+                    </div>
+                    <div class="provider-row">
+                        <span class="provider-name">Together</span>
+                        <code>http://localhost:8080/together/v1</code>
+                    </div>
+                    <div class="provider-row">
+                        <span class="provider-name">OpenRouter</span>
+                        <code>http://localhost:8080/openrouter/v1</code>
+                    </div>
                 </div>
             </div>
-        </section>
 
-        <!-- Providers -->
-        <section id="providers">
-            <h2>Supported Providers</h2>
-            <div class="providers-grid">
-                <div class="provider">OpenAI</div>
-                <div class="provider">Anthropic</div>
-                <div class="provider">Gemini</div>
-                <div class="provider">Ollama</div>
-                <div class="provider">Groq</div>
-                <div class="provider">Mistral</div>
-                <div class="provider">Azure</div>
-                <div class="provider">Cohere</div>
-                <div class="provider">Together</div>
-                <div class="provider">OpenRouter</div>
-                <div class="provider">Perplexity</div>
+            <div class="tab-content" id="tab-otel">
+                <p>Send traces from LangChain, LlamaIndex, or any OpenTelemetry-instrumented app.</p>
+                <div class="code-block">
+                    <pre><code><span class="comment"># Python - OpenLLMetry / LangChain</span>
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+exporter = OTLPSpanExporter(endpoint="http://localhost:3000/v1/traces")
+
+<span class="comment"># JavaScript</span>
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+
+new OTLPTraceExporter({ url: 'http://localhost:3000/v1/traces' });</code></pre>
+                </div>
+                <p class="note">LLMFlow accepts OTLP/HTTP JSON for traces, logs, and metrics.</p>
+            </div>
+
+            <div class="tab-content" id="tab-cli">
+                <p>Track usage from AI coding assistants like Claude Code, Codex CLI, and Aider.</p>
+                <div class="code-block">
+                    <pre><code><span class="comment"># Claude Code - use passthrough mode</span>
+export ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic
+claude
+
+<span class="comment"># Aider - proxy mode</span>
+aider --openai-api-base http://localhost:8080/v1
+
+<span class="comment"># Codex CLI - OTLP logs</span>
+# In ~/.codex/config.toml:
+[otel.exporter."otlp-http"]
+endpoint = "http://localhost:3000/v1/logs"</code></pre>
+                </div>
             </div>
         </section>
 
         <!-- CTA -->
-        <section class="cta">
+        <section class="section cta">
             <h2>Start tracking your LLM costs</h2>
-            <div class="code-block code-block-hero">
-                <pre><code>npx llmflow</code></pre>
-                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="install-box large">
+                <code>npx llmflow</code>
+                <button class="copy-btn" onclick="copyText('npx llmflow', this)">Copy</button>
             </div>
             <div class="cta-links">
                 <a href="https://github.com/HelgeSverre/llmflow" class="btn btn-primary">View on GitHub</a>
-                <a href="https://github.com/HelgeSverre/llmflow#readme" class="btn btn-secondary">Documentation</a>
+                <a href="https://www.npmjs.com/package/llmflow" class="btn btn-secondary">npm Package</a>
+                <a href="https://hub.docker.com/r/helgesverre/llmflow" class="btn btn-secondary">Docker Hub</a>
             </div>
         </section>
-    </main>
 
-    <footer>
-        <a href="https://github.com/HelgeSverre/llmflow">GitHub</a>
-        <span class="sep">•</span>
-        <a href="https://github.com/HelgeSverre/llmflow/blob/main/LICENSE">MIT License</a>
-        <span class="sep">•</span>
-        Built by <a href="https://github.com/HelgeSverre">Helge Sverre</a>
-    </footer>
+        <!-- Footer -->
+        <footer>
+            <div class="footer-content">
+                <span>MIT License</span>
+                <span class="sep">·</span>
+                <a href="https://github.com/HelgeSverre">Built by Helge Sverre</a>
+            </div>
+        </footer>
+    </div>
 
     <script>
-        function copyCode(btn) {
-            const code = btn.previousElementSibling.textContent;
-            navigator.clipboard.writeText(code).then(() => {
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.dataset.tab;
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById('tab-' + tabId).classList.add('active');
+            });
+        });
+
+        // Copy functionality
+        function copyText(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
                 btn.textContent = 'Copied!';
                 btn.classList.add('copied');
                 setTimeout(() => {
