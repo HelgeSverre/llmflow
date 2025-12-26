@@ -784,7 +784,33 @@ dashboardApp.get('/api/traces/export', (req, res) => {
         
         log.dashboard('GET', '/api/traces/export', Date.now() - start);
         
-        if (format === 'jsonl') {
+        if (format === 'csv') {
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', 'attachment; filename="traces.csv"');
+            
+            // CSV header
+            const headers = [
+                'id', 'timestamp', 'duration_ms', 'provider', 'model',
+                'prompt_tokens', 'completion_tokens', 'total_tokens',
+                'estimated_cost', 'status', 'error', 'trace_id', 'parent_id',
+                'span_type', 'span_name', 'service_name'
+            ];
+            res.write(headers.join(',') + '\n');
+            
+            // CSV rows
+            for (const trace of traces) {
+                const row = headers.map(h => {
+                    const val = trace[h];
+                    if (val === null || val === undefined) return '';
+                    if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+                        return `"${val.replace(/"/g, '""')}"`;
+                    }
+                    return String(val);
+                });
+                res.write(row.join(',') + '\n');
+            }
+            res.end();
+        } else if (format === 'jsonl') {
             res.setHeader('Content-Type', 'application/x-ndjson');
             res.setHeader('Content-Disposition', 'attachment; filename="traces.jsonl"');
             for (const trace of traces) {

@@ -1,151 +1,67 @@
-# LLMFlow Issues Found During Testing
+# LLMFlow Issues Tracker
 
-Testing performed on 2025-12-21 against LLMFlow v0.3.1
+## Resolved in v0.3.2
 
----
+All critical and medium issues from the v0.3.1 testing have been fixed.
 
-## Critical Issues
+### ✅ Fixed: Anthropic Passthrough Mode
 
-### 1. Anthropic Passthrough Mode Broken
+**Was:** `/passthrough/anthropic` returned `{"error":"Invalid JSON response","body":""}` instead of the actual API response.
 
-**Severity:** Critical
-**Affects:** Claude Code, Aider (Anthropic mode), Native Anthropic SDK
+**Fix:** Passthrough now forwards raw bytes immediately to the client while buffering separately for logging. JSON parsing failures no longer affect the client response.
 
-**Problem:**
-The `/passthrough/anthropic` endpoint fails to return valid JSON responses. Requests are processed successfully on the server side (logs show "OK"), but the response sent back to the client is malformed.
-
-**Observed Behavior:**
-```bash
-curl http://localhost:8080/passthrough/anthropic/v1/messages \
-  -H "x-api-key: $ANTHROPIC_API_KEY" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"claude-sonnet-4-20250514","max_tokens":50,"messages":[{"role":"user","content":"Hello"}]}'
-
-# Returns:
-{"error":"Invalid JSON response","body":""}
-```
-
-**Server Logs:**
-```
-18:27:53.015 OK claude-sonnet-4-20250514 172ms
-```
-
-The server completes the request successfully, but the response body is empty when returned to the client.
-
-**Impact:**
-- Claude Code cannot be used with LLMFlow (returns "API Error: 404")
-- Aider with `--anthropic-api-base` fails
-- Any application using the native Anthropic SDK through passthrough fails
-
-**Expected Behavior:**
-Passthrough should return the native Anthropic API response format unchanged.
+**Commit:** `009f730`
 
 ---
 
-### 2. Anthropic Proxy Mode Converts Response Format
+### ✅ Fixed: Streaming Responses Show 0 Token Count
 
-**Severity:** Medium
-**Affects:** Native Anthropic SDK users
+**Was:** Dashboard showed 0 tokens for all streaming requests because SSE events were parsed per TCP chunk (which often splits JSON payloads).
 
-**Problem:**
-The `/anthropic/v1` proxy endpoint converts Anthropic responses to OpenAI-compatible format. This breaks applications expecting native Anthropic format.
+**Fix:** Both proxy and passthrough streaming handlers now buffer the complete SSE stream and parse it once at the end for accurate token extraction.
 
-**Observed Behavior:**
-```python
-# Using Anthropic SDK through proxy
-response = client.messages.create(...)
-
-# Response has OpenAI structure mixed with Anthropic wrapper:
-Message(
-    id='msg_...',
-    content=None,  # Native field is empty!
-    model='claude-sonnet-4-20250514',
-    role=None,
-    stop_reason=None,
-    type=None,
-    usage=Usage(...),
-    object='chat.completion',  # OpenAI field
-    choices=[{'index': 0, 'message': {'role': 'assistant', 'content': 'OK'}, 'finish_reason': 'stop'}]  # OpenAI structure
-)
-```
-
-**Expected Behavior:**
-Either:
-1. Proxy mode should preserve native format (like passthrough claims to do), OR
-2. Documentation should clearly state that proxy mode converts to OpenAI format
+**Commit:** `009f730`
 
 ---
 
-## Medium Issues
+### ✅ Fixed: Dashboard API Filtering by Provider
 
-### 3. Streaming Responses Show 0 Token Count
+**Was:** Query parameter `?provider=anthropic` was ignored - `/api/traces` returned all traces.
 
-**Severity:** Medium
-**Affects:** Token tracking accuracy for streaming requests
+**Fix:** 
+- Added `provider` and `tag` filter support to `db.getTraces()`
+- Added query param extraction in `/api/traces` and `/api/traces/export`
 
-**Problem:**
-When streaming is enabled (`"stream": true`), the dashboard shows 0 tokens for both input and output.
-
-**Observed Behavior:**
-```
-Model: gpt-4o-mini
-Tokens: 0 in + 0 out = 0 total
-Cost: $0.000000
-Duration: 624ms
-Status: 200
-```
-
-Non-streaming requests correctly show token counts:
-```
-Model: gpt-4o-mini-2024-07-18
-Tokens: 11 total
-Cost: $0.0000
-Duration: 1036ms
-```
-
-**Expected Behavior:**
-Token counts should be calculated from the aggregated streaming chunks.
+**Commit:** `009f730`
 
 ---
 
-### 4. Dashboard API Filtering May Not Work
+### ℹ️ Clarified: Anthropic Proxy Mode Format Conversion
 
-**Severity:** Low
-**Affects:** Dashboard usability
+**Issue:** `/anthropic/v1/*` converts responses to OpenAI format.
 
-**Problem:**
-Query parameters for filtering traces don't appear to work:
+**Status:** This is **by design**. Proxy routes normalize all responses for consistency.
 
-```bash
-curl "http://localhost:3000/api/traces?provider=anthropic"
-# Returns all 50 traces, not filtered
-
-curl "http://localhost:3000/api/traces?model=gpt"
-# Returns 0 traces
-```
-
-**Expected Behavior:**
-Query parameters should filter traces by provider, model, date range, etc.
+**Solution:** Use `/passthrough/anthropic/v1/messages` for native Anthropic format.
 
 ---
 
-## Summary Table
+## Open Issues
 
-| Issue | Severity | Status | Workaround |
-|-------|----------|--------|------------|
-| Passthrough broken | Critical | Unfixed | Use proxy mode (but format changes) |
-| Format conversion | Medium | By design? | None - must handle OpenAI format |
-| Streaming tokens = 0 | Medium | Unfixed | Use non-streaming requests |
-| API filtering broken | Low | Unfixed | Filter client-side |
+_No open issues at this time._
 
 ---
 
-## Test Environment
+## Feature Requests
 
-- LLMFlow version: 0.3.1
-- Installation method: `npx llmflow`
-- OS: macOS Darwin 24.6.0
-- Node.js: (via npx)
-- Tested providers: OpenAI, Anthropic
-- Tested tools: Claude Code, Aider
+| Feature | Priority | Status |
+|---------|----------|--------|
+| Python SDK | High | Planned |
+| Go SDK | Low | Planned |
+| Homebrew formula | Low | Planned |
+| Request replay | Medium | Planned |
+| Cost alerts | Medium | Planned |
+
+---
+
+_Last updated: 2025-12-26 (v0.3.2)_

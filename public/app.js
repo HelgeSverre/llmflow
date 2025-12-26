@@ -127,14 +127,170 @@ if (document.readyState === 'loading') {
 // Keyboard shortcuts
 function setupKeyboardShortcuts() {
     window.addEventListener('keydown', (e) => {
-        if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+        
+        // "/" to focus search (when not in input)
+        if (e.key === '/' && !isInputFocused) {
             e.preventDefault();
             document.getElementById('searchInput')?.focus();
+            return;
         }
+        
+        // Escape: blur input or close detail panel
         if (e.key === 'Escape') {
-            document.activeElement?.blur();
+            if (isInputFocused) {
+                document.activeElement?.blur();
+            } else {
+                // Close detail panel by deselecting
+                selectedTraceId = null;
+                selectedLogId = null;
+                selectedTimelineItem = null;
+                document.querySelectorAll('.trace-row.selected, .log-row.selected, .timeline-item.selected')
+                    .forEach(el => el.classList.remove('selected'));
+                document.getElementById('detailTitle').textContent = 'Select a trace';
+                document.getElementById('detailMeta').textContent = '';
+            }
+            return;
+        }
+        
+        // Don't handle other shortcuts when in input
+        if (isInputFocused) return;
+        
+        // Arrow key navigation for trace list
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'j' || e.key === 'k') {
+            e.preventDefault();
+            navigateList(e.key === 'ArrowDown' || e.key === 'j' ? 1 : -1);
+            return;
+        }
+        
+        // Enter to select/expand current item
+        if (e.key === 'Enter') {
+            const selected = document.querySelector('.trace-row.selected, .log-row.selected, .timeline-item.selected');
+            if (selected) {
+                selected.click();
+            }
+            return;
+        }
+        
+        // Tab shortcuts: 1-6 for tabs
+        if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const tabIndex = parseInt(e.key) - 1;
+            if (tabIndex < validTabs.length) {
+                e.preventDefault();
+                switchTab(validTabs[tabIndex]);
+            }
+            return;
+        }
+        
+        // "r" to refresh
+        if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            refreshCurrentTab();
+            return;
+        }
+        
+        // "t" to toggle theme
+        if (e.key === 't' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            toggleTheme();
+            return;
+        }
+        
+        // "?" to show keyboard help
+        if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+            e.preventDefault();
+            showKeyboardHelp();
+            return;
         }
     });
+}
+
+function navigateList(direction) {
+    let rows, selectedClass, currentSelected;
+    
+    if (currentTab === 'traces') {
+        rows = Array.from(document.querySelectorAll('.trace-row'));
+        selectedClass = 'selected';
+        currentSelected = document.querySelector('.trace-row.selected');
+    } else if (currentTab === 'logs') {
+        rows = Array.from(document.querySelectorAll('.log-row'));
+        selectedClass = 'selected';
+        currentSelected = document.querySelector('.log-row.selected');
+    } else if (currentTab === 'timeline') {
+        rows = Array.from(document.querySelectorAll('.timeline-item'));
+        selectedClass = 'selected';
+        currentSelected = document.querySelector('.timeline-item.selected');
+    } else {
+        return;
+    }
+    
+    if (rows.length === 0) return;
+    
+    let currentIndex = currentSelected ? rows.indexOf(currentSelected) : -1;
+    let newIndex = currentIndex + direction;
+    
+    // Wrap around
+    if (newIndex < 0) newIndex = rows.length - 1;
+    if (newIndex >= rows.length) newIndex = 0;
+    
+    const newRow = rows[newIndex];
+    if (newRow) {
+        newRow.click();
+        newRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+}
+
+function refreshCurrentTab() {
+    switch (currentTab) {
+        case 'timeline': loadTimelineItems(); break;
+        case 'traces': loadTraces(); break;
+        case 'logs': loadLogs(); break;
+        case 'metrics': loadMetrics(); break;
+        case 'models': loadStats(); break;
+        case 'analytics': loadAnalytics(); break;
+    }
+}
+
+function showKeyboardHelp() {
+    const existingHelp = document.getElementById('keyboardHelp');
+    if (existingHelp) {
+        existingHelp.remove();
+        return;
+    }
+    
+    const help = document.createElement('div');
+    help.id = 'keyboardHelp';
+    help.style.cssText = `
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: var(--bg-secondary); border: 1px solid var(--border);
+        border-radius: 8px; padding: 20px; z-index: 1000;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3); min-width: 300px;
+    `;
+    help.innerHTML = `
+        <h3 style="margin: 0 0 15px 0; font-size: 16px;">Keyboard Shortcuts</h3>
+        <table style="width: 100%; font-size: 13px;">
+            <tr><td style="padding: 4px 0;"><kbd>/</kbd></td><td>Focus search</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Close panel / blur input</td></tr>
+            <tr><td><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>j</kbd> <kbd>k</kbd></td><td>Navigate list</td></tr>
+            <tr><td><kbd>Enter</kbd></td><td>Select item</td></tr>
+            <tr><td><kbd>1</kbd>-<kbd>6</kbd></td><td>Switch tabs</td></tr>
+            <tr><td><kbd>r</kbd></td><td>Refresh</td></tr>
+            <tr><td><kbd>t</kbd></td><td>Toggle theme</td></tr>
+            <tr><td><kbd>?</kbd></td><td>Show/hide this help</td></tr>
+        </table>
+        <p style="margin: 15px 0 0 0; font-size: 11px; opacity: 0.7;">Press any key to close</p>
+    `;
+    document.body.appendChild(help);
+    
+    const closeHelp = () => {
+        help.remove();
+        document.removeEventListener('keydown', closeHelp);
+        document.removeEventListener('click', closeHelp);
+    };
+    setTimeout(() => {
+        document.addEventListener('keydown', closeHelp, { once: true });
+        document.addEventListener('click', closeHelp, { once: true });
+    }, 100);
 }
 
 // Filters

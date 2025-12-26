@@ -2,22 +2,30 @@
 
 > Tracking progress for LLMFlow - local-first LLM observability
 
-## Current State: v0.2 ✅
+## Current State: v0.3 ✅
 
-**Phase 1 Complete** — LLMFlow now has all foundational features working.
+**Phase 1 & 2 Complete** — LLMFlow now has multi-provider support and all foundational features.
 
 ### What's Done
 
-| Feature            | Status                                      |
-| ------------------ | ------------------------------------------- |
-| SQLite Storage     | ✅ Persistent, queryable, auto-cleanup      |
-| Dynamic Pricing    | ✅ 2000+ models via LiteLLM                 |
-| Streaming Support  | ✅ SSE pass-through with buffering          |
-| Search & Filtering | ✅ Full filter bar with URL sync            |
-| Hierarchical Spans | ✅ Full span tree visualization             |
-| JavaScript SDK     | ✅ `trace()`, `span()`, context propagation |
-| Split-Panel UI     | ✅ Langfuse-inspired layout                 |
-| OTLP/HTTP Support  | ✅ OpenTelemetry/OpenLLMetry integration    |
+| Feature              | Status                                       |
+| -------------------- | -------------------------------------------- |
+| SQLite Storage       | ✅ Persistent, queryable, auto-cleanup       |
+| Dynamic Pricing      | ✅ 2000+ models via LiteLLM                  |
+| Streaming Support    | ✅ SSE pass-through with full token tracking |
+| Search & Filtering   | ✅ Full filter bar with URL sync             |
+| Hierarchical Spans   | ✅ Full span tree visualization              |
+| JavaScript SDK       | ✅ `trace()`, `span()`, context propagation  |
+| Split-Panel UI       | ✅ Langfuse-inspired layout                  |
+| OTLP/HTTP Support    | ✅ OpenTelemetry/OpenLLMetry integration     |
+| Multi-Provider       | ✅ OpenAI, Anthropic, Ollama, Gemini, Cohere, Azure |
+| Passthrough Mode     | ✅ Native API format preservation            |
+| Real-time WebSocket  | ✅ Live trace updates                        |
+| Dark Mode            | ✅ System preference detection               |
+| Docker Distribution  | ✅ Multi-arch images on Docker Hub           |
+| NPX Distribution     | ✅ `npx llmflow` instant start               |
+| Data Export          | ✅ JSON, JSONL, CSV formats                  |
+| Keyboard Navigation  | ✅ Arrow keys, Esc, shortcuts                |
 
 ### Architecture
 
@@ -27,7 +35,11 @@ Your App
     ├── SDK (sdk/index.js) ──────┐
     │   trace(), span()          │
     │                            ▼
-    └── OpenAI SDK ──► Proxy (:8080) ──► OpenAI API
+    └── OpenAI SDK ──► Proxy (:8080) ──► Provider APIs
+                          │
+                          ├── /v1/* (OpenAI-compatible)
+                          ├── /{provider}/v1/* (normalized)
+                          └── /passthrough/{provider}/* (native)
                           │
                           ▼
                       SQLite (db.js)
@@ -36,6 +48,18 @@ Your App
                     Dashboard (:3000)
                     (public/app.js)
 ```
+
+### Supported Providers
+
+| Provider   | Proxy Route           | Passthrough Route              |
+| ---------- | --------------------- | ------------------------------ |
+| OpenAI     | `/v1/*` (default)     | `/passthrough/openai/*`        |
+| Anthropic  | `/anthropic/v1/*`     | `/passthrough/anthropic/*`     |
+| Ollama     | `/ollama/v1/*`        | —                              |
+| Gemini     | `/gemini/v1/*`        | `/passthrough/gemini/*`        |
+| Cohere     | `/cohere/v1/*`        | —                              |
+| Azure      | `/azure/v1/*`         | —                              |
+| Helicone   | —                     | `/passthrough/helicone/*`      |
 
 ### Files
 
@@ -46,64 +70,37 @@ Your App
 | `pricing.js`        | Dynamic pricing from LiteLLM        |
 | `logger.js`         | Colored console output              |
 | `otlp.js`           | OTLP/HTTP trace ingestion           |
+| `otlp-logs.js`      | OTLP/HTTP logs ingestion            |
+| `otlp-metrics.js`   | OTLP/HTTP metrics ingestion         |
+| `otlp-export.js`    | Export to external OTLP backends    |
+| `providers/*.js`    | Provider implementations            |
 | `sdk/index.js`      | JavaScript tracing SDK              |
 | `public/app.js`     | Dashboard frontend logic            |
 | `public/index.html` | Dashboard HTML                      |
 | `public/style.css`  | Dashboard styles                    |
 | `test/demo.js`      | Demo trace generator                |
-| `test/otlp-e2e.js`  | OTLP integration e2e tests          |
-| `test/run-tests.js` | Test runner with server lifecycle   |
 | `website/`          | Landing page (static HTML/CSS)      |
 
 ---
 
-## Next: Phase 2 - Multi-Provider
+## Next: Phase 3 - Developer Experience
 
-**Goal:** Support Anthropic, Ollama, and other providers.
-
-| Task                              | Priority | Effort |
-| --------------------------------- | -------- | ------ |
-| Provider abstraction layer        | High     | M      |
-| Anthropic support                 | High     | S      |
-| Ollama support                    | Medium   | S      |
-| Auto-detect provider from request | Medium   | S      |
-
-### Provider Interface
-
-```javascript
-const provider = {
-  name: "anthropic",
-  baseUrl: "https://api.anthropic.com",
-  detectModel: (req) => req.body.model,
-  extractTokens: (res) => ({
-    prompt: res.usage.input_tokens,
-    completion: res.usage.output_tokens,
-  }),
-  isStreaming: (req) => req.body.stream === true,
-};
-```
+| Task                 | Priority | Effort | Status      |
+| -------------------- | -------- | ------ | ----------- |
+| Python SDK           | High     | M      | 🔲 Planned  |
+| Go SDK               | Low      | M      | 🔲 Planned  |
+| Homebrew formula     | Low      | M      | 🔲 Planned  |
 
 ---
 
-## Phase 3 - Developer Experience
+## Phase 4 - Advanced Features
 
-| Task                        | Priority | Effort | Status  |
-| --------------------------- | -------- | ------ | ------- |
-| Real-time WebSocket updates | Medium   | M      | ✅ Done |
-| Dark mode                   | Medium   | S      | ✅ Done |
-| Python SDK                  | High     | M      |         |
-| Data export (JSON, CSV)     | Low      | S      |         |
-| Keyboard navigation         | Low      | S      |         |
-
----
-
-## Phase 4 - Distribution
-
-| Task                                 | Priority | Effort |
-| ------------------------------------ | -------- | ------ |
-| NPX installer (`npx create-llmflow`) | High     | M      |
-| Docker Hub publishing                | Medium   | S      |
-| Homebrew formula                     | Low      | M      |
+| Task                        | Priority | Effort | Status |
+| --------------------------- | -------- | ------ | ------ |
+| Request replay              | Medium   | M      |        |
+| Cost alerts/budgets         | Medium   | M      |        |
+| Compare traces (diff view)  | Low      | M      |        |
+| Prompt versioning           | Low      | L      |        |
 
 ---
 
@@ -127,13 +124,18 @@ const provider = {
 - Works with any language
 - Captures everything uniformly
 
+### Proxy vs Passthrough
+
+- **Proxy** (`/v1/*`, `/{provider}/v1/*`): Normalizes all responses to OpenAI format
+- **Passthrough** (`/passthrough/{provider}/*`): Preserves native API format
+
 ---
 
 ## Out of Scope
 
 These are explicitly not planned:
 
-- Prompt management/versioning
+- Prompt management/versioning (beyond basic tracking)
 - Evaluation frameworks
 - Team collaboration
 - Cloud hosting
@@ -141,4 +143,4 @@ These are explicitly not planned:
 
 ---
 
-_Last updated: December 2024_
+_Last updated: December 2024 (v0.3.2)_
