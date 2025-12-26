@@ -177,7 +177,7 @@ function setupKeyboardShortcuts() {
             const tabIndex = parseInt(e.key) - 1;
             if (tabIndex < validTabs.length) {
                 e.preventDefault();
-                switchTab(validTabs[tabIndex]);
+                showTab(validTabs[tabIndex]);
             }
             return;
         }
@@ -242,11 +242,11 @@ function navigateList(direction) {
 
 function refreshCurrentTab() {
     switch (currentTab) {
-        case 'timeline': loadTimelineItems(); break;
+        case 'timeline': loadTimeline(); break;
         case 'traces': loadTraces(); break;
         case 'logs': loadLogs(); break;
-        case 'metrics': loadMetrics(); break;
-        case 'models': loadStats(); break;
+        case 'metrics': loadMetrics(); loadMetricsSummary(); break;
+        case 'models': loadModelStats(); break;
         case 'analytics': loadAnalytics(); break;
     }
 }
