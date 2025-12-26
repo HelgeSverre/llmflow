@@ -11,7 +11,7 @@
  * - Standard OTEL span attributes
  */
 
-const db = require('./db');
+const db = require('./src/db');
 const { calculateCost } = require('./pricing');
 
 /**

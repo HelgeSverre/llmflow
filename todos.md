@@ -64,4 +64,4 @@ _No open issues at this time._
 
 ---
 
-_Last updated: 2025-12-26 (v0.3.2)_
+_Last updated: 2025-12-26 (v0.4.0)_

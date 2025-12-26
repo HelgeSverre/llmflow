@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 /**
  * LLMFlow CLI
@@ -6,6 +6,8 @@
  * Usage:
  *   npx llmflow          # Start the server
  *   npx llmflow --help   # Show help
+ * 
+ * Requires Bun runtime: https://bun.sh
  */
 
 const { spawn } = require('child_process');
@@ -43,6 +45,8 @@ Proxy:     http://localhost:8080
 
 Point your OpenAI SDK at the proxy:
   client = OpenAI(base_url="http://localhost:8080/v1")
+
+Requires Bun runtime: https://bun.sh
 `);
     process.exit(0);
 }
@@ -54,11 +58,11 @@ if (args.includes('--version') || args.includes('-v')) {
     process.exit(0);
 }
 
-// Find server.js relative to this script
-const serverPath = path.join(__dirname, '..', 'server.js');
+const serverFile = path.join(__dirname, '..', 'src', 'server.ts');
 
-if (!fs.existsSync(serverPath)) {
-    console.error('Error: server.js not found at', serverPath);
+// Verify server file exists
+if (!fs.existsSync(serverFile)) {
+    console.error('Error: src/server.ts not found at', serverFile);
     process.exit(1);
 }
 
@@ -66,13 +70,18 @@ if (!fs.existsSync(serverPath)) {
 const pkg = require('../package.json');
 console.log(`\n\x1b[34mLLMFlow\x1b[0m - Local LLM observability v${pkg.version}\n`);
 
-// Start the server (pass args like --verbose)
-const server = spawn(process.execPath, [serverPath, ...args], {
+// Start the server with Bun
+const server = spawn('bun', ['run', serverFile, ...args], {
     stdio: 'inherit',
     env: process.env
 });
 
 server.on('error', (err) => {
+    if (err.code === 'ENOENT') {
+        console.error('Error: Bun is required but not found.');
+        console.error('Install Bun: curl -fsSL https://bun.sh/install | bash');
+        process.exit(1);
+    }
     console.error('Failed to start server:', err.message);
     process.exit(1);
 });

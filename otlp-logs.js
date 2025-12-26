@@ -10,8 +10,8 @@
  * - Correlation with traces via trace_id/span_id
  */
 
-const { v4: uuidv4 } = require('uuid');
-const db = require('./db');
+const uuidv4 = () => crypto.randomUUID();
+const db = require('./src/db');
 
 /**
  * Extract attributes from OTLP KeyValue array format

@@ -10,3 +10,7 @@ npm-debug.log
 **/.claude-config/
 test-results/
 playwright-report/
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/.vscode/

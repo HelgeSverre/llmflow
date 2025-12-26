@@ -77,8 +77,8 @@ test.describe('Analytics Tab', () => {
     });
 
     test('30 days is default selection', async ({ page }) => {
-        const value = await page.locator('[data-testid="analytics-days-filter"]').inputValue();
-        expect(value).toBe('30');
+        const select = page.locator('[data-testid="analytics-days-filter"]');
+        await expect(select).toHaveValue('30');
     });
 
     test('days filter triggers data reload', async ({ page }) => {

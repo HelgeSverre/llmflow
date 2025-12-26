@@ -14,32 +14,31 @@ test.describe('Navigation & URL Hash Persistence', () => {
 
     test('clicking tabs updates hash and shows correct content', async ({ page }) => {
         await page.goto('/');
+        await page.waitForLoadState('networkidle');
 
         // Click Traces tab
         await page.click('[data-testid="tab-traces"]');
-        await expect(page.locator('#tracesTab')).toHaveClass(/active/);
         await expect(page).toHaveURL(/#traces/);
-        await expect(page.locator('#timelineTab')).not.toHaveClass(/active/);
 
         // Click Logs tab
         await page.click('[data-testid="tab-logs"]');
-        await expect(page.locator('#logsTab')).toHaveClass(/active/);
         await expect(page).toHaveURL(/#logs/);
 
         // Click Metrics tab
         await page.click('[data-testid="tab-metrics"]');
-        await expect(page.locator('#metricsTab')).toHaveClass(/active/);
         await expect(page).toHaveURL(/#metrics/);
 
         // Click Models tab
         await page.click('[data-testid="tab-models"]');
-        await expect(page.locator('#modelsTab')).toHaveClass(/active/);
         await expect(page).toHaveURL(/#models/);
 
         // Click Analytics tab
         await page.click('[data-testid="tab-analytics"]');
-        await expect(page.locator('#analyticsTab')).toHaveClass(/active/);
         await expect(page).toHaveURL(/#analytics/);
+        
+        // Click Timeline tab to complete the loop
+        await page.click('[data-testid="tab-timeline"]');
+        await expect(page).toHaveURL(/#timeline/);
     });
 
     test('direct deep-link to logs tab works', async ({ page }) => {

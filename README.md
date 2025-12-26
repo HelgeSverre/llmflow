@@ -129,6 +129,34 @@ Set provider API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API
 
 ---
 
+## Development
+
+```bash
+# Clone and install
+git clone https://github.com/HelgeSverre/llmflow.git
+cd llmflow
+npm install
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
+
+# Run development mode (backend only)
+npm start
+
+# Run frontend dev server with hot reload (separate terminal)
+cd frontend && npm run dev
+
+# Build frontend for production
+cd frontend && npm run build
+
+# Run E2E tests
+npm run test:e2e
+```
+
+The frontend is built with Svelte 5 + Vite and outputs to `public/`. The backend serves static files from `public/` in production.
+
+---
+
 ## Advanced Features
 
 For advanced usage, see the [docs/](docs/) folder:

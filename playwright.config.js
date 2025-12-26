@@ -15,7 +15,7 @@ module.exports = defineConfig({
     workers: 1,
     reporter: 'list',
     use: {
-        baseURL: 'http://127.0.0.1:3000',
+        baseURL: 'http://127.0.0.1:3001',
         headless: true,
         viewport: { width: 1280, height: 720 },
         actionTimeout: 20000,
@@ -23,7 +23,7 @@ module.exports = defineConfig({
     },
     webServer: {
         command: 'node tests/e2e/start-test-server.js',
-        url: 'http://127.0.0.1:3000',
+        url: 'http://127.0.0.1:3001',
         reuseExistingServer: false,
         timeout: 120000,
         stdout: 'pipe',

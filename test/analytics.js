@@ -6,7 +6,7 @@
  * Tests analytics database functions and aggregation logic.
  */
 
-const db = require('../db');
+const db = require('../src/db');
 
 const c = {
     reset: '\x1b[0m',

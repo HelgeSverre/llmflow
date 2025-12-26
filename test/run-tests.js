@@ -25,7 +25,7 @@ const c = {
 };
 
 const ROOT_DIR = path.join(__dirname, '..');
-const SERVER_FILE = path.join(ROOT_DIR, 'server.js');
+const SERVER_FILE = path.join(ROOT_DIR, 'src', 'server.ts');
 const TEST_DIR = __dirname;
 
 const HEALTH_URL = 'http://localhost:3000/api/health';
@@ -65,9 +65,10 @@ function startServer() {
     return new Promise((resolve, reject) => {
         console.log(`${c.dim}Starting server...${c.reset}`);
         
-        serverProcess = fork(SERVER_FILE, [], {
+        // Use bun to run the TypeScript server
+        serverProcess = spawn('bun', ['run', SERVER_FILE], {
             cwd: ROOT_DIR,
-            stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+            stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, NODE_ENV: 'test' }
         });
 
@@ -75,7 +76,8 @@ function startServer() {
 
         serverProcess.stdout.on('data', (data) => {
             const msg = data.toString();
-            if (msg.includes('Dashboard running')) {
+            // Check for either old or new startup message
+            if (msg.includes('Dashboard') || msg.includes('[llmflow]')) {
                 started = true;
                 resolve();
             }
@@ -140,7 +142,8 @@ async function runTest(testFile) {
         const testPath = path.join(TEST_DIR, testFile);
         console.log(`\n${c.cyan}Running: ${testFile}${c.reset}\n`);
 
-        const testProcess = spawn('node', [testPath], {
+        // Use bun to run tests for consistency with the server
+        const testProcess = spawn('bun', ['run', testPath], {
             cwd: ROOT_DIR,
             stdio: 'inherit',
             env: { ...process.env, LLMFLOW_URL: 'http://localhost:3000' }
