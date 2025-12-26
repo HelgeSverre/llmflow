@@ -206,20 +206,20 @@ function setupKeyboardShortcuts() {
 }
 
 function navigateList(direction) {
-    let rows, selectedClass, currentSelected;
+    let rows, currentSelected;
     
-    if (currentTab === 'traces') {
-        rows = Array.from(document.querySelectorAll('.trace-row'));
-        selectedClass = 'selected';
-        currentSelected = document.querySelector('.trace-row.selected');
-    } else if (currentTab === 'logs') {
-        rows = Array.from(document.querySelectorAll('.log-row'));
-        selectedClass = 'selected';
-        currentSelected = document.querySelector('.log-row.selected');
-    } else if (currentTab === 'timeline') {
+    if (currentTab === 'timeline') {
         rows = Array.from(document.querySelectorAll('.timeline-item'));
-        selectedClass = 'selected';
         currentSelected = document.querySelector('.timeline-item.selected');
+    } else if (currentTab === 'traces') {
+        rows = Array.from(document.querySelectorAll('#tracesBody .trace-row'));
+        currentSelected = document.querySelector('#tracesBody .trace-row.selected');
+    } else if (currentTab === 'logs') {
+        rows = Array.from(document.querySelectorAll('#logsBody .trace-row'));
+        currentSelected = document.querySelector('#logsBody .trace-row.selected');
+    } else if (currentTab === 'metrics') {
+        rows = Array.from(document.querySelectorAll('#metricsBody .trace-row'));
+        currentSelected = document.querySelector('#metricsBody .trace-row.selected');
     } else {
         return;
     }
@@ -235,7 +235,14 @@ function navigateList(direction) {
     
     const newRow = rows[newIndex];
     if (newRow) {
-        newRow.click();
+        // For rows with onclick, trigger click; otherwise just select visually
+        if (newRow.onclick || newRow.getAttribute('onclick')) {
+            newRow.click();
+        } else {
+            // Visual selection only (for metrics which have no detail view)
+            rows.forEach(r => r.classList.remove('selected'));
+            newRow.classList.add('selected');
+        }
         newRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 }
