@@ -50,7 +50,7 @@ export CLAUDE_CODE_ENABLE_TELEMETRY=1
 export OTEL_LOGS_EXPORTER=otlp
 export OTEL_METRICS_EXPORTER=otlp
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:3000
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:1337
 
 # Run Claude Code
 claude
@@ -98,7 +98,7 @@ exporter = "otlp-http"
 log_user_prompt = true  # Include prompts in logs
 
 [otel.exporter."otlp-http"]
-endpoint = "http://localhost:3000/v1/logs"
+endpoint = "http://localhost:1337/v1/logs"
 protocol = "json"
 ```
 
@@ -135,7 +135,7 @@ Configure in `.gemini/settings.json`:
   "telemetry": {
     "enabled": true,
     "target": "local",
-    "otlpEndpoint": "http://localhost:3000",
+    "otlpEndpoint": "http://localhost:1337",
     "otlpProtocol": "http",
     "logPrompts": true
   }
@@ -147,7 +147,7 @@ Or via environment variables:
 ```bash
 export GEMINI_TELEMETRY_ENABLED=true
 export GEMINI_TELEMETRY_TARGET=local
-export GEMINI_TELEMETRY_OTLP_ENDPOINT=http://localhost:3000
+export GEMINI_TELEMETRY_OTLP_ENDPOINT=http://localhost:1337
 export GEMINI_TELEMETRY_OTLP_PROTOCOL=http
 ```
 
@@ -240,8 +240,8 @@ The LLMFlow dashboard includes a unified **Timeline** view that shows activity f
 ### OTLP telemetry not appearing
 
 1. Verify endpoint is correct:
-   - Logs: `http://localhost:3000/v1/logs`
-   - Metrics: `http://localhost:3000/v1/metrics`
+   - Logs: `http://localhost:1337/v1/logs`
+   - Metrics: `http://localhost:1337/v1/metrics`
 
 2. Check protocol is set to HTTP/JSON (not gRPC):
 

@@ -30,7 +30,7 @@ Options:
 
 Environment Variables:
   PROXY_PORT      Proxy port (default: 8080)
-  DASHBOARD_PORT  Dashboard port (default: 3000)
+  DASHBOARD_PORT  Dashboard port (default: 1337)
   DATA_DIR        Data directory (default: ~/.llmflow)
   MAX_TRACES      Max traces to retain (default: 10000)
   VERBOSE         Enable verbose logging (0 or 1)
@@ -40,7 +40,7 @@ Examples:
   PROXY_PORT=9000 npx llmflow           # Custom proxy port
   VERBOSE=1 npx llmflow                 # Verbose logging
 
-Dashboard: http://localhost:3000
+Dashboard: http://localhost:1337
 Proxy:     http://localhost:8080
 
 Point your OpenAI SDK at the proxy:

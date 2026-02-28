@@ -50,7 +50,7 @@ LLMFlow can integrate with popular LLM observability platforms, either by:
                                                      ┌──────────────────┐
                                                      │   LLMFlow        │
                                                      │   Dashboard      │
-                                                     │   :3000          │
+                                                     │   :1337          │
                                                      └────────┬─────────┘
                                                               │
                         ┌─────────────────────────────────────┼─────────────────────┐
@@ -100,14 +100,14 @@ const {
 } = require("@opentelemetry/exporter-trace-otlp-http");
 
 const exporter = new OTLPTraceExporter({
-  url: "http://localhost:3000/v1/traces", // LLMFlow dashboard
+  url: "http://localhost:1337/v1/traces", // LLMFlow dashboard
 });
 ```
 
 ### View Traces
 
 - **Jaeger UI**: http://localhost:16686
-- **LLMFlow Dashboard**: http://localhost:3000
+- **LLMFlow Dashboard**: http://localhost:1337
 
 ---
 
@@ -152,7 +152,7 @@ const phoenixExporter = new OTLPTraceExporter({
 
 // Or send to LLMFlow (which stores locally)
 const llmflowExporter = new OTLPTraceExporter({
-  url: "http://localhost:3000/v1/traces",
+  url: "http://localhost:1337/v1/traces",
 });
 ```
 
@@ -431,7 +431,7 @@ service:
                      ┌─────────────┐
                      │   LLMFlow   │
 App → LLMFlow Proxy →│  Dashboard  │→ SQLite (local)
-                     │   :3000     │
+                     │   :1337     │
                      └──────┬──────┘
                             │
               ┌─────────────┼─────────────┐

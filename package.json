@@ -29,7 +29,9 @@
     "typecheck": "bun run frontend/node_modules/.bin/tsc --noEmit -p src/tsconfig.json",
     "prepublishOnly": "cd frontend && npm install && npm run build"
   },
-  "dependencies": {},
+  "dependencies": {
+    "get-port": "^7.1.0"
+  },
   "files": [
     "bin/",
     "src/",

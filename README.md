@@ -8,7 +8,7 @@ LLMFlow is a local observability tool for LLM applications. Point your SDK at it
 npx llmflow
 ```
 
-Dashboard: [localhost:3000](http://localhost:3000) · Proxy: [localhost:8080](http://localhost:8080)
+Dashboard: [localhost:1337](http://localhost:1337) · Proxy: [localhost:8080](http://localhost:8080)
 
 ![LLMFlow Dashboard](art/screenshot-dark.png)
 
@@ -27,7 +27,7 @@ git clone https://github.com/HelgeSverre/llmflow.git
 cd llmflow && npm install && npm start
 
 # Option C: Docker
-docker run -p 3000:3000 -p 8080:8080 helgesverre/llmflow
+docker run -p 1337:1337 -p 8080:8080 helgesverre/llmflow
 ```
 
 ### 2. Point Your SDK
@@ -50,7 +50,7 @@ $client = OpenAI::factory()->withBaseUri('http://localhost:8080/v1')->make();
 
 ### 3. View Dashboard
 
-Open [localhost:3000](http://localhost:3000) to see your traces, costs, and token usage.
+Open [localhost:1337](http://localhost:1337) to see your traces, costs, and token usage.
 
 ---
 
@@ -103,14 +103,14 @@ If you're using LangChain, LlamaIndex, or other instrumented frameworks:
 # Python - point OTLP exporter to LLMFlow
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
-exporter = OTLPSpanExporter(endpoint="http://localhost:3000/v1/traces")
+exporter = OTLPSpanExporter(endpoint="http://localhost:1337/v1/traces")
 ```
 
 ```javascript
 // JavaScript
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 
-new OTLPTraceExporter({ url: "http://localhost:3000/v1/traces" });
+new OTLPTraceExporter({ url: "http://localhost:1337/v1/traces" });
 ```
 
 ---
@@ -120,7 +120,7 @@ new OTLPTraceExporter({ url: "http://localhost:3000/v1/traces" });
 | Variable         | Default      | Description            |
 | ---------------- | ------------ | ---------------------- |
 | `PROXY_PORT`     | `8080`       | Proxy port             |
-| `DASHBOARD_PORT` | `3000`       | Dashboard port         |
+| `DASHBOARD_PORT` | `1337`       | Dashboard port         |
 | `DATA_DIR`       | `~/.llmflow` | Data directory         |
 | `MAX_TRACES`     | `10000`      | Max traces to retain   |
 | `VERBOSE`        | `0`          | Enable verbose logging |

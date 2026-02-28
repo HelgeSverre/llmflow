@@ -1,6 +1,7 @@
 import * as db from './db'
 import path from 'path'
 import fs from 'fs'
+import getPort from 'get-port'
 
 // CommonJS imports
 const { calculateCost } = require('../pricing')
@@ -10,6 +11,7 @@ const { AnthropicPassthrough, GeminiPassthrough, OpenAIPassthrough, HeliconePass
 const { processOtlpTraces } = require('../otlp')
 const { processOtlpLogs } = require('../otlp-logs')
 const { processOtlpMetrics } = require('../otlp-metrics')
+const { initExportHooks, EXPORT_ENABLED } = require('../otlp-export')
 
 // Passthrough handlers for native API formats
 const passthroughHandlers: Record<string, PassthroughHandler> = {
@@ -59,8 +61,8 @@ interface TokenUsage {
     total_tokens: number
 }
 
-const PROXY_PORT = Number(process.env.PROXY_PORT || 8080)
-const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT || 3000)
+const PROXY_PORT = await getPort({ port: Number(process.env.PROXY_PORT || 8080) })
+const DASHBOARD_PORT = await getPort({ port: Number(process.env.DASHBOARD_PORT || 1337) })
 
 // Types
 interface TraceData {
@@ -1395,6 +1397,12 @@ export const proxyServer = Bun.serve({
         })
     }
 })
+
+// Initialize OTLP export hooks (forwards traces/logs/metrics to external backends)
+if (EXPORT_ENABLED) {
+    initExportHooks(db)
+    log.info('OTLP export enabled')
+}
 
 console.log(`[llmflow] Dashboard: http://localhost:${DASHBOARD_PORT}`)
 console.log(`[llmflow] Proxy:     http://localhost:${PROXY_PORT}`)
