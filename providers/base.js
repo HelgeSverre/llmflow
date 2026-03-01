@@ -24,10 +24,13 @@ class BaseProvider {
      * @returns {Object} Transformed headers
      */
     transformRequestHeaders(headers, req) {
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': headers.authorization
+        const result = {
+            'Content-Type': 'application/json'
         };
+        if (headers.authorization) {
+            result['Authorization'] = headers.authorization;
+        }
+        return result;
     }
 
     /**
