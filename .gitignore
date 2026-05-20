@@ -1,16 +1,17 @@
-node_modules/
+**/node_modules/
 npm-debug.log
 .DS_Store
 *.db
 *.sqlite
 .env
 .idea/
-.vscode/
+**/.vscode/
 *.log
 **/.claude-config/
 test-results/
+test-data/
 playwright-report/
 
-# Frontend build artifacts
-frontend/node_modules/
-frontend/.vscode/
+# Workspace per-package build artifacts that should be regenerated locally
+apps/*/dist/
+packages/*/dist/
