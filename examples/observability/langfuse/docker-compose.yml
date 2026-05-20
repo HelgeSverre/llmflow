@@ -4,7 +4,7 @@ services:
   langfuse-server:
     image: langfuse/langfuse:latest
     ports:
-      - "3001:3000"  # Use 3001 to avoid conflict with LLMFlow
+      - '3001:3000' # Use 3001 to avoid conflict with LLMFlow
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@langfuse-db:5432/langfuse
       - NEXTAUTH_SECRET=mysecret

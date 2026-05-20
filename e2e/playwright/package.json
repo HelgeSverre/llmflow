@@ -1,0 +1,10 @@
+{
+  "name": "@llmflow/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@llmflow/db": "workspace:*",
+    "@llmflow/server": "workspace:*"
+  }
+}

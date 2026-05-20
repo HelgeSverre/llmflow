@@ -35,11 +35,11 @@ export const logFilters = $state<LogFilters>({
   q: '',
   service_name: '',
   event_name: '',
-  severity_min: null
+  severity_min: null,
 })
 export const filterOptions = $state<FilterOptions>({
   services: [],
-  event_names: []
+  event_names: [],
 })
 
 export async function loadLogs() {
@@ -60,7 +60,7 @@ export async function loadLogs() {
 
 export async function loadFilterOptions() {
   try {
-    const data = await api.get<{ services?: string[], event_names?: string[] }>('/api/logs/filters')
+    const data = await api.get<{ services?: string[]; event_names?: string[] }>('/api/logs/filters')
     filterOptions.services = data.services || []
     filterOptions.event_names = data.event_names || []
   } catch (e) {
@@ -104,7 +104,7 @@ export function initLogsSync() {
     if (msg.type === 'new_log' && tabState.current === 'logs') {
       const log = msg.payload as Log
       if (!logMatchesFilters(log)) return
-      if (!logs.find(l => l.id === log.id)) {
+      if (!logs.find((l) => l.id === log.id)) {
         logs.unshift(log)
         if (logs.length > 100) logs.length = 100
       }

@@ -3,8 +3,8 @@ services:
     build: .
     container_name: llmflow
     ports:
-      - "${PROXY_PORT:-8080}:8080"
-      - "${DASHBOARD_PORT:-3000}:3000"
+      - '${PROXY_PORT:-8080}:8080'
+      - '${DASHBOARD_PORT:-3000}:3000'
     volumes:
       - llmflow-data:/root/.llmflow
     environment:

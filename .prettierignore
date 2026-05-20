@@ -1,0 +1,22 @@
+node_modules
+bun.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build artifacts
+public/assets
+public/index.html
+apps/dashboard/dist
+**/dist
+**/.svelte-kit
+**/.vite
+
+# Test output
+test-results
+playwright-report
+test-data
+
+# Vendored / generated
+packages/pricing/pricing.fallback.json
+release-notes

@@ -24,7 +24,9 @@
   <tbody data-testid="metrics-body">
     {#if metrics.length === 0}
       <tr>
-        <td colspan="5"><EmptyState message="No metrics found. Send OTLP metrics to /v1/metrics" /></td>
+        <td colspan="5"
+          ><EmptyState message="No metrics found. Send OTLP metrics to /v1/metrics" /></td
+        >
       </tr>
     {:else}
       {#each metrics as metric (metric.id)}

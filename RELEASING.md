@@ -100,22 +100,27 @@ Create a file `RELEASE_NOTES_v0.X.X.md` with:
 **Release Date:** YYYY-MM-DD
 
 ## What's New
+
 - Feature 1
 - Feature 2
 
 ## Bug Fixes
+
 - Fix 1
 - Fix 2
 
 ## Breaking Changes
+
 - None (or list them)
 
 ## Upgrade Guide
+
 \`\`\`bash
 npx llmflow@latest
 \`\`\`
 
 ## Full Changelog
+
 [v0.X.X...v0.Y.Y](https://github.com/HelgeSverre/llmflow/compare/v0.X.X...v0.Y.Y)
 ```
 
@@ -153,6 +158,7 @@ git push origin --tags
 #### Prerequisites
 
 1. **Docker Buildx** (for multi-platform builds):
+
    ```bash
    docker buildx create --name multiarch --use
    docker buildx inspect --bootstrap
@@ -299,11 +305,11 @@ git tag -d v0.X.X
 
 ### Required Accounts
 
-| Service | Purpose | URL |
-|---------|---------|-----|
-| npm | Package registry | https://www.npmjs.com/ |
+| Service    | Purpose            | URL                     |
+| ---------- | ------------------ | ----------------------- |
+| npm        | Package registry   | https://www.npmjs.com/  |
 | Docker Hub | Container registry | https://hub.docker.com/ |
-| GitHub | Source & releases | https://github.com/ |
+| GitHub     | Source & releases  | https://github.com/     |
 
 ### Required Tools
 

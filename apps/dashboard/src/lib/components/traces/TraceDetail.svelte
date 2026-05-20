@@ -4,28 +4,30 @@
   import { selectedTrace } from '$lib/stores/traces.svelte'
 
   let selectedId = $state<string | null>(null)
-  const selectedSpan = $derived(selectedTrace.value?.spans?.find(s => s.id === selectedId) ?? null)
+  const selectedSpan = $derived(
+    selectedTrace.value?.spans?.find((s) => s.id === selectedId) ?? null,
+  )
 
   // Adapt store-shape spans to viewport input shape.
   // SpanInput requires: id, parent_id?, name, start_time, duration_ms, span_type?
   // Span has all of these, so we just pass through + spread to keep extra fields.
   const viewportSpans = $derived(
-    selectedTrace.value?.spans?.map(s => ({
+    selectedTrace.value?.spans?.map((s) => ({
       id: s.id,
       parent_id: s.parent_id,
       name: s.name,
       start_time: s.start_time,
       duration_ms: s.duration_ms ?? 0,
       span_type: s.span_type,
-      ...s
-    })) ?? []
+      ...s,
+    })) ?? [],
   )
 </script>
 
 <div class="trace-detail" data-testid="traces-detail-panel">
   {#if selectedTrace.value && viewportSpans.length > 0}
     <div class="waterfall-pane">
-      <SpanWaterfall spans={viewportSpans} onSelect={(id) => selectedId = id} />
+      <SpanWaterfall spans={viewportSpans} onSelect={(id) => (selectedId = id)} />
     </div>
     <div class="detail-pane">
       <SpanDetailPanel span={selectedSpan} />

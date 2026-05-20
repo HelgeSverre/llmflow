@@ -43,16 +43,16 @@ LangChain is configured to send OpenAI API calls through the LLMFlow proxy at `h
 ## Key Code
 
 ```javascript
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI } from '@langchain/openai'
 
 // Configure LangChain to use LLMFlow proxy
 const model = new ChatOpenAI({
-  modelName: "gpt-4o-mini",
+  modelName: 'gpt-4o-mini',
   temperature: 0.7,
   configuration: {
-    baseURL: "http://localhost:8080/v1",
+    baseURL: 'http://localhost:8080/v1',
   },
-});
+})
 ```
 
 ## What Gets Traced

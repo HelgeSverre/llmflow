@@ -95,13 +95,11 @@ LLMFlow accepts OTLP at `/v1/traces`. Configure your app to send to LLMFlow, the
 
 ```javascript
 // Example: Configure OpenTelemetry SDK
-const {
-  OTLPTraceExporter,
-} = require("@opentelemetry/exporter-trace-otlp-http");
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http')
 
 const exporter = new OTLPTraceExporter({
-  url: "http://localhost:1337/v1/traces", // LLMFlow dashboard
-});
+  url: 'http://localhost:1337/v1/traces', // LLMFlow dashboard
+})
 ```
 
 ### View Traces
@@ -141,19 +139,17 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006
 
 ```javascript
 // Configure OpenTelemetry to send to Phoenix
-const {
-  OTLPTraceExporter,
-} = require("@opentelemetry/exporter-trace-otlp-http");
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http')
 
 // Send to Phoenix directly
 const phoenixExporter = new OTLPTraceExporter({
-  url: "http://localhost:6006/v1/traces",
-});
+  url: 'http://localhost:6006/v1/traces',
+})
 
 // Or send to LLMFlow (which stores locally)
 const llmflowExporter = new OTLPTraceExporter({
-  url: "http://localhost:1337/v1/traces",
-});
+  url: 'http://localhost:1337/v1/traces',
+})
 ```
 
 ### Arize Cloud
@@ -205,13 +201,13 @@ export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(echo -n 'pk_xxx:sk_xxx'
 
 ```javascript
 // Using Langfuse SDK
-import Langfuse from "langfuse";
+import Langfuse from 'langfuse'
 
 const langfuse = new Langfuse({
-  publicKey: "pk_xxx",
-  secretKey: "sk_xxx",
-  baseUrl: "http://localhost:3000", // or cloud URL
-});
+  publicKey: 'pk_xxx',
+  secretKey: 'sk_xxx',
+  baseUrl: 'http://localhost:3000', // or cloud URL
+})
 ```
 
 ### Using LLMFlow with Langfuse
@@ -265,12 +261,12 @@ export OPENAI_BASE_URL=http://localhost:8585/v1/gateway/oai/v1
 ```javascript
 // Chain: App → LLMFlow → Helicone → OpenAI
 const client = new OpenAI({
-  baseURL: "http://localhost:8080/v1", // LLMFlow proxy
+  baseURL: 'http://localhost:8080/v1', // LLMFlow proxy
   defaultHeaders: {
-    "X-LLMFlow-Forward-URL": "https://oai.helicone.ai/v1",
-    "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+    'X-LLMFlow-Forward-URL': 'https://oai.helicone.ai/v1',
+    'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
   },
-});
+})
 ```
 
 Or configure LLMFlow to use Helicone as the upstream provider:
@@ -351,12 +347,12 @@ docker run -d --name zipkin \
 Zipkin uses its own format (not OTLP). You'll need a Zipkin exporter:
 
 ```javascript
-const { ZipkinExporter } = require("@opentelemetry/exporter-zipkin");
+const { ZipkinExporter } = require('@opentelemetry/exporter-zipkin')
 
 const exporter = new ZipkinExporter({
-  url: "http://localhost:9411/api/v2/spans",
-  serviceName: "my-llm-app",
-});
+  url: 'http://localhost:9411/api/v2/spans',
+  serviceName: 'my-llm-app',
+})
 ```
 
 ### View Traces
@@ -415,7 +411,7 @@ exporters:
   otlphttp/langfuse:
     endpoint: https://cloud.langfuse.com/api/public/otel
     headers:
-      Authorization: "Basic ${LANGFUSE_AUTH}"
+      Authorization: 'Basic ${LANGFUSE_AUTH}'
 
 service:
   pipelines:

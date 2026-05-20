@@ -59,57 +59,57 @@ agent-task (trace)
 ### Creating a trace with nested spans
 
 ```javascript
-import { trace, span, wrapOpenAI } from "../../sdk/index.js";
-import OpenAI from "openai";
+import { trace, span, wrapOpenAI } from '../../sdk/index.js'
+import OpenAI from 'openai'
 
 // Wrap OpenAI client to auto-inject trace headers
 const openai = wrapOpenAI(
   new OpenAI({
-    baseURL: "http://localhost:8080/v1",
+    baseURL: 'http://localhost:8080/v1',
   }),
-);
+)
 
 await trace(
-  "rag-query",
+  'rag-query',
   async () => {
     // Embedding span
     const embedding = await span(
       {
-        type: "embedding",
-        name: "embed_query",
+        type: 'embedding',
+        name: 'embed_query',
         input: { text: query },
       },
       async () => {
-        return await generateEmbedding(query);
+        return await generateEmbedding(query)
       },
-    );
+    )
 
     // Retrieval span
     const docs = await span(
       {
-        type: "retrieval",
-        name: "vector_search",
+        type: 'retrieval',
+        name: 'vector_search',
         input: { top_k: 5 },
       },
       async () => {
-        return await vectorDB.search(embedding);
+        return await vectorDB.search(embedding)
       },
-    );
+    )
 
     // LLM call - automatically linked to parent span
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: query }],
-    });
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: query }],
+    })
 
-    return response.choices[0].message.content;
+    return response.choices[0].message.content
   },
   {
     input: { query },
-    tags: ["rag", "production"],
-    serviceName: "rag-service",
+    tags: ['rag', 'production'],
+    serviceName: 'rag-service',
   },
-);
+)
 ```
 
 ### Using wrapOpenAI for automatic header injection
@@ -168,15 +168,15 @@ Each span can include:
 ```javascript
 await span(
   {
-    type: "retrieval",
-    name: "vector_search",
-    input: { query: "user query", top_k: 5 },
-    attributes: { index: "main", metric: "cosine" },
-    tags: ["vector-db", "pinecone"],
-    serviceName: "retrieval-service",
+    type: 'retrieval',
+    name: 'vector_search',
+    input: { query: 'user query', top_k: 5 },
+    attributes: { index: 'main', metric: 'cosine' },
+    tags: ['vector-db', 'pinecone'],
+    serviceName: 'retrieval-service',
   },
   async () => {
     // Your code here
   },
-);
+)
 ```

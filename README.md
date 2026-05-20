@@ -40,7 +40,7 @@ client = OpenAI(base_url="http://localhost:8080/v1")
 
 ```javascript
 // JavaScript
-const client = new OpenAI({ baseURL: "http://localhost:8080/v1" });
+const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' })
 ```
 
 ```php
@@ -108,9 +108,9 @@ exporter = OTLPSpanExporter(endpoint="http://localhost:1337/v1/traces")
 
 ```javascript
 // JavaScript
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 
-new OTLPTraceExporter({ url: "http://localhost:1337/v1/traces" });
+new OTLPTraceExporter({ url: 'http://localhost:1337/v1/traces' })
 ```
 
 ---

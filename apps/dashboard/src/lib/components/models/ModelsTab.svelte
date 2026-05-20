@@ -20,7 +20,9 @@
 
 <div class="model-grid" data-testid="model-stats">
   {#if modelStats.length === 0}
-    <EmptyState message="No model data yet. Send requests through the proxy to see model statistics." />
+    <EmptyState
+      message="No model data yet. Send requests through the proxy to see model statistics."
+    />
   {:else}
     {#each modelStats as model (model.model)}
       <div class="model-card">
@@ -47,9 +49,11 @@
         </div>
         <div class="model-card-tokens">
           <div class="token-bar">
-            <div 
-              class="token-bar-prompt" 
-              style="width: {model.total_tokens > 0 ? (model.prompt_tokens / model.total_tokens * 100) : 0}%"
+            <div
+              class="token-bar-prompt"
+              style="width: {model.total_tokens > 0
+                ? (model.prompt_tokens / model.total_tokens) * 100
+                : 0}%"
             ></div>
           </div>
           <div class="token-legend">

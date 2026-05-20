@@ -9,12 +9,14 @@
 **Tech Stack:** Bun + bun:sqlite + Svelte 5 (runes: `$state`, `$derived`, `$effect`) + Vite 8. No new runtime deps.
 
 **References:**
+
 - `docs/reference/trace-span-viewer-ui/01-llm-tools-survey.md` (UI patterns to steal/avoid)
 - `docs/reference/trace-span-viewer-ui/02-apm-tools-survey.md` (general waterfall conventions)
 - `docs/reference/trace-span-viewer-ui/03-otel-gen-ai-data-model.md` (session attribute priority chain, schema delta)
 - `docs/reference/trace-span-viewer-ui/04-rendering-techniques.md` (concrete rendering recipe)
 
 **Session attribute priority chain** (per doc 03):
+
 1. `session.id` (OpenInference — cleanest)
 2. `langsmith.trace.session_id`
 3. `traceloop.association.properties.session_id`
@@ -23,6 +25,7 @@
 6. NULL
 
 **Conversation attribute priority chain:**
+
 1. `gen_ai.conversation.id` (OTel official, Development status)
 2. `langsmith.trace.session_id` (LangSmith conflates these)
 3. `traceloop.association.properties.thread_id`
@@ -77,6 +80,7 @@
 ### Task 1: Schema — add session_id, conversation_id, agent_name columns
 
 **Files:**
+
 - Modify: `packages/db/src/index.ts:73-85` (the `ensureColumn` block)
 
 - [ ] **Step 1: Add the three columns**
@@ -132,6 +136,7 @@ ensureColumn ADD COLUMN handles upgrade of existing user DBs."
 ### Task 2: Update insertTrace to bind the new columns
 
 **Files:**
+
 - Modify: `packages/db/src/index.ts` — `insertTraceStmt` SQL, `Trace` interface, `insertTrace` body
 
 - [ ] **Step 1: Extend the `Trace` interface**
@@ -215,6 +220,7 @@ git commit -m "feat(db): bind session_id, conversation_id, agent_name in insertT
 ### Task 3: OTLP extractor — pull session/conversation attrs with priority chain
 
 **Files:**
+
 - Modify: `packages/otlp/src/traces.js` — Add `extractSessionId` and `extractConversationId` helpers, populate new columns in the `db.insertTrace(...)` call.
 - Test: `apps/server/test/otlp-session-extraction.test.js`
 
@@ -223,96 +229,112 @@ git commit -m "feat(db): bind session_id, conversation_id, agent_name in insertT
 Create `apps/server/test/otlp-session-extraction.test.js`:
 
 ```js
-const assert = require('node:assert');
-const { processOtlpTraces } = require('@llmflow/otlp/traces');
-const db = require('@llmflow/db');
+const assert = require('node:assert')
+const { processOtlpTraces } = require('@llmflow/otlp/traces')
+const db = require('@llmflow/db')
 
 function makeSpan(attrs) {
-    return {
-        resourceSpans: [{
-            resource: { attributes: [] },
-            scopeSpans: [{
-                spans: [{
-                    traceId: Math.random().toString(36).slice(2).padEnd(32, '0'),
-                    spanId: Math.random().toString(36).slice(2).padEnd(16, '0'),
-                    name: 'test',
-                    startTimeUnixNano: String(1700000000_000000000n),
-                    endTimeUnixNano: String(1700000000_100000000n),
-                    attributes: Object.entries(attrs).map(([k, v]) => ({ key: k, value: { stringValue: String(v) } })),
-                    status: { code: 1 }
-                }]
-            }]
-        }]
-    };
+  return {
+    resourceSpans: [
+      {
+        resource: { attributes: [] },
+        scopeSpans: [
+          {
+            spans: [
+              {
+                traceId: Math.random().toString(36).slice(2).padEnd(32, '0'),
+                spanId: Math.random().toString(36).slice(2).padEnd(16, '0'),
+                name: 'test',
+                startTimeUnixNano: String(1700000000_000000000n),
+                endTimeUnixNano: String(1700000000_100000000n),
+                attributes: Object.entries(attrs).map(([k, v]) => ({
+                  key: k,
+                  value: { stringValue: String(v) },
+                })),
+                status: { code: 1 },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
 }
 
 function lastTraceFor(id) {
-    return db.getTraceById(id);
+  return db.getTraceById(id)
 }
 
-let passed = 0, failed = 0;
+let passed = 0,
+  failed = 0
 function test(name, fn) {
-    try { fn(); console.log('✓', name); passed++; }
-    catch (e) { console.log('✗', name, '—', e.message); failed++; }
+  try {
+    fn()
+    console.log('✓', name)
+    passed++
+  } catch (e) {
+    console.log('✗', name, '—', e.message)
+    failed++
+  }
 }
 
 test('OpenInference session.id', () => {
-    const payload = makeSpan({ 'session.id': 'sess-123' });
-    const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId;
-    processOtlpTraces(payload);
-    const row = lastTraceFor(sid);
-    assert.strictEqual(row.session_id, 'sess-123');
-});
+  const payload = makeSpan({ 'session.id': 'sess-123' })
+  const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId
+  processOtlpTraces(payload)
+  const row = lastTraceFor(sid)
+  assert.strictEqual(row.session_id, 'sess-123')
+})
 
 test('LangSmith langsmith.trace.session_id', () => {
-    const payload = makeSpan({ 'langsmith.trace.session_id': 'ls-456' });
-    const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId;
-    processOtlpTraces(payload);
-    const row = lastTraceFor(sid);
-    assert.strictEqual(row.session_id, 'ls-456');
-});
+  const payload = makeSpan({ 'langsmith.trace.session_id': 'ls-456' })
+  const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId
+  processOtlpTraces(payload)
+  const row = lastTraceFor(sid)
+  assert.strictEqual(row.session_id, 'ls-456')
+})
 
 test('Traceloop traceloop.association.properties.session_id', () => {
-    const payload = makeSpan({ 'traceloop.association.properties.session_id': 'tl-789' });
-    const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId;
-    processOtlpTraces(payload);
-    const row = lastTraceFor(sid);
-    assert.strictEqual(row.session_id, 'tl-789');
-});
+  const payload = makeSpan({ 'traceloop.association.properties.session_id': 'tl-789' })
+  const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId
+  processOtlpTraces(payload)
+  const row = lastTraceFor(sid)
+  assert.strictEqual(row.session_id, 'tl-789')
+})
 
 test('Vercel AI SDK ai.telemetry.metadata.sessionId', () => {
-    const payload = makeSpan({ 'ai.telemetry.metadata.sessionId': 'v-321' });
-    const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId;
-    processOtlpTraces(payload);
-    const row = lastTraceFor(sid);
-    assert.strictEqual(row.session_id, 'v-321');
-});
+  const payload = makeSpan({ 'ai.telemetry.metadata.sessionId': 'v-321' })
+  const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId
+  processOtlpTraces(payload)
+  const row = lastTraceFor(sid)
+  assert.strictEqual(row.session_id, 'v-321')
+})
 
 test('Priority: session.id beats langsmith and traceloop', () => {
-    const payload = makeSpan({
-        'session.id': 'winner',
-        'langsmith.trace.session_id': 'loser-1',
-        'traceloop.association.properties.session_id': 'loser-2'
-    });
-    const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId;
-    processOtlpTraces(payload);
-    const row = lastTraceFor(sid);
-    assert.strictEqual(row.session_id, 'winner');
-});
+  const payload = makeSpan({
+    'session.id': 'winner',
+    'langsmith.trace.session_id': 'loser-1',
+    'traceloop.association.properties.session_id': 'loser-2',
+  })
+  const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId
+  processOtlpTraces(payload)
+  const row = lastTraceFor(sid)
+  assert.strictEqual(row.session_id, 'winner')
+})
 
 test('Conversation: gen_ai.conversation.id wins over traceloop thread_id', () => {
-    const payload = makeSpan({
-        'gen_ai.conversation.id': 'conv-A',
-        'traceloop.association.properties.thread_id': 'conv-B'
-    });
-    const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId;
-    processOtlpTraces(payload);
-    const row = lastTraceFor(sid);
-    assert.strictEqual(row.conversation_id, 'conv-A');
-});
+  const payload = makeSpan({
+    'gen_ai.conversation.id': 'conv-A',
+    'traceloop.association.properties.thread_id': 'conv-B',
+  })
+  const sid = payload.resourceSpans[0].scopeSpans[0].spans[0].spanId
+  processOtlpTraces(payload)
+  const row = lastTraceFor(sid)
+  assert.strictEqual(row.conversation_id, 'conv-A')
+})
 
-console.log(`\nPassed: ${passed}\nFailed: ${failed}`);
-process.exit(failed > 0 ? 1 : 0);
+console.log(`\nPassed: ${passed}\nFailed: ${failed}`)
+process.exit(failed > 0 ? 1 : 0)
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -335,12 +357,14 @@ In `packages/otlp/src/traces.js`, after the existing `extractAttributes` functio
  * an explicit session.id — same physical process, same session.
  */
 function extractSessionId(attrs, resourceAttrs) {
-    return attrs['session.id']
-        || attrs['langsmith.trace.session_id']
-        || attrs['traceloop.association.properties.session_id']
-        || attrs['ai.telemetry.metadata.sessionId']
-        || resourceAttrs['service.instance.id']
-        || null;
+  return (
+    attrs['session.id'] ||
+    attrs['langsmith.trace.session_id'] ||
+    attrs['traceloop.association.properties.session_id'] ||
+    attrs['ai.telemetry.metadata.sessionId'] ||
+    resourceAttrs['service.instance.id'] ||
+    null
+  )
 }
 
 /**
@@ -352,16 +376,16 @@ function extractSessionId(attrs, resourceAttrs) {
  *     than duplicate.
  */
 function extractConversationId(attrs) {
-    return attrs['gen_ai.conversation.id']
-        || attrs['traceloop.association.properties.thread_id']
-        || attrs['ai.telemetry.metadata.threadId']
-        || null;
+  return (
+    attrs['gen_ai.conversation.id'] ||
+    attrs['traceloop.association.properties.thread_id'] ||
+    attrs['ai.telemetry.metadata.threadId'] ||
+    null
+  )
 }
 
 function extractAgentName(attrs) {
-    return attrs['gen_ai.agent.name']
-        || attrs['gen_ai.agent.id']
-        || null;
+  return attrs['gen_ai.agent.name'] || attrs['gen_ai.agent.id'] || null
 }
 ```
 
@@ -402,6 +426,7 @@ Traceloop, Vercel AI SDK, plus priority ordering."
 ### Task 4: Extend getTraces filter to accept session_id
 
 **Files:**
+
 - Modify: `packages/db/src/index.ts` — `TraceFilters` type, `getTraces` body
 - Modify: `apps/server/src/server.ts:482` — Parse `session_id` query param
 
@@ -417,15 +442,15 @@ Find `interface TraceFilters` in `packages/db/src/index.ts` and add:
 In `getTraces`, after the existing `provider` filter block (around line 483), add:
 
 ```ts
-    if (filters.session_id) {
-        where.push('session_id = $session_id')
-        params.$session_id = filters.session_id
-    }
+if (filters.session_id) {
+  where.push('session_id = $session_id')
+  params.$session_id = filters.session_id
+}
 
-    if (filters.conversation_id) {
-        where.push('conversation_id = $conversation_id')
-        params.$conversation_id = filters.conversation_id
-    }
+if (filters.conversation_id) {
+  where.push('conversation_id = $conversation_id')
+  params.$conversation_id = filters.conversation_id
+}
 ```
 
 - [ ] **Step 2: Parse the query params in the API**
@@ -433,9 +458,10 @@ In `getTraces`, after the existing `provider` filter block (around line 483), ad
 In `apps/server/src/server.ts`, find the `/api/traces` GET handler (around line 469-483) and add two lines:
 
 ```ts
-            if (url.searchParams.get('provider')) filters.provider = url.searchParams.get('provider')!
-            if (url.searchParams.get('session_id')) filters.session_id = url.searchParams.get('session_id')!
-            if (url.searchParams.get('conversation_id')) filters.conversation_id = url.searchParams.get('conversation_id')!
+if (url.searchParams.get('provider')) filters.provider = url.searchParams.get('provider')!
+if (url.searchParams.get('session_id')) filters.session_id = url.searchParams.get('session_id')!
+if (url.searchParams.get('conversation_id'))
+  filters.conversation_id = url.searchParams.get('conversation_id')!
 ```
 
 - [ ] **Step 3: Verify via curl**
@@ -459,6 +485,7 @@ git commit -m "feat(api): session_id + conversation_id filters on GET /api/trace
 ### Task 5: New DB queries — getSessions, getSessionTraces
 
 **Files:**
+
 - Modify: `packages/db/src/index.ts` — Add two exported functions after `getDistinctModels`.
 
 - [ ] **Step 1: Add getSessions**
@@ -467,18 +494,20 @@ After `getDistinctModels` (around line 563), add:
 
 ```ts
 export interface SessionSummary {
-    session_id: string
-    first_seen: number
-    last_seen: number
-    trace_count: number
-    total_cost: number
-    total_tokens: number
-    agent_name: string | null
-    service_name: string | null
+  session_id: string
+  first_seen: number
+  last_seen: number
+  trace_count: number
+  total_cost: number
+  total_tokens: number
+  agent_name: string | null
+  service_name: string | null
 }
 
 export function getSessions({ limit = 50, offset = 0 } = {}): SessionSummary[] {
-    return db.query(`
+  return db
+    .query(
+      `
         SELECT
             session_id,
             MIN(timestamp) AS first_seen,
@@ -493,11 +522,15 @@ export function getSessions({ limit = 50, offset = 0 } = {}): SessionSummary[] {
         GROUP BY session_id
         ORDER BY last_seen DESC
         LIMIT $limit OFFSET $offset
-    `).all({ $limit: limit, $offset: offset }) as SessionSummary[]
+    `,
+    )
+    .all({ $limit: limit, $offset: offset }) as SessionSummary[]
 }
 
 export function getSessionTraces(session_id: string) {
-    return db.query(`
+  return db
+    .query(
+      `
         SELECT
             trace_id,
             MIN(timestamp) AS started_at,
@@ -510,12 +543,16 @@ export function getSessionTraces(session_id: string) {
         WHERE session_id = $session_id
         GROUP BY trace_id
         ORDER BY started_at ASC
-    `).all({ $session_id: session_id })
+    `,
+    )
+    .all({ $session_id: session_id })
 }
 
 export function getSessionCount(): number {
-    const r = db.query('SELECT COUNT(DISTINCT session_id) AS cnt FROM traces WHERE session_id IS NOT NULL').get() as { cnt: number }
-    return r.cnt
+  const r = db
+    .query('SELECT COUNT(DISTINCT session_id) AS cnt FROM traces WHERE session_id IS NOT NULL')
+    .get() as { cnt: number }
+  return r.cnt
 }
 ```
 
@@ -551,6 +588,7 @@ git commit -m "feat(db): getSessions, getSessionTraces, getSessionCount"
 ### Task 6: API routes — GET /api/sessions, GET /api/sessions/:id
 
 **Files:**
+
 - Modify: `apps/server/src/server.ts` — Add two route handlers inside `handleApiRoute`.
 
 - [ ] **Step 1: Add the routes**
@@ -558,35 +596,38 @@ git commit -m "feat(db): getSessions, getSessionTraces, getSessionCount"
 In `apps/server/src/server.ts`, inside `handleApiRoute`, after the `/api/traces/export` route (find a logical home — anywhere in the chain works), add:
 
 ```ts
-        // Sessions list
-        if (pathname === '/api/sessions' && method === 'GET') {
-            const limit = Number(url.searchParams.get('limit') || '50')
-            const offset = Number(url.searchParams.get('offset') || '0')
-            return Response.json({
-                sessions: db.getSessions({ limit, offset }),
-                total: db.getSessionCount()
-            })
-        }
+// Sessions list
+if (pathname === '/api/sessions' && method === 'GET') {
+  const limit = Number(url.searchParams.get('limit') || '50')
+  const offset = Number(url.searchParams.get('offset') || '0')
+  return Response.json({
+    sessions: db.getSessions({ limit, offset }),
+    total: db.getSessionCount(),
+  })
+}
 
-        // Session detail
-        if (pathname.match(/^\/api\/sessions\/[^/]+$/) && method === 'GET') {
-            const id = decodeURIComponent(pathname.split('/').pop()!)
-            const traces = db.getSessionTraces(id)
-            if (!traces.length) return Response.json({ error: 'Session not found' }, { status: 404 })
+// Session detail
+if (pathname.match(/^\/api\/sessions\/[^/]+$/) && method === 'GET') {
+  const id = decodeURIComponent(pathname.split('/').pop()!)
+  const traces = db.getSessionTraces(id)
+  if (!traces.length) return Response.json({ error: 'Session not found' }, { status: 404 })
 
-            const totals = (traces as Record<string, unknown>[]).reduce((acc, t) => ({
-                cost: acc.cost + ((t.cost as number) || 0),
-                tokens: acc.tokens + ((t.tokens as number) || 0),
-                spans: acc.spans + ((t.span_count as number) || 0),
-                errors: acc.errors + ((t.has_error as number) || 0)
-            }), { cost: 0, tokens: 0, spans: 0, errors: 0 })
+  const totals = (traces as Record<string, unknown>[]).reduce(
+    (acc, t) => ({
+      cost: acc.cost + ((t.cost as number) || 0),
+      tokens: acc.tokens + ((t.tokens as number) || 0),
+      spans: acc.spans + ((t.span_count as number) || 0),
+      errors: acc.errors + ((t.has_error as number) || 0),
+    }),
+    { cost: 0, tokens: 0, spans: 0, errors: 0 },
+  )
 
-            return Response.json({
-                session_id: id,
-                traces,
-                summary: totals
-            })
-        }
+  return Response.json({
+    session_id: id,
+    traces,
+    summary: totals,
+  })
+}
 ```
 
 - [ ] **Step 2: Verify both routes**
@@ -610,6 +651,7 @@ git commit -m "feat(api): GET /api/sessions and /api/sessions/:id"
 ### Task 7: Frontend — TraceViewport state class
 
 **Files:**
+
 - Create: `apps/dashboard/src/lib/trace/viewport.svelte.ts`
 - Test: `apps/dashboard/src/lib/trace/viewport.test.ts`
 
@@ -622,39 +664,60 @@ import { describe, it, expect } from 'vitest'
 import { TraceViewport, type SpanInput } from './viewport.svelte'
 
 const trace: SpanInput[] = [
-    { id: 'root', parent_id: undefined, name: 'root', start_time: 0, duration_ms: 100, span_type: 'agent' },
-    { id: 'a', parent_id: 'root', name: 'llm-call', start_time: 10, duration_ms: 40, span_type: 'llm' },
-    { id: 'b', parent_id: 'root', name: 'tool-use', start_time: 60, duration_ms: 30, span_type: 'tool' }
+  {
+    id: 'root',
+    parent_id: undefined,
+    name: 'root',
+    start_time: 0,
+    duration_ms: 100,
+    span_type: 'agent',
+  },
+  {
+    id: 'a',
+    parent_id: 'root',
+    name: 'llm-call',
+    start_time: 10,
+    duration_ms: 40,
+    span_type: 'llm',
+  },
+  {
+    id: 'b',
+    parent_id: 'root',
+    name: 'tool-use',
+    start_time: 60,
+    duration_ms: 30,
+    span_type: 'tool',
+  },
 ]
 
 describe('TraceViewport', () => {
-    it('flattens the tree depth-first', () => {
-        const v = new TraceViewport(trace)
-        expect(v.rows.map(r => r.id)).toEqual(['root', 'a', 'b'])
-    })
+  it('flattens the tree depth-first', () => {
+    const v = new TraceViewport(trace)
+    expect(v.rows.map((r) => r.id)).toEqual(['root', 'a', 'b'])
+  })
 
-    it('computes pixel ranges relative to the root duration', () => {
-        const v = new TraceViewport(trace)
-        v.setViewportWidth(1000)  // total = 100ms → 10px per ms
-        const a = v.rows.find(r => r.id === 'a')!
-        expect(a.xPx).toBe(100)        // start_time 10ms × 10
-        expect(a.widthPx).toBe(400)    // duration 40ms × 10
-    })
+  it('computes pixel ranges relative to the root duration', () => {
+    const v = new TraceViewport(trace)
+    v.setViewportWidth(1000) // total = 100ms → 10px per ms
+    const a = v.rows.find((r) => r.id === 'a')!
+    expect(a.xPx).toBe(100) // start_time 10ms × 10
+    expect(a.widthPx).toBe(400) // duration 40ms × 10
+  })
 
-    it('expand/collapse hides descendants', () => {
-        const v = new TraceViewport(trace)
-        v.collapse('root')
-        expect(v.rows.map(r => r.id)).toEqual(['root'])
-        v.expand('root')
-        expect(v.rows.map(r => r.id)).toEqual(['root', 'a', 'b'])
-    })
+  it('expand/collapse hides descendants', () => {
+    const v = new TraceViewport(trace)
+    v.collapse('root')
+    expect(v.rows.map((r) => r.id)).toEqual(['root'])
+    v.expand('root')
+    expect(v.rows.map((r) => r.id)).toEqual(['root', 'a', 'b'])
+  })
 
-    it('selectedId updates and is observable', () => {
-        const v = new TraceViewport(trace)
-        v.select('a')
-        expect(v.selectedId).toBe('a')
-        expect(v.selectedSpan?.name).toBe('llm-call')
-    })
+  it('selectedId updates and is observable', () => {
+    const v = new TraceViewport(trace)
+    v.select('a')
+    expect(v.selectedId).toBe('a')
+    expect(v.selectedSpan?.name).toBe('llm-call')
+  })
 })
 ```
 
@@ -679,12 +742,12 @@ import { defineConfig } from 'vitest/config'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 export default defineConfig({
-    plugins: [svelte({ hot: false })],
-    test: {
-        environment: 'jsdom',
-        include: ['src/**/*.test.ts'],
-        globals: false,
-    },
+  plugins: [svelte({ hot: false })],
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts'],
+    globals: false,
+  },
 })
 ```
 
@@ -704,135 +767,141 @@ Create `apps/dashboard/src/lib/trace/viewport.svelte.ts`:
 import { SvelteSet } from 'svelte/reactivity'
 
 export interface SpanInput {
-    id: string
-    parent_id?: string | undefined
-    name: string
-    start_time: number       // ms since trace root
-    duration_ms: number
-    span_type?: string
-    [key: string]: unknown
+  id: string
+  parent_id?: string | undefined
+  name: string
+  start_time: number // ms since trace root
+  duration_ms: number
+  span_type?: string
+  [key: string]: unknown
 }
 
 export interface SpanRow {
-    id: string
-    parent_id?: string | undefined
-    name: string
-    depth: number
-    start_time: number
-    duration_ms: number
-    span_type?: string
-    hasChildren: boolean
-    xPx: number              // left offset within waterfall canvas
-    widthPx: number          // bar width (min 2px enforced for visibility)
+  id: string
+  parent_id?: string | undefined
+  name: string
+  depth: number
+  start_time: number
+  duration_ms: number
+  span_type?: string
+  hasChildren: boolean
+  xPx: number // left offset within waterfall canvas
+  widthPx: number // bar width (min 2px enforced for visibility)
 }
 
 interface InternalNode {
-    span: SpanInput
-    depth: number
-    children: InternalNode[]
+  span: SpanInput
+  depth: number
+  children: InternalNode[]
 }
 
 const MIN_BAR_PX = 2
 
 export class TraceViewport {
-    #spans: SpanInput[]
-    #tree: InternalNode[]
-    // SvelteSet (not plain Set) so mutations trigger reactivity in $derived rows.
-    #expanded = new SvelteSet<string>()
-    #viewportWidth = $state(0)
-    selectedId: string | null = $state(null)
+  #spans: SpanInput[]
+  #tree: InternalNode[]
+  // SvelteSet (not plain Set) so mutations trigger reactivity in $derived rows.
+  #expanded = new SvelteSet<string>()
+  #viewportWidth = $state(0)
+  selectedId: string | null = $state(null)
 
-    constructor(spans: SpanInput[]) {
-        this.#spans = spans
-        this.#tree = this.#buildTree(spans)
-        // Default: every node with children is expanded.
-        for (const node of this.#walk(this.#tree)) {
-            if (node.children.length) this.#expanded.add(node.span.id)
-        }
+  constructor(spans: SpanInput[]) {
+    this.#spans = spans
+    this.#tree = this.#buildTree(spans)
+    // Default: every node with children is expanded.
+    for (const node of this.#walk(this.#tree)) {
+      if (node.children.length) this.#expanded.add(node.span.id)
     }
+  }
 
-    get rootStart(): number {
-        return Math.min(...this.#spans.map(s => s.start_time))
+  get rootStart(): number {
+    return Math.min(...this.#spans.map((s) => s.start_time))
+  }
+
+  get totalDuration(): number {
+    const end = Math.max(...this.#spans.map((s) => s.start_time + s.duration_ms))
+    return Math.max(1, end - this.rootStart)
+  }
+
+  setViewportWidth(px: number) {
+    this.#viewportWidth = px
+  }
+
+  expand(id: string) {
+    this.#expanded.add(id)
+  }
+  collapse(id: string) {
+    this.#expanded.delete(id)
+  }
+  toggle(id: string) {
+    if (this.#expanded.has(id)) this.collapse(id)
+    else this.expand(id)
+  }
+
+  select(id: string | null) {
+    this.selectedId = id
+  }
+
+  rows = $derived.by((): SpanRow[] => {
+    const pxPerMs = this.#viewportWidth > 0 ? this.#viewportWidth / this.totalDuration : 0
+    const out: SpanRow[] = []
+    const root = this.rootStart
+    const walk = (node: InternalNode) => {
+      const s = node.span
+      out.push({
+        id: s.id,
+        parent_id: s.parent_id,
+        name: s.name,
+        depth: node.depth,
+        start_time: s.start_time,
+        duration_ms: s.duration_ms,
+        span_type: s.span_type,
+        hasChildren: node.children.length > 0,
+        xPx: (s.start_time - root) * pxPerMs,
+        widthPx: Math.max(MIN_BAR_PX, s.duration_ms * pxPerMs),
+      })
+      if (this.#expanded.has(s.id)) {
+        for (const c of node.children) walk(c)
+      }
     }
+    for (const n of this.#tree) walk(n)
+    return out
+  })
 
-    get totalDuration(): number {
-        const end = Math.max(...this.#spans.map(s => s.start_time + s.duration_ms))
-        return Math.max(1, end - this.rootStart)
+  selectedSpan = $derived.by((): SpanInput | null => {
+    if (!this.selectedId) return null
+    return this.#spans.find((s) => s.id === this.selectedId) || null
+  })
+
+  #buildTree(spans: SpanInput[]): InternalNode[] {
+    const byId = new Map<string, InternalNode>()
+    for (const span of spans) byId.set(span.id, { span, depth: 0, children: [] })
+    const roots: InternalNode[] = []
+    for (const node of byId.values()) {
+      const pid = node.span.parent_id
+      if (pid && byId.has(pid)) {
+        const parent = byId.get(pid)!
+        node.depth = parent.depth + 1
+        parent.children.push(node)
+      } else {
+        roots.push(node)
+      }
     }
-
-    setViewportWidth(px: number) {
-        this.#viewportWidth = px
+    // Stable sort children by start_time.
+    const sort = (n: InternalNode) => {
+      n.children.sort((a, b) => a.span.start_time - b.span.start_time)
+      for (const c of n.children) sort(c)
     }
+    for (const r of roots) sort(r)
+    return roots
+  }
 
-    expand(id: string) { this.#expanded.add(id) }
-    collapse(id: string) { this.#expanded.delete(id) }
-    toggle(id: string) {
-        if (this.#expanded.has(id)) this.collapse(id)
-        else this.expand(id)
+  *#walk(nodes: InternalNode[]): IterableIterator<InternalNode> {
+    for (const n of nodes) {
+      yield n
+      yield* this.#walk(n.children)
     }
-
-    select(id: string | null) { this.selectedId = id }
-
-    rows = $derived.by((): SpanRow[] => {
-        const pxPerMs = this.#viewportWidth > 0 ? this.#viewportWidth / this.totalDuration : 0
-        const out: SpanRow[] = []
-        const root = this.rootStart
-        const walk = (node: InternalNode) => {
-            const s = node.span
-            out.push({
-                id: s.id,
-                parent_id: s.parent_id,
-                name: s.name,
-                depth: node.depth,
-                start_time: s.start_time,
-                duration_ms: s.duration_ms,
-                span_type: s.span_type,
-                hasChildren: node.children.length > 0,
-                xPx: (s.start_time - root) * pxPerMs,
-                widthPx: Math.max(MIN_BAR_PX, s.duration_ms * pxPerMs)
-            })
-            if (this.#expanded.has(s.id)) {
-                for (const c of node.children) walk(c)
-            }
-        }
-        for (const n of this.#tree) walk(n)
-        return out
-    })
-
-    selectedSpan = $derived.by((): SpanInput | null => {
-        if (!this.selectedId) return null
-        return this.#spans.find(s => s.id === this.selectedId) || null
-    })
-
-    #buildTree(spans: SpanInput[]): InternalNode[] {
-        const byId = new Map<string, InternalNode>()
-        for (const span of spans) byId.set(span.id, { span, depth: 0, children: [] })
-        const roots: InternalNode[] = []
-        for (const node of byId.values()) {
-            const pid = node.span.parent_id
-            if (pid && byId.has(pid)) {
-                const parent = byId.get(pid)!
-                node.depth = parent.depth + 1
-                parent.children.push(node)
-            } else {
-                roots.push(node)
-            }
-        }
-        // Stable sort children by start_time.
-        const sort = (n: InternalNode) => {
-            n.children.sort((a, b) => a.span.start_time - b.span.start_time)
-            for (const c of n.children) sort(c)
-        }
-        for (const r of roots) sort(r)
-        return roots
-    }
-
-    *#walk(nodes: InternalNode[]): IterableIterator<InternalNode> {
-        for (const n of nodes) {
-            yield n
-            yield* this.#walk(n.children)
-        }
-    }
+  }
 }
 ```
 
@@ -860,6 +929,7 @@ duration, supports expand/collapse + selection. ~120 LOC, vitest-covered
 ### Task 8: SpanRow component
 
 **Files:**
+
 - Create: `apps/dashboard/src/lib/components/trace-viewer/SpanRow.svelte`
 - Create: `apps/dashboard/src/lib/components/trace-viewer/SpanColors.ts`
 
@@ -871,23 +941,23 @@ Create `apps/dashboard/src/lib/components/trace-viewer/SpanColors.ts`:
 // Okabe-Ito 8-color palette — chosen for color-blind safety + perceptual
 // distinguishability. See docs/reference/trace-span-viewer-ui/04 §Color encoding.
 export const SPAN_COLORS: Record<string, string> = {
-    llm:        '#0072B2',   // blue
-    agent:      '#D55E00',   // vermillion
-    chain:      '#009E73',   // bluish green
-    tool:       '#F0E442',   // yellow
-    retrieval:  '#56B4E9',   // sky blue
-    embedding:  '#CC79A7',   // reddish purple
-    workflow:   '#E69F00',   // orange
-    custom:     '#999999',   // grey
+  llm: '#0072B2', // blue
+  agent: '#D55E00', // vermillion
+  chain: '#009E73', // bluish green
+  tool: '#F0E442', // yellow
+  retrieval: '#56B4E9', // sky blue
+  embedding: '#CC79A7', // reddish purple
+  workflow: '#E69F00', // orange
+  custom: '#999999', // grey
 }
 
 export function colorFor(spanType?: string): string {
-    if (!spanType) return SPAN_COLORS.custom
-    const lower = spanType.toLowerCase()
-    for (const key of Object.keys(SPAN_COLORS)) {
-        if (lower.includes(key)) return SPAN_COLORS[key]
-    }
-    return SPAN_COLORS.custom
+  if (!spanType) return SPAN_COLORS.custom
+  const lower = spanType.toLowerCase()
+  for (const key of Object.keys(SPAN_COLORS)) {
+    if (lower.includes(key)) return SPAN_COLORS[key]
+  }
+  return SPAN_COLORS.custom
 }
 ```
 
@@ -897,79 +967,124 @@ Create `apps/dashboard/src/lib/components/trace-viewer/SpanRow.svelte`:
 
 ```svelte
 <script lang="ts">
-    import type { SpanRow } from '$lib/trace/viewport.svelte'
-    import { colorFor } from './SpanColors'
-    import { formatLatency } from '$lib/utils/format'
+  import type { SpanRow } from '$lib/trace/viewport.svelte'
+  import { colorFor } from './SpanColors'
+  import { formatLatency } from '$lib/utils/format'
 
-    interface Props {
-        row: SpanRow
-        selected: boolean
-        onClick: (id: string) => void
-        onToggle: (id: string) => void
-    }
+  interface Props {
+    row: SpanRow
+    selected: boolean
+    onClick: (id: string) => void
+    onToggle: (id: string) => void
+  }
 
-    let { row, selected, onClick, onToggle }: Props = $props()
+  let { row, selected, onClick, onToggle }: Props = $props()
 
-    const INDENT_PX = 14
-    const ROW_HEIGHT_PX = 28
+  const INDENT_PX = 14
+  const ROW_HEIGHT_PX = 28
 </script>
 
 <div
-    class="span-row"
-    class:selected
-    style="height: {ROW_HEIGHT_PX}px"
-    onclick={() => onClick(row.id)}
-    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(row.id) }}
-    role="treeitem"
-    aria-selected={selected}
-    tabindex="0"
+  class="span-row"
+  class:selected
+  style="height: {ROW_HEIGHT_PX}px"
+  onclick={() => onClick(row.id)}
+  onkeydown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') onClick(row.id)
+  }}
+  role="treeitem"
+  aria-selected={selected}
+  tabindex="0"
 >
-    <div class="label-col" style="padding-left: {row.depth * INDENT_PX + 4}px">
-        {#if row.hasChildren}
-            <button
-                class="caret"
-                onclick={(e) => { e.stopPropagation(); onToggle(row.id) }}
-                aria-label="Toggle"
-            >▸</button>
-        {:else}
-            <span class="caret-spacer"></span>
-        {/if}
-        <span class="span-name" title={row.name}>{row.name}</span>
-        <span class="span-type">{row.span_type ?? ''}</span>
-    </div>
-    <div class="bar-col">
-        <div
-            class="span-bar"
-            style:left="{row.xPx}px"
-            style:width="{row.widthPx}px"
-            style:background-color={colorFor(row.span_type)}
-        ></div>
-    </div>
-    <div class="duration-col">{formatLatency(row.duration_ms)}</div>
+  <div class="label-col" style="padding-left: {row.depth * INDENT_PX + 4}px">
+    {#if row.hasChildren}
+      <button
+        class="caret"
+        onclick={(e) => {
+          e.stopPropagation()
+          onToggle(row.id)
+        }}
+        aria-label="Toggle">▸</button
+      >
+    {:else}
+      <span class="caret-spacer"></span>
+    {/if}
+    <span class="span-name" title={row.name}>{row.name}</span>
+    <span class="span-type">{row.span_type ?? ''}</span>
+  </div>
+  <div class="bar-col">
+    <div
+      class="span-bar"
+      style:left="{row.xPx}px"
+      style:width="{row.widthPx}px"
+      style:background-color={colorFor(row.span_type)}
+    ></div>
+  </div>
+  <div class="duration-col">{formatLatency(row.duration_ms)}</div>
 </div>
 
 <style>
-    .span-row {
-        display: grid;
-        grid-template-columns: minmax(220px, 35%) 1fr 80px;
-        align-items: center;
-        cursor: pointer;
-        border-bottom: 1px solid var(--row-border, rgba(0,0,0,0.05));
-        font-size: 13px;
-    }
-    .span-row:hover { background: var(--row-hover, rgba(0,0,0,0.03)); }
-    .span-row.selected { background: var(--row-selected, rgba(0, 120, 215, 0.12)); }
+  .span-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 35%) 1fr 80px;
+    align-items: center;
+    cursor: pointer;
+    border-bottom: 1px solid var(--row-border, rgba(0, 0, 0, 0.05));
+    font-size: 13px;
+  }
+  .span-row:hover {
+    background: var(--row-hover, rgba(0, 0, 0, 0.03));
+  }
+  .span-row.selected {
+    background: var(--row-selected, rgba(0, 120, 215, 0.12));
+  }
 
-    .label-col { display: flex; align-items: center; gap: 6px; overflow: hidden; }
-    .caret { background: none; border: 0; cursor: pointer; padding: 0 4px; color: var(--muted); }
-    .caret-spacer { display: inline-block; width: 16px; }
-    .span-name { font-family: var(--font-mono, ui-monospace, monospace); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-    .span-type { font-size: 11px; opacity: 0.6; }
+  .label-col {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .caret {
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 0 4px;
+    color: var(--muted);
+  }
+  .caret-spacer {
+    display: inline-block;
+    width: 16px;
+  }
+  .span-name {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+  .span-type {
+    font-size: 11px;
+    opacity: 0.6;
+  }
 
-    .bar-col { position: relative; height: 100%; }
-    .span-bar { position: absolute; top: 8px; height: 12px; border-radius: 3px; }
+  .bar-col {
+    position: relative;
+    height: 100%;
+  }
+  .span-bar {
+    position: absolute;
+    top: 8px;
+    height: 12px;
+    border-radius: 3px;
+  }
 
-    .duration-col { text-align: right; padding-right: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .duration-col {
+    text-align: right;
+    padding-right: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
 </style>
 ```
 
@@ -993,103 +1108,110 @@ label | bar | duration. Caret toggles via prop, doesn't propagate to row click."
 ### Task 9: SpanWaterfall component (virtualized)
 
 **Files:**
+
 - Create: `apps/dashboard/src/lib/components/trace-viewer/SpanWaterfall.svelte`
 
 - [ ] **Step 1: Implement virtualized scroll**
 
 ```svelte
 <script lang="ts">
-    import { TraceViewport, type SpanInput } from '$lib/trace/viewport.svelte'
-    import SpanRow from './SpanRow.svelte'
+  import { TraceViewport, type SpanInput } from '$lib/trace/viewport.svelte'
+  import SpanRow from './SpanRow.svelte'
 
-    interface Props {
-        spans: SpanInput[]
-        onSelect?: (id: string) => void
-    }
+  interface Props {
+    spans: SpanInput[]
+    onSelect?: (id: string) => void
+  }
 
-    let { spans, onSelect }: Props = $props()
+  let { spans, onSelect }: Props = $props()
 
-    const ROW_HEIGHT_PX = 28
-    const OVERSCAN = 8
+  const ROW_HEIGHT_PX = 28
+  const OVERSCAN = 8
 
-    const viewport = new TraceViewport(spans)
+  const viewport = new TraceViewport(spans)
 
-    let scrollEl: HTMLDivElement
-    let scrollTop = $state(0)
-    let containerHeight = $state(600)
-    let waterfallWidth = $state(0)
+  let scrollEl: HTMLDivElement
+  let scrollTop = $state(0)
+  let containerHeight = $state(600)
+  let waterfallWidth = $state(0)
 
-    $effect(() => {
-        if (!scrollEl) return
-        const ro = new ResizeObserver(entries => {
-            for (const e of entries) {
-                containerHeight = e.contentRect.height
-                const barCol = e.contentRect.width * 0.65 - 80
-                waterfallWidth = Math.max(200, barCol)
-                viewport.setViewportWidth(waterfallWidth)
-            }
-        })
-        ro.observe(scrollEl)
-        return () => ro.disconnect()
+  $effect(() => {
+    if (!scrollEl) return
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        containerHeight = e.contentRect.height
+        const barCol = e.contentRect.width * 0.65 - 80
+        waterfallWidth = Math.max(200, barCol)
+        viewport.setViewportWidth(waterfallWidth)
+      }
     })
+    ro.observe(scrollEl)
+    return () => ro.disconnect()
+  })
 
-    const total = $derived(viewport.rows.length)
-    const visibleStart = $derived(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT_PX) - OVERSCAN))
-    const visibleEnd = $derived(Math.min(total, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT_PX) + OVERSCAN))
-    const visibleRows = $derived(viewport.rows.slice(visibleStart, visibleEnd))
-    const padTop = $derived(visibleStart * ROW_HEIGHT_PX)
-    const padBottom = $derived((total - visibleEnd) * ROW_HEIGHT_PX)
+  const total = $derived(viewport.rows.length)
+  const visibleStart = $derived(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT_PX) - OVERSCAN))
+  const visibleEnd = $derived(
+    Math.min(total, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT_PX) + OVERSCAN),
+  )
+  const visibleRows = $derived(viewport.rows.slice(visibleStart, visibleEnd))
+  const padTop = $derived(visibleStart * ROW_HEIGHT_PX)
+  const padBottom = $derived((total - visibleEnd) * ROW_HEIGHT_PX)
 
-    function handleSelect(id: string) {
-        viewport.select(id)
-        onSelect?.(id)
-    }
+  function handleSelect(id: string) {
+    viewport.select(id)
+    onSelect?.(id)
+  }
 </script>
 
 <div
-    bind:this={scrollEl}
-    class="waterfall"
-    onscroll={(e) => { scrollTop = (e.currentTarget as HTMLDivElement).scrollTop }}
+  bind:this={scrollEl}
+  class="waterfall"
+  onscroll={(e) => {
+    scrollTop = (e.currentTarget as HTMLDivElement).scrollTop
+  }}
 >
-    <div class="time-axis">
-        <span class="axis-tick">0ms</span>
-        <span class="axis-tick" style:left="50%">{Math.round(viewport.totalDuration / 2)}ms</span>
-        <span class="axis-tick" style:right="80px">{Math.round(viewport.totalDuration)}ms</span>
-    </div>
-    <div class="row-list" style:padding-top="{padTop}px" style:padding-bottom="{padBottom}px">
-        {#each visibleRows as row (row.id)}
-            <SpanRow
-                {row}
-                selected={viewport.selectedId === row.id}
-                onClick={handleSelect}
-                onToggle={(id) => viewport.toggle(id)}
-            />
-        {/each}
-    </div>
+  <div class="time-axis">
+    <span class="axis-tick">0ms</span>
+    <span class="axis-tick" style:left="50%">{Math.round(viewport.totalDuration / 2)}ms</span>
+    <span class="axis-tick" style:right="80px">{Math.round(viewport.totalDuration)}ms</span>
+  </div>
+  <div class="row-list" style:padding-top="{padTop}px" style:padding-bottom="{padBottom}px">
+    {#each visibleRows as row (row.id)}
+      <SpanRow
+        {row}
+        selected={viewport.selectedId === row.id}
+        onClick={handleSelect}
+        onToggle={(id) => viewport.toggle(id)}
+      />
+    {/each}
+  </div>
 </div>
 
 <style>
-    .waterfall {
-        height: 100%;
-        overflow-y: auto;
-        position: relative;
-        font-family: var(--font-sans);
-    }
-    .time-axis {
-        position: sticky;
-        top: 0;
-        height: 24px;
-        background: var(--bg-panel);
-        border-bottom: 1px solid var(--row-border);
-        z-index: 1;
-    }
-    .axis-tick {
-        position: absolute;
-        font-size: 11px;
-        color: var(--muted);
-        padding: 4px 6px;
-    }
-    .row-list { will-change: transform; }
+  .waterfall {
+    height: 100%;
+    overflow-y: auto;
+    position: relative;
+    font-family: var(--font-sans);
+  }
+  .time-axis {
+    position: sticky;
+    top: 0;
+    height: 24px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--row-border);
+    z-index: 1;
+  }
+  .axis-tick {
+    position: absolute;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 4px 6px;
+  }
+  .row-list {
+    will-change: transform;
+  }
 </style>
 ```
 
@@ -1109,88 +1231,123 @@ to the TraceViewport's pxPerMs math. Sticky time axis at top."
 ### Task 10: SpanDetailPanel component
 
 **Files:**
+
 - Create: `apps/dashboard/src/lib/components/trace-viewer/SpanDetailPanel.svelte`
 
 - [ ] **Step 1: Build the panel**
 
 ```svelte
 <script lang="ts">
-    import { formatLatency } from '$lib/utils/format'
+  import { formatLatency } from '$lib/utils/format'
 
-    interface Props {
-        span: Record<string, unknown> | null
+  interface Props {
+    span: Record<string, unknown> | null
+  }
+
+  let { span }: Props = $props()
+
+  let activeTab = $state<'attributes' | 'input' | 'output' | 'request' | 'response'>('attributes')
+
+  function asJson(value: unknown): string {
+    if (value == null) return ''
+    if (typeof value === 'string') {
+      try {
+        return JSON.stringify(JSON.parse(value), null, 2)
+      } catch {
+        return value
+      }
     }
-
-    let { span }: Props = $props()
-
-    let activeTab = $state<'attributes' | 'input' | 'output' | 'request' | 'response'>('attributes')
-
-    function asJson(value: unknown): string {
-        if (value == null) return ''
-        if (typeof value === 'string') {
-            try { return JSON.stringify(JSON.parse(value), null, 2) }
-            catch { return value }
-        }
-        return JSON.stringify(value, null, 2)
-    }
+    return JSON.stringify(value, null, 2)
+  }
 </script>
 
 {#if span}
-    <div class="detail-panel">
-        <header>
-            <div class="name">{span.span_name ?? span.name}</div>
-            <div class="meta">
-                <span>{span.span_type ?? '—'}</span>
-                <span>·</span>
-                <span>{formatLatency(span.duration_ms as number)}</span>
-                {#if span.estimated_cost}
-                    <span>·</span>
-                    <span>${(span.estimated_cost as number).toFixed(4)}</span>
-                {/if}
-                {#if span.total_tokens}
-                    <span>·</span>
-                    <span>{span.total_tokens} tok</span>
-                {/if}
-            </div>
-        </header>
-        <nav class="tabs">
-            {#each ['attributes', 'input', 'output', 'request', 'response'] as tab}
-                <button
-                    class:active={activeTab === tab}
-                    onclick={() => activeTab = tab as typeof activeTab}
-                >{tab}</button>
-            {/each}
-        </nav>
-        <pre class="body">{asJson(span[activeTab])}</pre>
-    </div>
+  <div class="detail-panel">
+    <header>
+      <div class="name">{span.span_name ?? span.name}</div>
+      <div class="meta">
+        <span>{span.span_type ?? '—'}</span>
+        <span>·</span>
+        <span>{formatLatency(span.duration_ms as number)}</span>
+        {#if span.estimated_cost}
+          <span>·</span>
+          <span>${(span.estimated_cost as number).toFixed(4)}</span>
+        {/if}
+        {#if span.total_tokens}
+          <span>·</span>
+          <span>{span.total_tokens} tok</span>
+        {/if}
+      </div>
+    </header>
+    <nav class="tabs">
+      {#each ['attributes', 'input', 'output', 'request', 'response'] as tab}
+        <button
+          class:active={activeTab === tab}
+          onclick={() => (activeTab = tab as typeof activeTab)}>{tab}</button
+        >
+      {/each}
+    </nav>
+    <pre class="body">{asJson(span[activeTab])}</pre>
+  </div>
 {:else}
-    <div class="detail-panel empty">Select a span to see its details.</div>
+  <div class="detail-panel empty">Select a span to see its details.</div>
 {/if}
 
 <style>
-    .detail-panel {
-        display: flex; flex-direction: column; height: 100%;
-        border-left: 1px solid var(--row-border);
-        font-family: var(--font-sans);
-    }
-    .detail-panel.empty {
-        align-items: center; justify-content: center;
-        color: var(--muted); font-size: 13px;
-    }
-    header { padding: 12px 16px; border-bottom: 1px solid var(--row-border); }
-    .name { font-family: var(--font-mono); font-size: 14px; font-weight: 600; }
-    .meta { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; gap: 6px; }
-    .tabs { display: flex; border-bottom: 1px solid var(--row-border); }
-    .tabs button {
-        background: none; border: 0; padding: 8px 12px; cursor: pointer;
-        font-size: 12px; color: var(--muted);
-        border-bottom: 2px solid transparent;
-    }
-    .tabs button.active { color: var(--text); border-bottom-color: var(--accent, #0072B2); }
-    .body {
-        flex: 1; overflow: auto; padding: 12px 16px;
-        font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap;
-    }
+  .detail-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border-left: 1px solid var(--row-border);
+    font-family: var(--font-sans);
+  }
+  .detail-panel.empty {
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--row-border);
+  }
+  .name {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    display: flex;
+    gap: 6px;
+  }
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--row-border);
+  }
+  .tabs button {
+    background: none;
+    border: 0;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+  }
+  .tabs button.active {
+    color: var(--text);
+    border-bottom-color: var(--accent, #0072b2);
+  }
+  .body {
+    flex: 1;
+    overflow: auto;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+  }
 </style>
 ```
 
@@ -1206,6 +1363,7 @@ git commit -m "feat(dashboard): SpanDetailPanel with tabbed attribute/IO views"
 ### Task 11: Replace SpanTree with SpanWaterfall in TraceDetail
 
 **Files:**
+
 - Modify: `apps/dashboard/src/lib/components/traces/TraceDetail.svelte`
 - Delete: `apps/dashboard/src/lib/components/traces/SpanTree.svelte`
 
@@ -1215,50 +1373,55 @@ Rewrite `apps/dashboard/src/lib/components/traces/TraceDetail.svelte` (replacing
 
 ```svelte
 <script lang="ts">
-    import SpanWaterfall from '$lib/components/trace-viewer/SpanWaterfall.svelte'
-    import SpanDetailPanel from '$lib/components/trace-viewer/SpanDetailPanel.svelte'
-    import type { Span } from '$lib/stores/traces.svelte'
+  import SpanWaterfall from '$lib/components/trace-viewer/SpanWaterfall.svelte'
+  import SpanDetailPanel from '$lib/components/trace-viewer/SpanDetailPanel.svelte'
+  import type { Span } from '$lib/stores/traces.svelte'
 
-    interface Props {
-        spans: Span[]
-    }
+  interface Props {
+    spans: Span[]
+  }
 
-    let { spans }: Props = $props()
+  let { spans }: Props = $props()
 
-    let selectedId = $state<string | null>(null)
-    const selectedSpan = $derived(spans.find(s => s.id === selectedId) ?? null)
+  let selectedId = $state<string | null>(null)
+  const selectedSpan = $derived(spans.find((s) => s.id === selectedId) ?? null)
 
-    // Adapt store-shape spans to viewport input shape
-    const viewportSpans = $derived(spans.map(s => ({
-        id: s.id,
-        parent_id: s.parent_id,
-        name: s.span_name ?? s.name ?? s.id,
-        start_time: s.start_time ?? s.timestamp,
-        duration_ms: s.duration_ms ?? 0,
-        span_type: s.span_type,
-        ...s
-    })))
+  // Adapt store-shape spans to viewport input shape
+  const viewportSpans = $derived(
+    spans.map((s) => ({
+      id: s.id,
+      parent_id: s.parent_id,
+      name: s.span_name ?? s.name ?? s.id,
+      start_time: s.start_time ?? s.timestamp,
+      duration_ms: s.duration_ms ?? 0,
+      span_type: s.span_type,
+      ...s,
+    })),
+  )
 </script>
 
 <div class="trace-detail">
-    <div class="waterfall-pane">
-        <SpanWaterfall spans={viewportSpans} onSelect={(id) => selectedId = id} />
-    </div>
-    <div class="detail-pane">
-        <SpanDetailPanel span={selectedSpan} />
-    </div>
+  <div class="waterfall-pane">
+    <SpanWaterfall spans={viewportSpans} onSelect={(id) => (selectedId = id)} />
+  </div>
+  <div class="detail-pane">
+    <SpanDetailPanel span={selectedSpan} />
+  </div>
 </div>
 
 <style>
+  .trace-detail {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: 100%;
+    min-height: 400px;
+  }
+  @media (max-width: 900px) {
     .trace-detail {
-        display: grid;
-        grid-template-columns: 1fr 380px;
-        height: 100%;
-        min-height: 400px;
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 1fr;
     }
-    @media (max-width: 900px) {
-        .trace-detail { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
-    }
+  }
 </style>
 ```
 
@@ -1304,6 +1467,7 @@ detail (380px), collapses to stacked on viewports < 900px."
 ### Task 12: Sessions frontend store
 
 **Files:**
+
 - Create: `apps/dashboard/src/lib/stores/sessions.svelte.ts`
 
 - [ ] **Step 1: Implement the store**
@@ -1312,62 +1476,62 @@ detail (380px), collapses to stacked on viewports < 900px."
 import { api } from '$lib/api/client'
 
 export interface SessionSummary {
-    session_id: string
-    first_seen: number
-    last_seen: number
-    trace_count: number
-    total_cost: number
-    total_tokens: number
-    agent_name: string | null
-    service_name: string | null
+  session_id: string
+  first_seen: number
+  last_seen: number
+  trace_count: number
+  total_cost: number
+  total_tokens: number
+  agent_name: string | null
+  service_name: string | null
 }
 
 export interface SessionDetail {
-    session_id: string
-    traces: Array<{
-        trace_id: string
-        started_at: number
-        ended_at: number
-        cost: number
-        tokens: number
-        span_count: number
-        has_error: number
-    }>
-    summary: { cost: number; tokens: number; spans: number; errors: number }
+  session_id: string
+  traces: Array<{
+    trace_id: string
+    started_at: number
+    ended_at: number
+    cost: number
+    tokens: number
+    span_count: number
+    has_error: number
+  }>
+  summary: { cost: number; tokens: number; spans: number; errors: number }
 }
 
 export const sessionsState = $state({
-    list: [] as SessionSummary[],
-    total: 0,
-    selected: null as SessionDetail | null,
-    loading: false,
-    error: null as string | null
+  list: [] as SessionSummary[],
+  total: 0,
+  selected: null as SessionDetail | null,
+  loading: false,
+  error: null as string | null,
 })
 
 export async function loadSessions(limit = 50, offset = 0) {
-    sessionsState.loading = true
-    try {
-        const r = await api(`/api/sessions?limit=${limit}&offset=${offset}`)
-        sessionsState.list = r.sessions
-        sessionsState.total = r.total
-        sessionsState.error = null
-    } catch (e) {
-        sessionsState.error = (e as Error).message
-    } finally {
-        sessionsState.loading = false
-    }
+  sessionsState.loading = true
+  try {
+    const r = await api(`/api/sessions?limit=${limit}&offset=${offset}`)
+    sessionsState.list = r.sessions
+    sessionsState.total = r.total
+    sessionsState.error = null
+  } catch (e) {
+    sessionsState.error = (e as Error).message
+  } finally {
+    sessionsState.loading = false
+  }
 }
 
 export async function loadSession(id: string) {
-    sessionsState.loading = true
-    try {
-        sessionsState.selected = await api(`/api/sessions/${encodeURIComponent(id)}`)
-        sessionsState.error = null
-    } catch (e) {
-        sessionsState.error = (e as Error).message
-    } finally {
-        sessionsState.loading = false
-    }
+  sessionsState.loading = true
+  try {
+    sessionsState.selected = await api(`/api/sessions/${encodeURIComponent(id)}`)
+    sessionsState.error = null
+  } catch (e) {
+    sessionsState.error = (e as Error).message
+  } finally {
+    sessionsState.loading = false
+  }
 }
 ```
 
@@ -1383,6 +1547,7 @@ git commit -m "feat(dashboard): sessions store backed by /api/sessions"
 ### Task 13: SessionsTab + SessionList + SessionDetail
 
 **Files:**
+
 - Create: `apps/dashboard/src/lib/components/sessions/SessionsTab.svelte`
 - Create: `apps/dashboard/src/lib/components/sessions/SessionList.svelte`
 - Create: `apps/dashboard/src/lib/components/sessions/SessionDetail.svelte`
@@ -1395,58 +1560,82 @@ Create `apps/dashboard/src/lib/components/sessions/SessionList.svelte`:
 
 ```svelte
 <script lang="ts">
-    import { sessionsState, loadSession } from '$lib/stores/sessions.svelte'
+  import { sessionsState, loadSession } from '$lib/stores/sessions.svelte'
 
-    interface Props {
-        onSelect: (id: string) => void
-    }
+  interface Props {
+    onSelect: (id: string) => void
+  }
 
-    let { onSelect }: Props = $props()
+  let { onSelect }: Props = $props()
 
-    function fmtDate(ms: number): string {
-        return new Date(ms).toISOString().slice(0, 19).replace('T', ' ')
-    }
-    function fmtAgo(ms: number): string {
-        const diff = Date.now() - ms
-        if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`
-        if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
-        if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
-        return `${Math.floor(diff / 86_400_000)}d ago`
-    }
+  function fmtDate(ms: number): string {
+    return new Date(ms).toISOString().slice(0, 19).replace('T', ' ')
+  }
+  function fmtAgo(ms: number): string {
+    const diff = Date.now() - ms
+    if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+    return `${Math.floor(diff / 86_400_000)}d ago`
+  }
 </script>
 
 <table class="sessions-table">
-    <thead>
-        <tr>
-            <th>Session</th>
-            <th>Agent / Service</th>
-            <th>Traces</th>
-            <th>Tokens</th>
-            <th>Cost</th>
-            <th>Last seen</th>
-        </tr>
-    </thead>
-    <tbody>
-        {#each sessionsState.list as s (s.session_id)}
-            <tr onclick={() => { loadSession(s.session_id); onSelect(s.session_id) }}>
-                <td class="mono">{s.session_id}</td>
-                <td>{s.agent_name ?? s.service_name ?? '—'}</td>
-                <td>{s.trace_count}</td>
-                <td>{s.total_tokens.toLocaleString()}</td>
-                <td>${s.total_cost.toFixed(4)}</td>
-                <td title={fmtDate(s.last_seen)}>{fmtAgo(s.last_seen)}</td>
-            </tr>
-        {/each}
-    </tbody>
+  <thead>
+    <tr>
+      <th>Session</th>
+      <th>Agent / Service</th>
+      <th>Traces</th>
+      <th>Tokens</th>
+      <th>Cost</th>
+      <th>Last seen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {#each sessionsState.list as s (s.session_id)}
+      <tr
+        onclick={() => {
+          loadSession(s.session_id)
+          onSelect(s.session_id)
+        }}
+      >
+        <td class="mono">{s.session_id}</td>
+        <td>{s.agent_name ?? s.service_name ?? '—'}</td>
+        <td>{s.trace_count}</td>
+        <td>{s.total_tokens.toLocaleString()}</td>
+        <td>${s.total_cost.toFixed(4)}</td>
+        <td title={fmtDate(s.last_seen)}>{fmtAgo(s.last_seen)}</td>
+      </tr>
+    {/each}
+  </tbody>
 </table>
 
 <style>
-    .sessions-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--row-border); }
-    th { font-weight: 600; color: var(--muted); }
-    tbody tr { cursor: pointer; }
-    tbody tr:hover { background: var(--row-hover); }
-    .mono { font-family: var(--font-mono); font-size: 12px; }
+  .sessions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th,
+  td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--row-border);
+  }
+  th {
+    font-weight: 600;
+    color: var(--muted);
+  }
+  tbody tr {
+    cursor: pointer;
+  }
+  tbody tr:hover {
+    background: var(--row-hover);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
 </style>
 ```
 
@@ -1456,61 +1645,94 @@ Create `apps/dashboard/src/lib/components/sessions/SessionDetail.svelte`:
 
 ```svelte
 <script lang="ts">
-    import { sessionsState } from '$lib/stores/sessions.svelte'
+  import { sessionsState } from '$lib/stores/sessions.svelte'
 
-    interface Props {
-        onOpenTrace: (traceId: string) => void
-    }
+  interface Props {
+    onOpenTrace: (traceId: string) => void
+  }
 
-    let { onOpenTrace }: Props = $props()
+  let { onOpenTrace }: Props = $props()
 
-    function fmt(ms: number) { return new Date(ms).toLocaleTimeString() }
+  function fmt(ms: number) {
+    return new Date(ms).toLocaleTimeString()
+  }
 </script>
 
 {#if sessionsState.selected}
-    <div class="session-detail">
-        <header>
-            <h2>Session <span class="mono">{sessionsState.selected.session_id}</span></h2>
-            <div class="summary">
-                {sessionsState.selected.traces.length} traces ·
-                {sessionsState.selected.summary.spans} spans ·
-                {sessionsState.selected.summary.tokens.toLocaleString()} tokens ·
-                ${sessionsState.selected.summary.cost.toFixed(4)}
-                {#if sessionsState.selected.summary.errors > 0}
-                    · <span class="error">{sessionsState.selected.summary.errors} errors</span>
-                {/if}
-            </div>
-        </header>
-        <ol class="trace-list">
-            {#each sessionsState.selected.traces as t (t.trace_id)}
-                <li onclick={() => onOpenTrace(t.trace_id)}>
-                    <span class="time">{fmt(t.started_at)}</span>
-                    <span class="trace-id mono">{t.trace_id.slice(0, 8)}…</span>
-                    <span class="spans">{t.span_count} spans</span>
-                    <span class="cost">${t.cost.toFixed(4)}</span>
-                    {#if t.has_error} <span class="err">error</span>{/if}
-                </li>
-            {/each}
-        </ol>
-    </div>
+  <div class="session-detail">
+    <header>
+      <h2>Session <span class="mono">{sessionsState.selected.session_id}</span></h2>
+      <div class="summary">
+        {sessionsState.selected.traces.length} traces ·
+        {sessionsState.selected.summary.spans} spans ·
+        {sessionsState.selected.summary.tokens.toLocaleString()} tokens · ${sessionsState.selected.summary.cost.toFixed(
+          4,
+        )}
+        {#if sessionsState.selected.summary.errors > 0}
+          · <span class="error">{sessionsState.selected.summary.errors} errors</span>
+        {/if}
+      </div>
+    </header>
+    <ol class="trace-list">
+      {#each sessionsState.selected.traces as t (t.trace_id)}
+        <li onclick={() => onOpenTrace(t.trace_id)}>
+          <span class="time">{fmt(t.started_at)}</span>
+          <span class="trace-id mono">{t.trace_id.slice(0, 8)}…</span>
+          <span class="spans">{t.span_count} spans</span>
+          <span class="cost">${t.cost.toFixed(4)}</span>
+          {#if t.has_error}
+            <span class="err">error</span>{/if}
+        </li>
+      {/each}
+    </ol>
+  </div>
 {:else}
-    <div class="empty">Loading…</div>
+  <div class="empty">Loading…</div>
 {/if}
 
 <style>
-    .session-detail { padding: 16px; font-family: var(--font-sans); }
-    header h2 { margin: 0 0 8px; font-size: 16px; }
-    .summary { color: var(--muted); font-size: 13px; }
-    .error { color: var(--err, #d55e00); }
-    .trace-list { list-style: none; padding: 0; margin-top: 16px; }
-    .trace-list li {
-        display: grid; grid-template-columns: 80px 100px 1fr 80px auto;
-        gap: 12px; padding: 8px; cursor: pointer; border-bottom: 1px solid var(--row-border);
-    }
-    .trace-list li:hover { background: var(--row-hover); }
-    .mono { font-family: var(--font-mono); font-size: 12px; }
-    .err { color: var(--err, #d55e00); }
-    .empty { padding: 16px; color: var(--muted); }
+  .session-detail {
+    padding: 16px;
+    font-family: var(--font-sans);
+  }
+  header h2 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+  .summary {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .error {
+    color: var(--err, #d55e00);
+  }
+  .trace-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 16px;
+  }
+  .trace-list li {
+    display: grid;
+    grid-template-columns: 80px 100px 1fr 80px auto;
+    gap: 12px;
+    padding: 8px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--row-border);
+  }
+  .trace-list li:hover {
+    background: var(--row-hover);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .err {
+    color: var(--err, #d55e00);
+  }
+  .empty {
+    padding: 16px;
+    color: var(--muted);
+  }
 </style>
 ```
 
@@ -1520,42 +1742,49 @@ Create `apps/dashboard/src/lib/components/sessions/SessionsTab.svelte`:
 
 ```svelte
 <script lang="ts">
-    import { onMount } from 'svelte'
-    import { sessionsState, loadSessions } from '$lib/stores/sessions.svelte'
-    import { setTab } from '$lib/stores/tabs.svelte'
-    import SessionList from './SessionList.svelte'
-    import SessionDetail from './SessionDetail.svelte'
+  import { onMount } from 'svelte'
+  import { sessionsState, loadSessions } from '$lib/stores/sessions.svelte'
+  import { setTab } from '$lib/stores/tabs.svelte'
+  import SessionList from './SessionList.svelte'
+  import SessionDetail from './SessionDetail.svelte'
 
-    let view = $state<'list' | 'detail'>('list')
+  let view = $state<'list' | 'detail'>('list')
 
-    onMount(() => loadSessions())
+  onMount(() => loadSessions())
 
-    function openSession(_id: string) {
-        view = 'detail'
-    }
+  function openSession(_id: string) {
+    view = 'detail'
+  }
 
-    function openTrace(traceId: string) {
-        // Cross-tab navigation: jump to Traces tab with the selected trace
-        setTab('traces')
-        window.location.hash = `#traces?trace=${encodeURIComponent(traceId)}`
-    }
+  function openTrace(traceId: string) {
+    // Cross-tab navigation: jump to Traces tab with the selected trace
+    setTab('traces')
+    window.location.hash = `#traces?trace=${encodeURIComponent(traceId)}`
+  }
 </script>
 
 <div class="sessions-tab">
-    {#if view === 'list'}
-        <SessionList onSelect={openSession} />
-    {:else}
-        <button class="back" onclick={() => view = 'list'}>← back to sessions</button>
-        <SessionDetail onOpenTrace={openTrace} />
-    {/if}
+  {#if view === 'list'}
+    <SessionList onSelect={openSession} />
+  {:else}
+    <button class="back" onclick={() => (view = 'list')}>← back to sessions</button>
+    <SessionDetail onOpenTrace={openTrace} />
+  {/if}
 </div>
 
 <style>
-    .sessions-tab { height: 100%; overflow: auto; }
-    .back {
-        background: none; border: 0; padding: 8px 16px; cursor: pointer;
-        font-size: 12px; color: var(--muted);
-    }
+  .sessions-tab {
+    height: 100%;
+    overflow: auto;
+  }
+  .back {
+    background: none;
+    border: 0;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+  }
 </style>
 ```
 
@@ -1564,7 +1793,15 @@ Create `apps/dashboard/src/lib/components/sessions/SessionsTab.svelte`:
 Modify `apps/dashboard/src/lib/stores/tabs.svelte.ts` — find the `validTabs` array and add `'sessions'`:
 
 ```ts
-export const validTabs = ['timeline', 'traces', 'sessions', 'logs', 'metrics', 'models', 'analytics'] as const
+export const validTabs = [
+  'timeline',
+  'traces',
+  'sessions',
+  'logs',
+  'metrics',
+  'models',
+  'analytics',
+] as const
 ```
 
 - [ ] **Step 5: Mount the tab in App.svelte**
@@ -1606,6 +1843,7 @@ Traces tab. Tab registered in tabs.svelte.ts."
 ### Task 14: Glue emits session.id per CLI session
 
 **Files:**
+
 - Modify: `../glue/packages/glue_harness/lib/src/observability/otlp_http_trace_sink.dart`
 
 - [ ] **Step 1: Locate the resource-attribute builder**
@@ -1671,62 +1909,72 @@ under one session in its dashboard. Session ID format: glue-<ts>-<rand>."
 ### Task 15: End-to-end test
 
 **Files:**
+
 - Create: `apps/server/test/sessions-e2e.js`
 
 - [ ] **Step 1: Write the test**
 
 ```js
-const assert = require('node:assert');
+const assert = require('node:assert')
 
-const BASE = process.env.LLMFLOW_URL || 'http://127.0.0.1:3000';
+const BASE = process.env.LLMFLOW_URL || 'http://127.0.0.1:3000'
 
 async function postSpan(sessionId, name) {
-    const span = {
-        resourceSpans: [{
-            resource: { attributes: [] },
-            scopeSpans: [{
-                spans: [{
-                    traceId: crypto.randomUUID().replace(/-/g, ''),
-                    spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
-                    name,
-                    startTimeUnixNano: String(Date.now() * 1_000_000),
-                    endTimeUnixNano: String((Date.now() + 100) * 1_000_000),
-                    attributes: [{ key: 'session.id', value: { stringValue: sessionId } }],
-                    status: { code: 1 }
-                }]
-            }]
-        }]
-    };
-    const r = await fetch(`${BASE}/v1/traces`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(span)
-    });
-    assert.strictEqual(r.status, 200);
+  const span = {
+    resourceSpans: [
+      {
+        resource: { attributes: [] },
+        scopeSpans: [
+          {
+            spans: [
+              {
+                traceId: crypto.randomUUID().replace(/-/g, ''),
+                spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
+                name,
+                startTimeUnixNano: String(Date.now() * 1_000_000),
+                endTimeUnixNano: String((Date.now() + 100) * 1_000_000),
+                attributes: [{ key: 'session.id', value: { stringValue: sessionId } }],
+                status: { code: 1 },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+  const r = await fetch(`${BASE}/v1/traces`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(span),
+  })
+  assert.strictEqual(r.status, 200)
 }
 
 async function run() {
-    const sessionId = 'e2e-' + Math.random().toString(36).slice(2);
+  const sessionId = 'e2e-' + Math.random().toString(36).slice(2)
 
-    // Ingest three spans (three separate traces) tagged with the same session
-    await postSpan(sessionId, 'turn-1');
-    await postSpan(sessionId, 'turn-2');
-    await postSpan(sessionId, 'turn-3');
+  // Ingest three spans (three separate traces) tagged with the same session
+  await postSpan(sessionId, 'turn-1')
+  await postSpan(sessionId, 'turn-2')
+  await postSpan(sessionId, 'turn-3')
 
-    // Sessions list should include it
-    const list = await (await fetch(`${BASE}/api/sessions?limit=100`)).json();
-    const found = list.sessions.find(s => s.session_id === sessionId);
-    assert.ok(found, 'session not found in /api/sessions');
-    assert.strictEqual(found.trace_count, 3, `expected 3 traces, got ${found.trace_count}`);
+  // Sessions list should include it
+  const list = await (await fetch(`${BASE}/api/sessions?limit=100`)).json()
+  const found = list.sessions.find((s) => s.session_id === sessionId)
+  assert.ok(found, 'session not found in /api/sessions')
+  assert.strictEqual(found.trace_count, 3, `expected 3 traces, got ${found.trace_count}`)
 
-    // Session detail should return three traces
-    const detail = await (await fetch(`${BASE}/api/sessions/${sessionId}`)).json();
-    assert.strictEqual(detail.traces.length, 3);
+  // Session detail should return three traces
+  const detail = await (await fetch(`${BASE}/api/sessions/${sessionId}`)).json()
+  assert.strictEqual(detail.traces.length, 3)
 
-    console.log('✓ session correlation e2e passed');
+  console.log('✓ session correlation e2e passed')
 }
 
-run().catch(err => { console.error(err); process.exit(1); });
+run().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
 ```
 
 - [ ] **Step 2: Run it (via the existing run-tests harness)**
@@ -1750,6 +1998,7 @@ git commit -m "test(e2e): session correlation across 3 OTLP traces"
 ### Task 16: Update llms.txt + AGENTS.md to document the session attribute
 
 **Files:**
+
 - Modify: `website/llms.txt` — Add a section under "Custom Tags" about session ID
 - Modify: `AGENTS.md` — Mention session_id in the data-model summary
 
@@ -1863,7 +2112,7 @@ EOF
 - [ ] **Step 6: Self-review**
 
 Open the PR diff and re-read every commit message. Check that each commit body
-explains *why*, not just *what*. Fix any commits with sparse messages via
+explains _why_, not just _what_. Fix any commits with sparse messages via
 `git commit --amend` before the PR has been reviewed.
 
 ---

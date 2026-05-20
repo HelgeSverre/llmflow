@@ -36,7 +36,7 @@ Color encoding uses the **Okabe–Ito 8-color palette** for the seven span types
 
 **Cons**: still bottoms out at a few thousand nodes without virtualization. Sub-pixel positioning via `transform: translateX(...)` is required to avoid layout thrash.
 
-**Performance ceiling**: ~3–5k DOM nodes onscreen is the rough boundary; *virtualized* DOM has no practical ceiling because you only ever render the visible rows (~30–80 at typical viewport sizes).
+**Performance ceiling**: ~3–5k DOM nodes onscreen is the rough boundary; _virtualized_ DOM has no practical ceiling because you only ever render the visible rows (~30–80 at typical viewport sizes).
 
 **Real-world example**: Jaeger UI today uses `<div>`s, not SVG, for span rows ([VirtualizedTraceView.tsx](https://github.com/jaegertracing/jaeger-ui/blob/main/packages/jaeger-ui/src/components/TracePage/TraceTimelineViewer/VirtualizedTraceView.tsx) — `<div className="VirtualizedTraceView--row">` wraps `SpanBarRow` and friends). Their viewBuffer is 300px (rows rendered above/below the viewport).
 
@@ -49,6 +49,7 @@ Color encoding uses the **Okabe–Ito 8-color palette** for the seven span types
 **Performance ceiling**: comfortably 100k+ rectangles per frame on a modern laptop if you batch fills by color. Perfetto routinely handles million-slice traces.
 
 **Hit-testing strategies** (see dedicated section below):
+
 1. Flat scan with viewport cull — fine up to ~5k items.
 2. Color-coded off-screen hit canvas + `getImageData(x, y, 1, 1)` — O(1) per probe; great for irregular shapes.
 3. Quadtree (e.g., d3-quadtree) — O(log n) point queries; good for non-uniform clusters.
@@ -68,13 +69,13 @@ Color encoding uses the **Okabe–Ito 8-color palette** for the seven span types
 
 ### Recommendation table
 
-| Span count            | Recommended                       | Why                                                                  |
-| --------------------- | --------------------------------- | -------------------------------------------------------------------- |
-| < 500                 | SVG or DOM (no virtualization)    | Simplest path; accessibility free; no perf concern                   |
-| 500 – 5k              | **DOM virtualized**               | Hits llmflow's sweet spot; keep all CSS theming, accessibility, hit-testing free |
-| 5k – 50k              | DOM virtualized + Canvas mini-map | Virtualization keeps rendered nodes ~100; mini-map needs raw speed   |
-| 50k – 500k            | Canvas main view                  | DOM cost of mutations during rapid scroll becomes noticeable         |
-| > 500k                | Canvas + LOD aggregation          | Pre-aggregate to "bands" of N spans per pixel; drill on zoom         |
+| Span count | Recommended                       | Why                                                                              |
+| ---------- | --------------------------------- | -------------------------------------------------------------------------------- |
+| < 500      | SVG or DOM (no virtualization)    | Simplest path; accessibility free; no perf concern                               |
+| 500 – 5k   | **DOM virtualized**               | Hits llmflow's sweet spot; keep all CSS theming, accessibility, hit-testing free |
+| 5k – 50k   | DOM virtualized + Canvas mini-map | Virtualization keeps rendered nodes ~100; mini-map needs raw speed               |
+| 50k – 500k | Canvas main view                  | DOM cost of mutations during rapid scroll becomes noticeable                     |
+| > 500k     | Canvas + LOD aggregation          | Pre-aggregate to "bands" of N spans per pixel; drill on zoom                     |
 
 For llmflow specifically: build for the 500–5k tier with the 5k–50k tier as a graceful next step. Don't over-engineer for the 500k case unless that becomes a real user trace.
 
@@ -86,16 +87,16 @@ Status as of May 2026: `@tanstack/svelte-virtual` v3.13.x. It's the official Sve
 
 ```svelte
 <script lang="ts">
-  import { createVirtualizer } from '@tanstack/svelte-virtual';
+  import { createVirtualizer } from '@tanstack/svelte-virtual'
 
-  let parentRef: HTMLDivElement;
+  let parentRef: HTMLDivElement
   const rowVirtualizer = createVirtualizer({
     count: 5000,
     getScrollElement: () => parentRef,
-    estimateSize: () => 28,           // px per row
+    estimateSize: () => 28, // px per row
     overscan: 8,
-    getItemKey: (i) => rows[i].id,    // stable keys across re-renders
-  });
+    getItemKey: (i) => rows[i].id, // stable keys across re-renders
+  })
 </script>
 
 <div bind:this={parentRef} class="scroller">
@@ -118,6 +119,7 @@ Older, simpler. Last meaningful update predates Svelte 5. Skip.
 ### Roll-your-own with $state + scroll listener
 
 Justified when:
+
 - Row heights are uniform (llmflow's case — every span row is the same height).
 - You want full ownership of sticky rows, pinned columns, and the time-axis ruler.
 - You want to keep dependencies minimal.
@@ -139,16 +141,16 @@ For llmflow's waterfall: pattern 2 for the time-axis ruler at the top; pattern 1
 The trace's logical extent is `[root.start_time, root.start_time + root.duration_ms]`. Map nanosecond timestamps to pixels:
 
 ```ts
-const totalDurationMs = trace.duration_ms;          // e.g. 12400 ms
-const viewport = { startMs: 0, endMs: totalDurationMs };  // updated by zoom/pan
-const widthPx = container.clientWidth;              // e.g. 1200
+const totalDurationMs = trace.duration_ms // e.g. 12400 ms
+const viewport = { startMs: 0, endMs: totalDurationMs } // updated by zoom/pan
+const widthPx = container.clientWidth // e.g. 1200
 
 function timeToPx(ms: number): number {
-  return ((ms - viewport.startMs) / (viewport.endMs - viewport.startMs)) * widthPx;
+  return ((ms - viewport.startMs) / (viewport.endMs - viewport.startMs)) * widthPx
 }
 
 function pxToTime(px: number): number {
-  return viewport.startMs + (px / widthPx) * (viewport.endMs - viewport.startMs);
+  return viewport.startMs + (px / widthPx) * (viewport.endMs - viewport.startMs)
 }
 ```
 
@@ -162,20 +164,20 @@ For llmflow: clamp to `Math.max(1, barWidth)` and color the under-1px bars sligh
 **Auto-fit on open**. Initial viewport = `[root.start_time, root.end_time]`. Add 2% padding either side so the very first and last spans aren't flush against the edge:
 
 ```ts
-const pad = trace.duration_ms * 0.02;
-viewport.startMs = -pad;
-viewport.endMs = trace.duration_ms + pad;
+const pad = trace.duration_ms * 0.02
+viewport.startMs = -pad
+viewport.endMs = trace.duration_ms + pad
 ```
 
 **Zoom math** (anchor at cursor). When the user wheels to zoom at cursor x:
 
 ```ts
 function zoomAt(cursorPx: number, scaleFactor: number) {
-  const cursorMs = pxToTime(cursorPx);
-  const newRange = (viewport.endMs - viewport.startMs) / scaleFactor;
-  const cursorRatio = (cursorMs - viewport.startMs) / (viewport.endMs - viewport.startMs);
-  viewport.startMs = cursorMs - cursorRatio * newRange;
-  viewport.endMs = cursorMs + (1 - cursorRatio) * newRange;
+  const cursorMs = pxToTime(cursorPx)
+  const newRange = (viewport.endMs - viewport.startMs) / scaleFactor
+  const cursorRatio = (cursorMs - viewport.startMs) / (viewport.endMs - viewport.startMs)
+  viewport.startMs = cursorMs - cursorRatio * newRange
+  viewport.endMs = cursorMs + (1 - cursorRatio) * newRange
 }
 ```
 
@@ -187,30 +189,30 @@ This is d3-zoom's behaviour distilled. d3's default wheel delta function (worth 
 
 Survey of the major tools:
 
-| Tool                    | Pan                          | Zoom                                  | Region-select                       |
-| ----------------------- | ---------------------------- | ------------------------------------- | ----------------------------------- |
-| Perfetto                | WASD or drag                 | wheel; pinch                          | shift-click-drag                    |
-| Chrome DevTools         | drag; "Modern" mode: wheel pans | Ctrl/Cmd + wheel; "Classic" mode: wheel zooms | drag in overview                  |
-| Jaeger                  | scrollbar; no native pan     | scrollbar-based                       | no native brush                     |
-| Speedscope              | drag; arrow keys             | wheel; +/- keys                       | n/a                                 |
-| Chrome Profiler         | Modern: scroll vert, shift-scroll horiz, Ctrl-scroll zoom | (same)                                | drag in overview                    |
-| Figma                   | middle-click drag; two-finger drag | Ctrl + wheel; pinch                   | n/a                                 |
+| Tool            | Pan                                                       | Zoom                                          | Region-select    |
+| --------------- | --------------------------------------------------------- | --------------------------------------------- | ---------------- |
+| Perfetto        | WASD or drag                                              | wheel; pinch                                  | shift-click-drag |
+| Chrome DevTools | drag; "Modern" mode: wheel pans                           | Ctrl/Cmd + wheel; "Classic" mode: wheel zooms | drag in overview |
+| Jaeger          | scrollbar; no native pan                                  | scrollbar-based                               | no native brush  |
+| Speedscope      | drag; arrow keys                                          | wheel; +/- keys                               | n/a              |
+| Chrome Profiler | Modern: scroll vert, shift-scroll horiz, Ctrl-scroll zoom | (same)                                        | drag in overview |
+| Figma           | middle-click drag; two-finger drag                        | Ctrl + wheel; pinch                           | n/a              |
 
 The crucial finding from [Chrome DevTools' shortcut menu](https://developer.chrome.com/docs/devtools/performance/reference): they ship **two modes** ("Classic" — wheel zooms; "Modern" — wheel scrolls, Ctrl/Cmd-wheel zooms) because users have strongly held opinions and the right answer depends on whether they came from a profiler background (wheel zooms) or a documents/spreadsheets background (wheel scrolls).
 
 **Recommended defaults for llmflow** (matches Chrome DevTools' "Modern" mode, which is what trace newcomers expect):
 
-| Gesture                | Action                                          |
-| ---------------------- | ----------------------------------------------- |
-| Wheel scroll           | Scroll rows vertically                          |
-| Shift + wheel          | Pan horizontally along time axis                |
-| Ctrl/Cmd + wheel       | Zoom in/out, anchored at cursor                 |
-| Trackpad pinch         | Zoom (delegated through `ctrlKey: true` in `WheelEvent`) |
-| Click + drag (in ruler)| Brush-zoom to selected time region              |
-| Double-click (in ruler)| Reset zoom to fit                               |
-| `f` key                | Fit selected span to viewport (Perfetto convention) |
-| `[`/`]`                | Previous / next span at same depth              |
-| `+`/`-`                | Zoom in / out at viewport center                |
+| Gesture                 | Action                                                   |
+| ----------------------- | -------------------------------------------------------- |
+| Wheel scroll            | Scroll rows vertically                                   |
+| Shift + wheel           | Pan horizontally along time axis                         |
+| Ctrl/Cmd + wheel        | Zoom in/out, anchored at cursor                          |
+| Trackpad pinch          | Zoom (delegated through `ctrlKey: true` in `WheelEvent`) |
+| Click + drag (in ruler) | Brush-zoom to selected time region                       |
+| Double-click (in ruler) | Reset zoom to fit                                        |
+| `f` key                 | Fit selected span to viewport (Perfetto convention)      |
+| `[`/`]`                 | Previous / next span at same depth                       |
+| `+`/`-`                 | Zoom in / out at viewport center                         |
 
 Use `{ passive: false }` on the wheel handler so you can `preventDefault()` and stop the page from scrolling.
 
@@ -222,15 +224,15 @@ llmflow has 7 known span types in `SpanTree.svelte`: `llm`, `agent`, `chain`, `t
 
 ```ts
 export const SPAN_TYPE_COLORS = {
-  llm:        '#0072B2', // blue       — primary, most common span
-  agent:      '#D55E00', // vermillion — high-level orchestration
-  chain:      '#CC79A7', // pink       — sequence/router
-  tool:       '#009E73', // green      — external calls
-  retrieval:  '#F0E442', // yellow     — RAG/search
-  embedding:  '#56B4E9', // sky blue   — vectorize
-  custom:     '#999999', // grey       — unknown / user-defined
-  error:      '#E69F00', // orange     — reserved for error overlay
-};
+  llm: '#0072B2', // blue       — primary, most common span
+  agent: '#D55E00', // vermillion — high-level orchestration
+  chain: '#CC79A7', // pink       — sequence/router
+  tool: '#009E73', // green      — external calls
+  retrieval: '#F0E442', // yellow     — RAG/search
+  embedding: '#56B4E9', // sky blue   — vectorize
+  custom: '#999999', // grey       — unknown / user-defined
+  error: '#E69F00', // orange     — reserved for error overlay
+}
 ```
 
 This palette survives protanopia, deuteranopia, and tritanopia simulation and stays distinguishable in grayscale print. For >8 categories, the next tier is [Paul Tol's palettes](https://personal.sron.nl/~pault/) (up to 12 colors) — defer until needed.
@@ -243,7 +245,7 @@ For optional latency-heatmap overlay (color rows by `duration_ms` percentile wit
 
 - **Chrome DevTools flame chart**: hashes function names to colors deterministically so the same function gets the same color across recordings ("colors are reused for same functions" — [Chrome DevTools Performance docs](https://developer.chrome.com/docs/devtools/performance/reference)). No semantic mapping. Trades scanability for stability.
 - **Perfetto**: per-track palettes chosen by the trace producer (Chrome uses category-based colors; Android uses per-process hashing).
-- **Tailwind**: no first-party colorblind-safe palette as of May 2026 — the v4 default palette is *not* CVD-safe (red-500 and green-500 collapse under deuteranopia).
+- **Tailwind**: no first-party colorblind-safe palette as of May 2026 — the v4 default palette is _not_ CVD-safe (red-500 and green-500 collapse under deuteranopia).
 
 For llmflow, semantic mapping (Okabe–Ito by span type) beats deterministic hashing because the type vocabulary is small and stable.
 
@@ -255,13 +257,13 @@ If/when llmflow's mini-map (or future canvas main view) needs interactive hit-te
 
 ```ts
 function hitTest(rows: SpanRow[], x: number, y: number): SpanRow | null {
-  const rowIdx = Math.floor(y / ROW_HEIGHT);
+  const rowIdx = Math.floor(y / ROW_HEIGHT)
   // rows is sorted by render order; check only spans on this depth/row
-  const candidates = rows.filter((r) => r.depth === rowIdx);
+  const candidates = rows.filter((r) => r.depth === rowIdx)
   for (const c of candidates) {
-    if (x >= c.xPx && x < c.xPx + c.widthPx) return c;
+    if (x >= c.xPx && x < c.xPx + c.widthPx) return c
   }
-  return null;
+  return null
 }
 ```
 
@@ -292,6 +294,7 @@ The hard truth: **canvas is invisible to assistive tech**. Anything you render p
 Use `role="tree"` on the row container and `role="treeitem"` on each row. Authority: [W3C WAI-ARIA APG TreeView pattern](https://www.w3.org/WAI/ARIA/apg/patterns/treeview/examples/treeview-navigation/) and [MDN tree role](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/tree_role).
 
 Required attributes per row:
+
 - `role="treeitem"`
 - `aria-level={depth + 1}` (1-based)
 - `aria-expanded={hasChildren ? expanded : undefined}` (omit on leaf rows)
@@ -303,17 +306,17 @@ Required attributes per row:
 
 Standard tree contract (use `roving tabindex` — only the focused row has `tabindex="0"`, others have `tabindex="-1"`):
 
-| Key                | Action                                          |
-| ------------------ | ----------------------------------------------- |
-| ↑ / ↓              | Move focus to previous/next visible row         |
-| ← (open node)      | Collapse                                        |
-| ← (closed/leaf)    | Move focus to parent                            |
-| → (closed)         | Expand                                          |
-| → (open)           | Move focus to first child                       |
-| Home / End         | First / last visible row                        |
-| Enter / Space      | Select (open details panel)                     |
-| Type-ahead         | Jump to next row whose name starts with letters typed within 500ms |
-| `f` (custom)       | Fit selected span to viewport                   |
+| Key             | Action                                                             |
+| --------------- | ------------------------------------------------------------------ |
+| ↑ / ↓           | Move focus to previous/next visible row                            |
+| ← (open node)   | Collapse                                                           |
+| ← (closed/leaf) | Move focus to parent                                               |
+| → (closed)      | Expand                                                             |
+| → (open)        | Move focus to first child                                          |
+| Home / End      | First / last visible row                                           |
+| Enter / Space   | Select (open details panel)                                        |
+| Type-ahead      | Jump to next row whose name starts with letters typed within 500ms |
+| `f` (custom)    | Fit selected span to viewport                                      |
 
 ### Screen reader gotchas
 
@@ -338,20 +341,20 @@ Rich Harris's [explicit recommendation](https://svelte.dev/blog/runes): when sta
 ```ts
 // trace-viewport.svelte.ts
 export class TraceViewport {
-  startMs = $state(0);
-  endMs = $state(0);
-  hoveredId = $state<string | null>(null);
-  selectedId = $state<string | null>(null);
+  startMs = $state(0)
+  endMs = $state(0)
+  hoveredId = $state<string | null>(null)
+  selectedId = $state<string | null>(null)
 
   // derived members work inside classes
-  durationMs = $derived(this.endMs - this.startMs);
+  durationMs = $derived(this.endMs - this.startMs)
 
   zoomAt(cursorPx: number, scaleFactor: number, widthPx: number) {
-    const cursorMs = this.startMs + (cursorPx / widthPx) * this.durationMs;
-    const newRange = this.durationMs / scaleFactor;
-    const ratio = (cursorMs - this.startMs) / this.durationMs;
-    this.startMs = cursorMs - ratio * newRange;
-    this.endMs = cursorMs + (1 - ratio) * newRange;
+    const cursorMs = this.startMs + (cursorPx / widthPx) * this.durationMs
+    const newRange = this.durationMs / scaleFactor
+    const ratio = (cursorMs - this.startMs) / this.durationMs
+    this.startMs = cursorMs - ratio * newRange
+    this.endMs = cursorMs + (1 - ratio) * newRange
   }
 }
 ```
@@ -361,10 +364,10 @@ export class TraceViewport {
 The flattened row list (one entry per visible span, computed from the tree + expansion state) gets reassigned wholesale on every expand/collapse and never mutated in place. Wrap it in `$state.raw` — Svelte won't proxy each row, which matters at 5k spans (proxy overhead is real per the [Svelte best-practices docs](https://svelte.dev/docs/svelte/best-practices)).
 
 ```ts
-let rows = $state.raw<SpanRow[]>([]);
+let rows = $state.raw<SpanRow[]>([])
 
 // expanding a node rebuilds the array — fine
-rows = flatten(tree, expanded);
+rows = flatten(tree, expanded)
 ```
 
 ### `SvelteSet` for expansion state
@@ -372,14 +375,15 @@ rows = flatten(tree, expanded);
 `expanded` is a set of span IDs. Use `SvelteSet` from `svelte/reactivity` — `Set` mutations (`.add`, `.delete`) trigger reactivity, unlike a plain `Set` ([svelte/reactivity docs](https://svelte.dev/docs/svelte/svelte-reactivity)). For a string-keyed flag bag, a plain `$state({})` object also works, but `SvelteSet` makes the intent obvious and gives O(1) checks.
 
 ```ts
-import { SvelteSet } from 'svelte/reactivity';
-const expanded = new SvelteSet<string>();
-expanded.add(spanId);    // triggers re-derive
+import { SvelteSet } from 'svelte/reactivity'
+const expanded = new SvelteSet<string>()
+expanded.add(spanId) // triggers re-derive
 ```
 
 ### `$derived` for transforms; `$effect` only for true side effects
 
 `$derived` is memoized and runs lazily. Use it for:
+
 - The flattened row list given tree + expanded set.
 - Viewport-visible row range from scroll position.
 - Total trace duration from the root span.
@@ -406,36 +410,37 @@ If two distant components need to react to "current selected span", a class inst
 
 ```ts
 // stores/trace-viewport.svelte.ts
-import { SvelteSet } from 'svelte/reactivity';
+import { SvelteSet } from 'svelte/reactivity'
 
 export class TraceViewport {
   // Input
-  trace = $state.raw<TraceTree | null>(null);
+  trace = $state.raw<TraceTree | null>(null)
 
   // UI state
-  expanded = new SvelteSet<string>();
-  viewport = $state({ startMs: 0, endMs: 0 });
-  scrollTop = $state(0);
-  containerHeight = $state(0);
-  hoveredId = $state<string | null>(null);
-  selectedId = $state<string | null>(null);
+  expanded = new SvelteSet<string>()
+  viewport = $state({ startMs: 0, endMs: 0 })
+  scrollTop = $state(0)
+  containerHeight = $state(0)
+  hoveredId = $state<string | null>(null)
+  selectedId = $state<string | null>(null)
 
   // Derived
-  rows = $derived(this.trace ? flatten(this.trace, this.expanded) : []);
-  totalHeight = $derived(this.rows.length * ROW_HEIGHT);
+  rows = $derived(this.trace ? flatten(this.trace, this.expanded) : [])
+  totalHeight = $derived(this.rows.length * ROW_HEIGHT)
   visibleRange = $derived.by(() => {
-    const start = Math.floor(this.scrollTop / ROW_HEIGHT) - OVERSCAN;
-    const count = Math.ceil(this.containerHeight / ROW_HEIGHT) + 2 * OVERSCAN;
+    const start = Math.floor(this.scrollTop / ROW_HEIGHT) - OVERSCAN
+    const count = Math.ceil(this.containerHeight / ROW_HEIGHT) + 2 * OVERSCAN
     return {
       start: Math.max(0, start),
       end: Math.min(this.rows.length, start + count),
-    };
-  });
-  visibleRows = $derived(this.rows.slice(this.visibleRange.start, this.visibleRange.end));
+    }
+  })
+  visibleRows = $derived(this.rows.slice(this.visibleRange.start, this.visibleRange.end))
 }
 ```
 
 What's in `$state` vs `$derived`:
+
 - **In `$state`**: anything the user directly mutates — viewport, scroll, hover, selection, expansion set.
 - **In `$derived`**: anything purely computed from inputs — flattened rows, visible range, span colors, tick positions, total duration.
 - **In `$state.raw`**: the trace tree itself (large, immutable once loaded; reassigned on trace switch).
@@ -484,27 +489,27 @@ Ship 1–4 as a first iteration. 5–8 as follow-ups.
 ```svelte
 <!-- TraceRowList.svelte -->
 <script lang="ts">
-  import type { TraceViewport } from '$lib/stores/trace-viewport.svelte';
-  import TraceRow from './TraceRow.svelte';
+  import type { TraceViewport } from '$lib/stores/trace-viewport.svelte'
+  import TraceRow from './TraceRow.svelte'
 
-  const ROW_HEIGHT = 28;
-  const OVERSCAN = 8;
+  const ROW_HEIGHT = 28
+  const OVERSCAN = 8
 
-  let { viewport }: { viewport: TraceViewport } = $props();
+  let { viewport }: { viewport: TraceViewport } = $props()
 
-  let scrollerEl: HTMLDivElement;
+  let scrollerEl: HTMLDivElement
 
   function onScroll() {
-    viewport.scrollTop = scrollerEl.scrollTop;
+    viewport.scrollTop = scrollerEl.scrollTop
   }
 
   $effect(() => {
     const ro = new ResizeObserver(([entry]) => {
-      viewport.containerHeight = entry.contentRect.height;
-    });
-    ro.observe(scrollerEl);
-    return () => ro.disconnect();
-  });
+      viewport.containerHeight = entry.contentRect.height
+    })
+    ro.observe(scrollerEl)
+    return () => ro.disconnect()
+  })
 </script>
 
 <div
@@ -529,7 +534,11 @@ Ship 1–4 as a first iteration. 5–8 as follow-ups.
 </div>
 
 <style>
-  .scroller { overflow: auto; height: 100%; contain: strict; }
+  .scroller {
+    overflow: auto;
+    height: 100%;
+    contain: strict;
+  }
 </style>
 ```
 
@@ -540,85 +549,85 @@ Note `contain: strict` on the scroller — gives the browser permission to skip 
 ```svelte
 <!-- TraceMinimap.svelte -->
 <script lang="ts">
-  import type { TraceViewport } from '$lib/stores/trace-viewport.svelte';
-  import { spanColor } from '$lib/components/traces/shared/span-color';
+  import type { TraceViewport } from '$lib/stores/trace-viewport.svelte'
+  import { spanColor } from '$lib/components/traces/shared/span-color'
 
-  let { viewport }: { viewport: TraceViewport } = $props();
+  let { viewport }: { viewport: TraceViewport } = $props()
 
-  let canvasEl: HTMLCanvasElement;
-  const HEIGHT = 80;
+  let canvasEl: HTMLCanvasElement
+  const HEIGHT = 80
 
   // $derived ensures redraws happen via $effect on the deps it captures
   let drawSeed = $derived({
     rows: viewport.rows,
     start: viewport.viewport.startMs,
     end: viewport.viewport.endMs,
-  });
+  })
 
   $effect(() => {
-    void drawSeed;        // capture deps
-    if (!canvasEl) return;
-    const dpr = window.devicePixelRatio || 1;
-    const width = canvasEl.clientWidth;
-    canvasEl.width = width * dpr;
-    canvasEl.height = HEIGHT * dpr;
-    const ctx = canvasEl.getContext('2d')!;
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, width, HEIGHT);
+    void drawSeed // capture deps
+    if (!canvasEl) return
+    const dpr = window.devicePixelRatio || 1
+    const width = canvasEl.clientWidth
+    canvasEl.width = width * dpr
+    canvasEl.height = HEIGHT * dpr
+    const ctx = canvasEl.getContext('2d')!
+    ctx.scale(dpr, dpr)
+    ctx.clearRect(0, 0, width, HEIGHT)
 
-    const root = viewport.trace;
-    if (!root) return;
-    const totalMs = root.duration_ms ?? 1;
+    const root = viewport.trace
+    if (!root) return
+    const totalMs = root.duration_ms ?? 1
 
     // Batch fills by color for performance
-    const byColor = new Map<string, Path2D>();
+    const byColor = new Map<string, Path2D>()
     for (const row of viewport.rows) {
-      const color = spanColor(row.span_type);
-      const x = ((row.start_time - root.start_time) / totalMs) * width;
-      const w = Math.max(1, ((row.duration_ms ?? 0) / totalMs) * width);
-      const y = row.depth * 4;
-      const path = byColor.get(color) ?? new Path2D();
-      path.rect(x, y, w, 3);
-      byColor.set(color, path);
+      const color = spanColor(row.span_type)
+      const x = ((row.start_time - root.start_time) / totalMs) * width
+      const w = Math.max(1, ((row.duration_ms ?? 0) / totalMs) * width)
+      const y = row.depth * 4
+      const path = byColor.get(color) ?? new Path2D()
+      path.rect(x, y, w, 3)
+      byColor.set(color, path)
     }
     for (const [color, path] of byColor) {
-      ctx.fillStyle = color;
-      ctx.fill(path);
+      ctx.fillStyle = color
+      ctx.fill(path)
     }
 
     // Viewport rectangle overlay
-    const vx = (viewport.viewport.startMs / totalMs) * width;
-    const vw = ((viewport.viewport.endMs - viewport.viewport.startMs) / totalMs) * width;
-    ctx.strokeStyle = 'var(--accent)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(vx, 0, vw, HEIGHT);
-  });
+    const vx = (viewport.viewport.startMs / totalMs) * width
+    const vw = ((viewport.viewport.endMs - viewport.viewport.startMs) / totalMs) * width
+    ctx.strokeStyle = 'var(--accent)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(vx, 0, vw, HEIGHT)
+  })
 
   function hitTest(ev: MouseEvent): string | null {
-    const rect = canvasEl.getBoundingClientRect();
-    const x = ev.clientX - rect.left;
-    const y = ev.clientY - rect.top;
-    const depth = Math.floor(y / 4);
-    const root = viewport.trace;
-    if (!root) return null;
-    const ms = (x / rect.width) * (root.duration_ms ?? 1) + root.start_time;
+    const rect = canvasEl.getBoundingClientRect()
+    const x = ev.clientX - rect.left
+    const y = ev.clientY - rect.top
+    const depth = Math.floor(y / 4)
+    const root = viewport.trace
+    if (!root) return null
+    const ms = (x / rect.width) * (root.duration_ms ?? 1) + root.start_time
     // candidates: same-depth spans, sorted by start (precomputed in viewport.rows)
     for (const row of viewport.rows) {
-      if (row.depth !== depth) continue;
-      const end = row.start_time + (row.duration_ms ?? 0);
-      if (ms >= row.start_time && ms < end) return row.id;
+      if (row.depth !== depth) continue
+      const end = row.start_time + (row.duration_ms ?? 0)
+      if (ms >= row.start_time && ms < end) return row.id
     }
-    return null;
+    return null
   }
 
-  let rafScheduled = false;
+  let rafScheduled = false
   function onMove(ev: MouseEvent) {
-    if (rafScheduled) return;
-    rafScheduled = true;
+    if (rafScheduled) return
+    rafScheduled = true
     requestAnimationFrame(() => {
-      rafScheduled = false;
-      viewport.hoveredId = hitTest(ev);
-    });
+      rafScheduled = false
+      viewport.hoveredId = hitTest(ev)
+    })
   }
 </script>
 
@@ -626,6 +635,7 @@ Note `contain: strict` on the scroller — gives the browser permission to skip 
 ```
 
 Two things to call out:
+
 - `byColor` batching turns thousands of `fill()` calls into ~8 (one per Okabe–Ito color). Standard canvas hot-loop optimisation.
 - `rafScheduled` flag throttles hover updates to once per frame. Direct mousemove dispatch can fire 200+ events/sec on a high-poll mouse and trash your frame budget.
 
@@ -634,27 +644,27 @@ Two things to call out:
 ```svelte
 <!-- TraceTimeAxis.svelte excerpt -->
 <script lang="ts">
-  let { viewport }: { viewport: TraceViewport } = $props();
-  let containerEl: HTMLDivElement;
+  let { viewport }: { viewport: TraceViewport } = $props()
+  let containerEl: HTMLDivElement
 
   function onWheel(ev: WheelEvent) {
-    ev.preventDefault();
-    const rect = containerEl.getBoundingClientRect();
-    const cursorPx = ev.clientX - rect.left;
+    ev.preventDefault()
+    const rect = containerEl.getBoundingClientRect()
+    const cursorPx = ev.clientX - rect.left
 
     if (ev.ctrlKey || ev.metaKey) {
       // Zoom anchored at cursor (d3 default formula)
-      const delta = -ev.deltaY * (ev.deltaMode === 1 ? 0.05 : ev.deltaMode ? 1 : 0.002);
-      const scaleFactor = Math.pow(2, delta);
-      viewport.zoomAt(cursorPx, scaleFactor, rect.width);
+      const delta = -ev.deltaY * (ev.deltaMode === 1 ? 0.05 : ev.deltaMode ? 1 : 0.002)
+      const scaleFactor = Math.pow(2, delta)
+      viewport.zoomAt(cursorPx, scaleFactor, rect.width)
     } else if (ev.shiftKey) {
       // Pan horizontally
-      const range = viewport.viewport.endMs - viewport.viewport.startMs;
-      const dt = (ev.deltaY / rect.width) * range;
+      const range = viewport.viewport.endMs - viewport.viewport.startMs
+      const dt = (ev.deltaY / rect.width) * range
       viewport.viewport = {
         startMs: viewport.viewport.startMs + dt,
         endMs: viewport.viewport.endMs + dt,
-      };
+      }
     }
     // Else: let parent scroll vertically (default behavior)
   }

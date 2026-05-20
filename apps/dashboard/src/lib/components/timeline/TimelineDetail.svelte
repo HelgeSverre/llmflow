@@ -14,17 +14,19 @@
     </h2>
     <span class="detail-meta" data-testid="timeline-detail-meta">
       {#if selectedItem.value}
-        {[
-          selectedItem.value.type,
-          selectedItem.value.model,
-          selectedItem.value.service_name
-        ].filter(Boolean).join(' · ')}
+        {[selectedItem.value.type, selectedItem.value.model, selectedItem.value.service_name]
+          .filter(Boolean)
+          .join(' · ')}
       {/if}
     </span>
   </div>
   <div class="detail-body">
     <div class="detail-section">
-      <pre data-testid="timeline-detail-data">{JSON.stringify(selectedItemData.value || {}, null, 2)}</pre>
+      <pre data-testid="timeline-detail-data">{JSON.stringify(
+          selectedItemData.value || {},
+          null,
+          2,
+        )}</pre>
     </div>
     {#if relatedLogs.length > 0}
       <div class="detail-section">

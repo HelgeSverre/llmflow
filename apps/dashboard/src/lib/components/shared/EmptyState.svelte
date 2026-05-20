@@ -2,7 +2,7 @@
   interface Props {
     message?: string
   }
-  
+
   let { message = 'No data' }: Props = $props()
 </script>
 

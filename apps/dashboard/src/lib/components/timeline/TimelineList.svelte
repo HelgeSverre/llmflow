@@ -1,14 +1,23 @@
 <script lang="ts">
-  import { timelineItems, selectedItem, selectTimelineItem, type TimelineItem } from '$lib/stores/timeline.svelte'
+  import {
+    timelineItems,
+    selectedItem,
+    selectTimelineItem,
+    type TimelineItem,
+  } from '$lib/stores/timeline.svelte'
   import { formatTime, formatLatency, formatCost } from '$lib/utils/format'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
 
   function getTypeClass(type: string): string {
     switch (type) {
-      case 'trace': return 'llm'
-      case 'log': return 'chain'
-      case 'metric': return 'tool'
-      default: return 'custom'
+      case 'trace':
+        return 'llm'
+      case 'log':
+        return 'chain'
+      case 'metric':
+        return 'tool'
+      default:
+        return 'custom'
     }
   }
 
@@ -29,9 +38,10 @@
     <EmptyState message="No timeline items. Send requests through the proxy or OTLP endpoints." />
   {:else}
     {#each timelineItems as item (item.id + item.type)}
-      <div 
+      <div
         class="timeline-item"
-        class:selected={selectedItem.value?.id === item.id && selectedItem.value?.type === item.type}
+        class:selected={selectedItem.value?.id === item.id &&
+          selectedItem.value?.type === item.type}
         onclick={() => handleItemClick(item)}
         onkeydown={(e) => handleKeyDown(e, item)}
         tabindex="0"
@@ -56,7 +66,9 @@
             <span class="timeline-meta-item">{formatCost(item.cost)}</span>
           {/if}
           {#if item.severity_text}
-            <span class="severity-badge severity-{item.severity_text.toLowerCase()}">{item.severity_text}</span>
+            <span class="severity-badge severity-{item.severity_text.toLowerCase()}"
+              >{item.severity_text}</span
+            >
           {/if}
           {#if item.service_name}
             <span class="service-badge">{item.service_name}</span>

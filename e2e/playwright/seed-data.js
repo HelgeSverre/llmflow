@@ -1,16 +1,14 @@
 /**
  * E2E Test Seed Data
- * 
+ *
  * Creates deterministic test data for all tabs and filters.
  * Data is designed to exercise all filter combinations and analytics.
  */
 
-const { v4: uuidv4 } = require('uuid');
-
 // Timestamps relative to now for consistent date filtering
-const NOW = Date.now();
-const HOUR = 60 * 60 * 1000;
-const DAY = 24 * HOUR;
+const NOW = Date.now()
+const HOUR = 60 * 60 * 1000
+const DAY = 24 * HOUR
 
 // Known IDs for assertions
 const TRACE_IDS = {
@@ -23,7 +21,7 @@ const TRACE_IDS = {
     TIMELINE_HIT: 'trace-e2e-timeline-hit',
     PROXY_TOOL: 'trace-e2e-proxy-tool',
     AIDER_TOOL: 'trace-e2e-aider-tool',
-};
+}
 
 const LOG_IDS = {
     MATCH_1: 'log-e2e-match-1',
@@ -35,7 +33,7 @@ const LOG_IDS = {
     SVC_B: 'log-e2e-svc-b',
     EVENT_FOO: 'log-e2e-event-foo',
     EVENT_BAR: 'log-e2e-event-bar',
-};
+}
 
 const METRIC_IDS = {
     REQUESTS_TOTAL: 'metric-e2e-requests-total',
@@ -43,14 +41,14 @@ const METRIC_IDS = {
     TOKEN_USAGE: 'metric-e2e-token-usage',
     SVC_B_GAUGE: 'metric-e2e-svc-b-gauge',
     HISTOGRAM: 'metric-e2e-histogram',
-};
+}
 
 /**
  * Seed the database with test data
  */
 function seedDatabase(db) {
     // ==================== TRACES ====================
-    
+
     // Trace for search filter test
     db.insertTrace({
         id: TRACE_IDS.SEARCH_HIT,
@@ -67,7 +65,10 @@ function seedDatabase(db) {
         request_method: 'POST',
         request_path: '/v1/chat/completions',
         request_headers: JSON.stringify({ 'content-type': 'application/json' }),
-        request_body: JSON.stringify({ model: 'gpt-e2e-search-hit', messages: [{ role: 'user', content: 'Hello' }] }),
+        request_body: JSON.stringify({
+            model: 'gpt-e2e-search-hit',
+            messages: [{ role: 'user', content: 'Hello' }],
+        }),
         response_status: 200,
         response_headers: JSON.stringify({}),
         response_body: JSON.stringify({ choices: [{ message: { content: 'Hi!' } }] }),
@@ -80,7 +81,7 @@ function seedDatabase(db) {
         output: 'Hi!',
         attributes: JSON.stringify({}),
         service_name: 'e2e-test-service',
-    });
+    })
 
     // Old trace (> 7 days) for date filter test
     db.insertTrace({
@@ -111,7 +112,7 @@ function seedDatabase(db) {
         output: null,
         attributes: JSON.stringify({}),
         service_name: 'old-service',
-    });
+    })
 
     // Model A traces (for model filter)
     db.insertTrace({
@@ -142,7 +143,7 @@ function seedDatabase(db) {
         output: null,
         attributes: JSON.stringify({}),
         service_name: 'svc-e2e-a',
-    });
+    })
 
     db.insertTrace({
         id: TRACE_IDS.MODEL_A_2,
@@ -172,7 +173,7 @@ function seedDatabase(db) {
         output: null,
         attributes: JSON.stringify({}),
         service_name: 'svc-e2e-a',
-    });
+    })
 
     // Model B trace
     db.insertTrace({
@@ -203,7 +204,7 @@ function seedDatabase(db) {
         output: null,
         attributes: JSON.stringify({}),
         service_name: 'svc-e2e-b',
-    });
+    })
 
     // Error trace
     db.insertTrace({
@@ -234,7 +235,7 @@ function seedDatabase(db) {
         output: null,
         attributes: JSON.stringify({}),
         service_name: 'svc-e2e-a',
-    });
+    })
 
     // Timeline search hit
     db.insertTrace({
@@ -265,7 +266,7 @@ function seedDatabase(db) {
         output: null,
         attributes: JSON.stringify({}),
         service_name: 'timeline-test',
-    });
+    })
 
     // Proxy tool trace
     db.insertTrace({
@@ -296,7 +297,7 @@ function seedDatabase(db) {
         output: null,
         attributes: JSON.stringify({}),
         service_name: 'proxy',
-    });
+    })
 
     // Aider tool trace
     db.insertTrace({
@@ -327,7 +328,7 @@ function seedDatabase(db) {
         output: null,
         attributes: JSON.stringify({}),
         service_name: 'aider',
-    });
+    })
 
     // Add some traces from different days for analytics
     for (let i = 1; i <= 5; i++) {
@@ -359,11 +360,11 @@ function seedDatabase(db) {
             output: null,
             attributes: JSON.stringify({}),
             service_name: i % 2 === 0 ? 'svc-e2e-a' : 'svc-e2e-b',
-        });
+        })
     }
 
     // ==================== LOGS ====================
-    
+
     // Searchable logs
     db.insertLog({
         id: LOG_IDS.MATCH_1,
@@ -379,7 +380,7 @@ function seedDatabase(db) {
         scope_name: 'test-scope',
         attributes: JSON.stringify({ key: 'value1' }),
         resource_attributes: JSON.stringify({ host: 'test-host' }),
-    });
+    })
 
     db.insertLog({
         id: LOG_IDS.MATCH_2,
@@ -395,7 +396,7 @@ function seedDatabase(db) {
         scope_name: 'test-scope',
         attributes: JSON.stringify({ key: 'value2' }),
         resource_attributes: JSON.stringify({ host: 'test-host-2' }),
-    });
+    })
 
     // Error log
     db.insertLog({
@@ -412,7 +413,7 @@ function seedDatabase(db) {
         scope_name: 'error-scope',
         attributes: JSON.stringify({ error_code: 500 }),
         resource_attributes: JSON.stringify({}),
-    });
+    })
 
     // Warning log
     db.insertLog({
@@ -429,7 +430,7 @@ function seedDatabase(db) {
         scope_name: 'warn-scope',
         attributes: JSON.stringify({}),
         resource_attributes: JSON.stringify({}),
-    });
+    })
 
     // Debug log
     db.insertLog({
@@ -446,10 +447,10 @@ function seedDatabase(db) {
         scope_name: 'debug-scope',
         attributes: JSON.stringify({ debug: true }),
         resource_attributes: JSON.stringify({}),
-    });
+    })
 
     // ==================== METRICS ====================
-    
+
     // Counter metric
     db.insertMetric({
         id: METRIC_IDS.REQUESTS_TOTAL,
@@ -465,7 +466,7 @@ function seedDatabase(db) {
         scope_name: 'metrics-scope',
         attributes: JSON.stringify({ endpoint: '/api/test' }),
         resource_attributes: JSON.stringify({ host: 'test-host' }),
-    });
+    })
 
     // Gauge metric
     db.insertMetric({
@@ -482,7 +483,7 @@ function seedDatabase(db) {
         scope_name: 'metrics-scope',
         attributes: JSON.stringify({}),
         resource_attributes: JSON.stringify({}),
-    });
+    })
 
     // Token usage metric
     db.insertMetric({
@@ -499,7 +500,7 @@ function seedDatabase(db) {
         scope_name: 'metrics-scope',
         attributes: JSON.stringify({ model: 'gpt-4', type: 'prompt' }),
         resource_attributes: JSON.stringify({}),
-    });
+    })
 
     // Service B gauge
     db.insertMetric({
@@ -516,7 +517,7 @@ function seedDatabase(db) {
         scope_name: 'metrics-scope',
         attributes: JSON.stringify({}),
         resource_attributes: JSON.stringify({}),
-    });
+    })
 
     // Histogram metric
     db.insertMetric({
@@ -538,7 +539,7 @@ function seedDatabase(db) {
         scope_name: 'metrics-scope',
         attributes: JSON.stringify({}),
         resource_attributes: JSON.stringify({}),
-    });
+    })
 
     // Add more metrics for filter testing
     for (let i = 1; i <= 3; i++) {
@@ -556,10 +557,10 @@ function seedDatabase(db) {
             scope_name: 'metrics-scope',
             attributes: JSON.stringify({}),
             resource_attributes: JSON.stringify({}),
-        });
+        })
     }
 
-    console.log('✓ Seeded database with E2E test data');
+    console.log('✓ Seeded database with E2E test data')
 }
 
 module.exports = {
@@ -570,4 +571,4 @@ module.exports = {
     NOW,
     HOUR,
     DAY,
-};
+}

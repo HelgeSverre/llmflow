@@ -38,7 +38,7 @@ export const timelineFilters = $state<TimelineFilters>({
   tool: '',
   type: '',
   dateRange: '',
-  date_from: null
+  date_from: null,
 })
 
 function getDateRange(range: string): number | null {
@@ -46,24 +46,28 @@ function getDateRange(range: string): number | null {
   const now = Date.now()
   const hour = 60 * 60 * 1000
   const day = 24 * hour
-  
+
   switch (range) {
-    case '1h': return now - hour
-    case '24h': return now - day
-    case '7d': return now - 7 * day
-    default: return null
+    case '1h':
+      return now - hour
+    case '24h':
+      return now - day
+    case '7d':
+      return now - 7 * day
+    default:
+      return null
   }
 }
 
 export async function loadTimeline() {
   if (tabState.current !== 'timeline') return
-  
+
   try {
     const params = new URLSearchParams({ limit: '100' })
     if (timelineFilters.q) params.set('q', timelineFilters.q)
     if (timelineFilters.tool) params.set('tool', timelineFilters.tool)
     if (timelineFilters.type) params.set('type', timelineFilters.type)
-    
+
     const from = getDateRange(timelineFilters.dateRange)
     if (from) params.set('date_from', String(from))
 
@@ -78,12 +82,12 @@ export async function loadTimeline() {
 export async function selectTimelineItem(item: TimelineItem) {
   selectedItem.value = item
   relatedLogs.length = 0
-  
+
   try {
     if (item.type === 'trace') {
       const detail = await api.get<unknown>(`/api/traces/${item.id}`)
       selectedItemData.value = detail
-      
+
       // Load related logs if trace has a trace_id
       try {
         const logs = await api.get<{ logs: unknown[] }>(`/api/logs?trace_id=${item.id}&limit=10`)
@@ -121,7 +125,7 @@ export function clearFilters() {
 export function initTimelineSync() {
   onMessage((msg) => {
     if (tabState.current !== 'timeline') return
-    
+
     if (msg.type === 'new_trace' || msg.type === 'new_log') {
       // Reload timeline to get new items in proper order
       loadTimeline()

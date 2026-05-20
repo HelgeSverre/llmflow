@@ -30,14 +30,14 @@ export const sessionsState = $state({
   total: 0,
   selected: null as SessionDetail | null,
   loading: false,
-  error: null as string | null
+  error: null as string | null,
 })
 
 export async function loadSessions(limit = 50, offset = 0) {
   sessionsState.loading = true
   try {
     const r = await api.get<{ sessions: SessionSummary[]; total: number }>(
-      `/api/sessions?limit=${limit}&offset=${offset}`
+      `/api/sessions?limit=${limit}&offset=${offset}`,
     )
     sessionsState.list = r.sessions
     sessionsState.total = r.total
@@ -52,9 +52,7 @@ export async function loadSessions(limit = 50, offset = 0) {
 export async function loadSession(id: string) {
   sessionsState.loading = true
   try {
-    sessionsState.selected = await api.get<SessionDetail>(
-      `/api/sessions/${encodeURIComponent(id)}`
-    )
+    sessionsState.selected = await api.get<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`)
     sessionsState.error = null
   } catch (e) {
     sessionsState.error = (e as Error).message
