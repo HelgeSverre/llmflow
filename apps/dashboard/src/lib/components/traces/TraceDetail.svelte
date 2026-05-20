@@ -1,66 +1,67 @@
 <script lang="ts">
+  import SpanWaterfall from '$lib/components/trace-viewer/SpanWaterfall.svelte'
+  import SpanDetailPanel from '$lib/components/trace-viewer/SpanDetailPanel.svelte'
   import { selectedTrace } from '$lib/stores/traces.svelte'
-  import SpanTree from './SpanTree.svelte'
+
+  let selectedId = $state<string | null>(null)
+  const selectedSpan = $derived(selectedTrace.value?.spans?.find(s => s.id === selectedId) ?? null)
+
+  // Adapt store-shape spans to viewport input shape.
+  // SpanInput requires: id, parent_id?, name, start_time, duration_ms, span_type?
+  // Span has all of these, so we just pass through + spread to keep extra fields.
+  const viewportSpans = $derived(
+    selectedTrace.value?.spans?.map(s => ({
+      id: s.id,
+      parent_id: s.parent_id,
+      name: s.name,
+      start_time: s.start_time,
+      duration_ms: s.duration_ms ?? 0,
+      span_type: s.span_type,
+      ...s
+    })) ?? []
+  )
 </script>
 
-<div class="panel-right" data-testid="traces-detail-panel">
-  <div class="detail-header">
-    <h2 id="detailTitle" data-testid="trace-detail-title">
-      {#if selectedTrace.value}
-        {selectedTrace.value.trace.span_name || selectedTrace.value.trace.model || 'Trace'}
+<div class="trace-detail" data-testid="traces-detail-panel">
+  {#if selectedTrace.value && viewportSpans.length > 0}
+    <div class="waterfall-pane">
+      <SpanWaterfall spans={viewportSpans} onSelect={(id) => selectedId = id} />
+    </div>
+    <div class="detail-pane">
+      <SpanDetailPanel span={selectedSpan} />
+    </div>
+  {:else}
+    <div class="empty-state">
+      {#if !selectedTrace.value}
+        <p>Select a trace to view spans</p>
       {:else}
-        Select a trace
+        <p>No spans found</p>
       {/if}
-    </h2>
-    <span id="detailMeta" class="detail-meta" data-testid="trace-detail-meta">
-      {#if selectedTrace.value}
-        {[
-          selectedTrace.value.trace.model,
-          selectedTrace.value.trace.provider,
-          selectedTrace.value.trace.duration_ms ? `${selectedTrace.value.trace.duration_ms}ms` : null
-        ].filter(Boolean).join(' · ')}
-      {/if}
-    </span>
-  </div>
-  <div class="detail-body">
-    <div class="detail-section">
-      <h3>Info</h3>
-      <pre id="traceInfo" data-testid="trace-info">{#if selectedTrace.value}{JSON.stringify({
-  id: selectedTrace.value.trace.id,
-  timestamp: selectedTrace.value.trace.timestamp,
-  duration_ms: selectedTrace.value.trace.duration_ms,
-  model: selectedTrace.value.trace.model,
-  provider: selectedTrace.value.trace.provider,
-  prompt_tokens: selectedTrace.value.trace.prompt_tokens,
-  completion_tokens: selectedTrace.value.trace.completion_tokens,
-  total_tokens: selectedTrace.value.trace.total_tokens,
-  estimated_cost: selectedTrace.value.trace.estimated_cost,
-  status: selectedTrace.value.trace.status,
-  error: selectedTrace.value.trace.error
-}, null, 2)}{:else}{"{}"}{/if}</pre>
     </div>
-    <div class="detail-section">
-      <h3>Spans</h3>
-      <div id="spanTree" class="span-tree" data-testid="span-tree">
-        {#if selectedTrace.value?.spans && selectedTrace.value.spans.length > 0}
-          <SpanTree spans={selectedTrace.value.spans} />
-        {:else}
-          <span class="empty-state">
-            {#if selectedTrace.value}
-              No spans found
-            {:else}
-              Click a trace to view spans
-            {/if}
-          </span>
-        {/if}
-      </div>
-    </div>
-    <div class="detail-section">
-      <h3>Input / Output</h3>
-      <pre id="traceIO" data-testid="trace-io">{#if selectedTrace.value}{JSON.stringify({
-  request: selectedTrace.value.request?.body,
-  response: selectedTrace.value.response?.body
-}, null, 2)}{:else}{"{}"}{/if}</pre>
-    </div>
-  </div>
+  {/if}
 </div>
+
+<style>
+  .trace-detail {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: 100%;
+    min-height: 400px;
+  }
+
+  @media (max-width: 900px) {
+    .trace-detail {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+  }
+
+  .empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    font-size: 14px;
+  }
+</style>
