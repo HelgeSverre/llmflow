@@ -14,27 +14,34 @@ LLMFlow follows [Semantic Versioning](https://semver.org/):
 
 ```bash
 # 1. Run tests
-npm test
+bun run test
+bun run --filter @llmflow/dashboard test
 
-# 2. Update version in package.json
+# 2. Build the dashboard (writes to /public/ which the npm package ships)
+bun run build
+
+# 3. Update version in package.json
 # Edit package.json: "version": "0.X.X"
 
-# 3. Create release notes
-# Create RELEASE_NOTES_v0.X.X.md
+# 4. Create release notes
+# Add release-notes/v0.X.X.md (this folder is the source of truth post-reorg)
 
-# 4. Commit and tag
+# 5. Commit and tag
 git add -A
 git commit -m "chore: release v0.X.X"
 git tag v0.X.X
 git push origin main --tags
 
-# 5. Build and push Docker
-docker build --platform linux/amd64,linux/arm64 -t helgesverre/llmflow:v0.X.X -t helgesverre/llmflow:latest --push .
+# 6. Build and push Docker (uses docker/Dockerfile)
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t helgesverre/llmflow:v0.X.X \
+  -t helgesverre/llmflow:latest \
+  -f docker/Dockerfile --push .
 
-# 6. Publish to npm
+# 7. Publish to npm (npm registry — Bun's publish flow works the same)
 npm publish
 
-# 7. Create GitHub Release (via web UI)
+# 8. Create GitHub Release (via web UI), point body at release-notes/v0.X.X.md
 ```
 
 ---
@@ -46,18 +53,21 @@ npm publish
 Before creating a release, ensure everything works:
 
 ```bash
-# Run unit tests
-npm test
+# Run server unit/integration tests
+bun run test
 
-# Run E2E tests (requires Playwright)
-npm run test:e2e
+# Run dashboard vitest (viewport class)
+bun run --filter @llmflow/dashboard test
+
+# Run E2E tests (Playwright)
+bunx playwright test
 
 # Test the server manually
-npm start &
+bun run dev &
 sleep 2
 
 # Test with demo
-npm run demo
+bun run demo
 
 # Test passthrough (requires API key)
 curl http://localhost:8080/passthrough/openai/v1/chat/completions \
@@ -69,7 +79,7 @@ curl http://localhost:8080/passthrough/openai/v1/chat/completions \
 open http://localhost:3000
 
 # Stop server
-pkill -f "node server.js"
+pkill -f "apps/server/src/server.ts"
 ```
 
 ### Step 2: Update Version Numbers
