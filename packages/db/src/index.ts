@@ -384,6 +384,8 @@ export interface TraceFilters {
     provider?: string
     tag?: string
     service_name?: string
+    session_id?: string
+    conversation_id?: string
 }
 
 export interface LogFilters {
@@ -520,6 +522,16 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
         params.$provider = filters.provider
     }
 
+    if (filters.session_id) {
+        where.push('session_id = $session_id')
+        params.$session_id = filters.session_id
+    }
+
+    if (filters.conversation_id) {
+        where.push('conversation_id = $conversation_id')
+        params.$conversation_id = filters.conversation_id
+    }
+
     if (filters.tag) {
         where.push('tags LIKE $tag')
         params.$tag = `%${filters.tag}%`
@@ -532,11 +544,12 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
     const stmt = db.query(`
-        SELECT 
+        SELECT
             id, timestamp, duration_ms, provider, model,
             prompt_tokens, completion_tokens, total_tokens,
             estimated_cost, status, error, trace_id, parent_id,
-            span_type, span_name, service_name
+            span_type, span_name, service_name,
+            session_id, conversation_id, agent_name
         FROM traces
         ${whereSql}
         ORDER BY timestamp DESC

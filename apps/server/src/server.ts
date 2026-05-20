@@ -483,6 +483,8 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             if (url.searchParams.get('date_from')) filters.date_from = Number(url.searchParams.get('date_from'))
             if (url.searchParams.get('date_to')) filters.date_to = Number(url.searchParams.get('date_to'))
             if (url.searchParams.get('provider')) filters.provider = url.searchParams.get('provider')!
+            if (url.searchParams.get('session_id')) filters.session_id = url.searchParams.get('session_id')!
+            if (url.searchParams.get('conversation_id')) filters.conversation_id = url.searchParams.get('conversation_id')!
             
             const traces = db.getTraces({ limit, offset, filters })
             return Response.json(traces)
