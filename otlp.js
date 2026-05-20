@@ -242,11 +242,13 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
         }
     }
     
-    // Extract provider
-    const provider = attrs['gen_ai.system'] 
+    // Extract provider. Only use attributes that actually identify the LLM
+    // backend — NOT service.name, which identifies the calling application
+    // (e.g. "my-agent") and was previously masquerading as the provider
+    // whenever instrumentation forgot to emit gen_ai.system.
+    const provider = attrs['gen_ai.system']
         || attrs['gen_ai.provider.name']
         || attrs['llm.vendor']
-        || resourceAttrs['service.name']
         || null;
     
     // Extract service name
