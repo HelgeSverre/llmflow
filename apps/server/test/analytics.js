@@ -6,7 +6,7 @@
  * Tests analytics database functions and aggregation logic.
  */
 
-const db = require('../src/db');
+const db = require('@llmflow/db');
 
 const c = {
     reset: '\x1b[0m',

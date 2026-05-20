@@ -1,18 +1,18 @@
-import * as db from './db'
-import { safeJson } from './db'
+import * as db from '@llmflow/db'
+import { safeJson } from '@llmflow/db'
 import path from 'path'
 import fs from 'fs'
 import getPort from 'get-port'
 
-// CommonJS imports
-const { calculateCost } = require('../pricing')
-const log = require('../logger')
-const { registry } = require('../providers')
-const { AnthropicPassthrough, GeminiPassthrough, OpenAIPassthrough, HeliconePassthrough } = require('../providers/passthrough')
-const { processOtlpTraces } = require('../otlp')
-const { processOtlpLogs } = require('../otlp-logs')
-const { processOtlpMetrics } = require('../otlp-metrics')
-const { initExportHooks, EXPORT_ENABLED } = require('../otlp-export')
+// CommonJS workspace packages
+const { calculateCost } = require('@llmflow/pricing')
+const log = require('@llmflow/shared/logger')
+const { registry } = require('@llmflow/providers')
+const { AnthropicPassthrough, GeminiPassthrough, OpenAIPassthrough, HeliconePassthrough } = require('@llmflow/providers/passthrough')
+const { processOtlpTraces } = require('@llmflow/otlp/traces')
+const { processOtlpLogs } = require('@llmflow/otlp/logs')
+const { processOtlpMetrics } = require('@llmflow/otlp/metrics')
+const { initExportHooks, EXPORT_ENABLED } = require('@llmflow/otlp/export')
 
 // Passthrough handlers for native API formats
 const passthroughHandlers: Record<string, PassthroughHandler> = {
@@ -197,7 +197,10 @@ db.setInsertMetricHook((metric: db.MetricSummary) => {
 })
 
 // Static file serving
-const publicDir = path.join(import.meta.dir, '..', 'public')
+// Dashboard build output lives at the monorepo root /public/ so it can be
+// included in the npm package via root `files` and served unchanged in
+// production/dev. apps/server/src → repo root is three levels up.
+const publicDir = path.join(import.meta.dir, '..', '..', '..', 'public')
 
 function serveStaticFile(filePath: string): Response {
     const fullPath = path.join(publicDir, filePath)

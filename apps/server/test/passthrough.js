@@ -11,7 +11,7 @@ const {
     AnthropicPassthrough, 
     GeminiPassthrough, 
     OpenAIPassthrough 
-} = require('../providers/passthrough');
+} = require('@llmflow/providers/passthrough');
 
 const c = {
     reset: '\x1b[0m',

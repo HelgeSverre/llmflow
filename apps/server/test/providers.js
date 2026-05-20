@@ -7,7 +7,7 @@
  * No real API calls - tests the transformation logic only.
  */
 
-const { registry, OpenAIProvider, OllamaProvider, AnthropicProvider, GeminiProvider, CohereProvider, AzureOpenAIProvider, OpenAICompatibleProvider } = require('../providers');
+const { registry, OpenAIProvider, OllamaProvider, AnthropicProvider, GeminiProvider, CohereProvider, AzureOpenAIProvider, OpenAICompatibleProvider } = require('@llmflow/providers');
 
 const c = {
     reset: '\x1b[0m',

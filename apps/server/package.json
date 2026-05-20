@@ -1,0 +1,29 @@
+{
+  "name": "@llmflow/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/server.ts",
+  "scripts": {
+    "start": "bun run src/server.ts",
+    "dev": "bun run --hot src/server.ts",
+    "demo": "bun run test/demo.js",
+    "demo:many": "bun run test/demo.js --count=20",
+    "test": "bun run test/run-tests.js",
+    "test:otlp": "bun run test/run-tests.js otlp-e2e.js",
+    "test:ws": "bun run test/run-tests.js websocket-e2e.js",
+    "test:logs": "bun run test/run-tests.js otlp-logs-e2e.js",
+    "test:metrics": "bun run test/run-tests.js otlp-metrics-e2e.js",
+    "test:providers": "bun run test/run-tests.js providers.js",
+    "test:providers-e2e": "bun run test/run-tests.js providers-e2e.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@llmflow/db": "workspace:*",
+    "@llmflow/otlp": "workspace:*",
+    "@llmflow/pricing": "workspace:*",
+    "@llmflow/providers": "workspace:*",
+    "@llmflow/shared": "workspace:*",
+    "get-port": "^7.1.0"
+  }
+}

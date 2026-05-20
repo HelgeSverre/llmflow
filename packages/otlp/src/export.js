@@ -15,7 +15,7 @@
 
 const https = require('https');
 const http = require('http');
-const log = require('./logger');
+const log = require('@llmflow/shared/logger');
 
 const EXPORT_ENDPOINTS = {
     traces: process.env.OTLP_EXPORT_TRACES_ENDPOINT || process.env.OTLP_EXPORT_ENDPOINT,

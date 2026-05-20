@@ -9,6 +9,7 @@
 **Effort:** L (4-6 days for full backend migration)
 
 **Benefits:**
+
 - 2.5x faster HTTP server than Node.js
 - 3-6x faster SQLite than better-sqlite3
 - 7x faster WebSockets than ws library
@@ -17,6 +18,7 @@
 - Simpler deployment: single binary possible
 
 **Risks:**
+
 - Bun-specific APIs (lock-in)
 - Less community examples for complex patterns
 - Must re-test all proxy/streaming behaviors
@@ -25,24 +27,24 @@
 
 ## Current State
 
-| Component | Current | Lines | Bun Replacement |
-|-----------|---------|-------|-----------------|
-| HTTP Server | Express | 1,263 | Bun.serve() |
-| Database | better-sqlite3 | 943 | bun:sqlite |
-| WebSocket | ws | ~100 | Bun native WS |
-| UUID | uuid | - | crypto.randomUUID() |
-| HTTP Client | http/https | ~200 | fetch() |
-| **Total** | | **~4,000** | |
+| Component   | Current        | Lines      | Bun Replacement     |
+| ----------- | -------------- | ---------- | ------------------- |
+| HTTP Server | Express        | 1,263      | Bun.serve()         |
+| Database    | better-sqlite3 | 943        | bun:sqlite          |
+| WebSocket   | ws             | ~100       | Bun native WS       |
+| UUID        | uuid           | -          | crypto.randomUUID() |
+| HTTP Client | http/https     | ~200       | fetch()             |
+| **Total**   |                | **~4,000** |                     |
 
 ### Dependencies to Remove
 
 ```json
 {
   "dependencies": {
-    "express": "^4.18.0",      // → Bun.serve()
+    "express": "^4.18.0", // → Bun.serve()
     "better-sqlite3": "^11.0.0", // → bun:sqlite
-    "ws": "^8.18.3",           // → Bun websocket
-    "uuid": "^9.0.0"           // → crypto.randomUUID()
+    "ws": "^8.18.3", // → Bun websocket
+    "uuid": "^9.0.0" // → crypto.randomUUID()
   }
 }
 ```
@@ -85,17 +87,18 @@ src/
 ### HTTP Server: Express → Bun.serve()
 
 **Before (Express):**
+
 ```javascript
-const express = require('express');
+const express = require("express");
 const app = express();
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: "50mb" }));
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
-app.get('/api/traces', (req, res) => {
+app.get("/api/traces", (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
   const traces = db.getTraces({ limit });
   res.json(traces);
@@ -105,31 +108,33 @@ app.listen(3000);
 ```
 
 **After (Bun):**
+
 ```typescript
 Bun.serve({
   port: 3000,
-  
+
   async fetch(req) {
     const url = new URL(req.url);
-    
-    if (url.pathname === '/health' && req.method === 'GET') {
-      return Response.json({ status: 'ok' });
+
+    if (url.pathname === "/health" && req.method === "GET") {
+      return Response.json({ status: "ok" });
     }
-    
-    if (url.pathname === '/api/traces' && req.method === 'GET') {
-      const limit = Number(url.searchParams.get('limit') || '50');
+
+    if (url.pathname === "/api/traces" && req.method === "GET") {
+      const limit = Number(url.searchParams.get("limit") || "50");
       const traces = db.getTraces({ limit });
       return Response.json(traces);
     }
-    
-    return new Response('Not Found', { status: 404 });
-  }
+
+    return new Response("Not Found", { status: 404 });
+  },
 });
 ```
 
 ### Database: better-sqlite3 → bun:sqlite
 
 **Before:**
+
 ```javascript
 const Database = require('better-sqlite3');
 const db = new Database('data.db');
@@ -142,6 +147,7 @@ insertStmt.run({ id, timestamp, ... });
 ```
 
 **After:**
+
 ```typescript
 import { Database } from 'bun:sqlite';
 const db = new Database('data.db', { create: true });
@@ -156,6 +162,7 @@ insertStmt.run({ $id: id, $timestamp: timestamp, ... });
 ```
 
 **Key differences:**
+
 - Use `db.query()` instead of `db.prepare()`
 - Named params need `$` prefix: `$id` not `id`
 - Use `{ create: true }` to auto-create DB file
@@ -164,21 +171,22 @@ insertStmt.run({ $id: id, $timestamp: timestamp, ... });
 ### WebSocket: ws → Bun native
 
 **Before (ws):**
+
 ```javascript
-const WebSocket = require('ws');
+const WebSocket = require("ws");
 const wss = new WebSocket.Server({ server });
 
-wss.on('connection', (ws) => {
-  ws.send(JSON.stringify({ type: 'hello' }));
-  
-  ws.on('message', (data) => {
-    console.log('received:', data);
+wss.on("connection", (ws) => {
+  ws.send(JSON.stringify({ type: "hello" }));
+
+  ws.on("message", (data) => {
+    console.log("received:", data);
   });
 });
 
 // Broadcast to all clients
 function broadcast(data) {
-  wss.clients.forEach(client => {
+  wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify(data));
     }
@@ -187,41 +195,43 @@ function broadcast(data) {
 ```
 
 **After (Bun):**
+
 ```typescript
 const server = Bun.serve({
   port: 3000,
-  
+
   websocket: {
     open(ws) {
-      ws.subscribe('updates');
-      ws.send(JSON.stringify({ type: 'hello' }));
+      ws.subscribe("updates");
+      ws.send(JSON.stringify({ type: "hello" }));
     },
-    
+
     message(ws, message) {
-      console.log('received:', message);
+      console.log("received:", message);
     },
-    
+
     close(ws) {
       // Auto-unsubscribed
-    }
+    },
   },
-  
+
   fetch(req, server) {
-    if (new URL(req.url).pathname === '/ws') {
+    if (new URL(req.url).pathname === "/ws") {
       if (server.upgrade(req)) return;
-      return new Response('Upgrade failed', { status: 400 });
+      return new Response("Upgrade failed", { status: 400 });
     }
     // ... other routes
-  }
+  },
 });
 
 // Broadcast using pub/sub
 function broadcast(data: any) {
-  server.publish('updates', JSON.stringify(data));
+  server.publish("updates", JSON.stringify(data));
 }
 ```
 
 **Key differences:**
+
 - WebSocket config is part of `Bun.serve()`
 - Use `server.upgrade(req)` for handshake
 - Built-in pub/sub with `subscribe/publish`
@@ -230,6 +240,7 @@ function broadcast(data: any) {
 ### HTTP Proxy: http.request → fetch
 
 **Before:**
+
 ```javascript
 const https = require('https');
 
@@ -255,6 +266,7 @@ upstreamReq.end();
 ```
 
 **After:**
+
 ```typescript
 const upstreamRes = await fetch('https://api.openai.com/v1/chat/completions', {
   method: 'POST',
@@ -276,6 +288,7 @@ return new Response(upstreamRes.body, {
 ### Streaming with Logging
 
 **For streaming + logging (need to read body twice):**
+
 ```typescript
 const upstreamRes = await fetch(url, options);
 
@@ -344,10 +357,10 @@ Replace Express with Bun.serve() for dashboard server first (simpler).
 
 ```typescript
 // src/server.ts
-import dashboard from './index.html';
-import * as db from './db';
-import { apiRoutes } from './routes/api';
-import { wsHandler } from './websocket';
+import dashboard from "./index.html";
+import * as db from "./db";
+import { apiRoutes } from "./routes/api";
+import { wsHandler } from "./websocket";
 
 const DASHBOARD_PORT = Number(Bun.env.DASHBOARD_PORT || 3000);
 const PROXY_PORT = Number(Bun.env.PROXY_PORT || 8080);
@@ -355,43 +368,43 @@ const PROXY_PORT = Number(Bun.env.PROXY_PORT || 8080);
 // Dashboard server
 export const dashboardServer = Bun.serve({
   port: DASHBOARD_PORT,
-  
+
   routes: {
-    '/': dashboard, // Svelte app via HTML import
+    "/": dashboard, // Svelte app via HTML import
   },
-  
+
   websocket: wsHandler,
-  
+
   async fetch(req, server) {
     const url = new URL(req.url);
-    
+
     // WebSocket upgrade
-    if (url.pathname === '/ws') {
+    if (url.pathname === "/ws") {
       if (server.upgrade(req)) return;
-      return new Response('Upgrade failed', { status: 400 });
+      return new Response("Upgrade failed", { status: 400 });
     }
-    
+
     // API routes
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith("/api/")) {
       return apiRoutes(req);
     }
-    
+
     // OTLP ingestion
-    if (url.pathname.startsWith('/v1/')) {
+    if (url.pathname.startsWith("/v1/")) {
       return otlpRoutes(req);
     }
-    
-    return new Response('Not Found', { status: 404 });
-  }
+
+    return new Response("Not Found", { status: 404 });
+  },
 });
 
 // Proxy server (separate port)
 export const proxyServer = Bun.serve({
   port: PROXY_PORT,
-  
+
   async fetch(req, server) {
     return proxyHandler(req, server);
-  }
+  },
 });
 
 console.log(`Dashboard: http://localhost:${DASHBOARD_PORT}`);
@@ -411,31 +424,31 @@ Convert LLM proxy from http/https to fetch.
 // src/routes/proxy.ts
 export async function proxyHandler(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const body = req.method !== 'GET' ? await req.json() : undefined;
-  
+  const body = req.method !== "GET" ? await req.json() : undefined;
+
   const { provider, cleanPath } = registry.resolve(url.pathname, req.headers);
   const target = provider.getTarget(cleanPath);
   const headers = provider.transformRequestHeaders(req.headers);
   const transformedBody = provider.transformRequestBody(body);
-  
+
   const upstreamUrl = `https://${target.hostname}${target.path}`;
-  
+
   const upstreamRes = await fetch(upstreamUrl, {
     method: req.method,
     headers,
-    body: transformedBody ? JSON.stringify(transformedBody) : undefined
+    body: transformedBody ? JSON.stringify(transformedBody) : undefined,
   });
-  
+
   if (body?.stream) {
     // Streaming response
     const [clientBody, logBody] = upstreamRes.body!.tee();
     logStreamAsync(logBody, provider, body);
     return new Response(clientBody, {
       status: upstreamRes.status,
-      headers: upstreamRes.headers
+      headers: upstreamRes.headers,
     });
   }
-  
+
   // Non-streaming
   const data = await upstreamRes.json();
   const normalized = provider.normalizeResponse(data);
@@ -457,35 +470,41 @@ Replace ws library with Bun native WebSocket + pub/sub.
 // src/websocket.ts
 export const wsHandler = {
   open(ws: ServerWebSocket) {
-    ws.subscribe('traces');
-    ws.subscribe('logs');
-    ws.subscribe('metrics');
-    ws.subscribe('stats');
-    ws.send(JSON.stringify({ type: 'hello', time: Date.now() }));
+    ws.subscribe("traces");
+    ws.subscribe("logs");
+    ws.subscribe("metrics");
+    ws.subscribe("stats");
+    ws.send(JSON.stringify({ type: "hello", time: Date.now() }));
   },
-  
+
   message(ws: ServerWebSocket, message: string) {
     // Handle client messages if needed
   },
-  
+
   close(ws: ServerWebSocket) {
     // Bun auto-unsubscribes
-  }
+  },
 };
 
 // Hook into DB for real-time updates
 db.setInsertTraceHook((trace) => {
-  dashboardServer.publish('traces', JSON.stringify({
-    type: 'new_trace',
-    payload: trace
-  }));
+  dashboardServer.publish(
+    "traces",
+    JSON.stringify({
+      type: "new_trace",
+      payload: trace,
+    }),
+  );
 });
 
 db.setInsertLogHook((log) => {
-  dashboardServer.publish('logs', JSON.stringify({
-    type: 'new_log',
-    payload: log
-  }));
+  dashboardServer.publish(
+    "logs",
+    JSON.stringify({
+      type: "new_log",
+      payload: log,
+    }),
+  );
 });
 ```
 
@@ -500,17 +519,17 @@ Use Bun's HTML imports for fullstack bundling.
 
 ```typescript
 // src/server.ts
-import dashboard from './frontend/index.html';
+import dashboard from "./frontend/index.html";
 
 export const dashboardServer = Bun.serve({
   port: 3000,
-  development: Bun.env.NODE_ENV !== 'production',
-  
+  development: Bun.env.NODE_ENV !== "production",
+
   routes: {
-    '/': dashboard,
-    '/dashboard': dashboard,
+    "/": dashboard,
+    "/dashboard": dashboard,
   },
-  
+
   // ... rest of config
 });
 ```
@@ -544,16 +563,16 @@ export const dashboardServer = Bun.serve({
 
 ## Timeline Summary
 
-| Phase | Description | Effort | Duration |
-|-------|-------------|--------|----------|
-| 0 | Run under Bun | S | 2h |
-| 1 | Database (bun:sqlite) | M | 4h |
-| 2 | HTTP Server (Bun.serve) | L | 8h |
-| 3 | Proxy Handler (fetch) | M | 6h |
-| 4 | WebSocket (native) | S | 3h |
-| 5 | Svelte integration | M | 4h |
-| 6 | Cleanup | S | 2h |
-| **Total** | | | **~29 hours (4-5 days)** |
+| Phase     | Description             | Effort | Duration                 |
+| --------- | ----------------------- | ------ | ------------------------ |
+| 0         | Run under Bun           | S      | 2h                       |
+| 1         | Database (bun:sqlite)   | M      | 4h                       |
+| 2         | HTTP Server (Bun.serve) | L      | 8h                       |
+| 3         | Proxy Handler (fetch)   | M      | 6h                       |
+| 4         | WebSocket (native)      | S      | 3h                       |
+| 5         | Svelte integration      | M      | 4h                       |
+| 6         | Cleanup                 | S      | 2h                       |
+| **Total** |                         |        | **~29 hours (4-5 days)** |
 
 ---
 
@@ -562,20 +581,24 @@ export const dashboardServer = Bun.serve({
 For **both** Svelte frontend and Bun backend:
 
 ### Week 1: Backend Foundation
+
 1. Phase 0: Run existing code on Bun (verify compatibility)
 2. Phase 1: Migrate to bun:sqlite
 3. Phase 2: Migrate dashboard server to Bun.serve()
 
 ### Week 2: Backend Completion + Frontend Start
+
 4. Phase 3: Migrate proxy handler to fetch
 5. Phase 4: Migrate WebSocket to Bun native
 6. Svelte Phase 0-1: Setup Vite + scaffold
 
 ### Week 3: Frontend Migration
+
 7. Svelte Phase 2-4: Migrate Logs, Metrics, Traces tabs
 8. Svelte Phase 5-6: Migrate Timeline, Models, Analytics
 
 ### Week 4: Integration + Polish
+
 9. Phase 5: Integrate Svelte with Bun HTML imports
 10. Phase 6: Cleanup and testing
 11. Update Docker, docs, release
@@ -620,13 +643,13 @@ CMD ["bun", "run", "dist/server.js"]
 
 ## Risk Mitigation
 
-| Risk | Mitigation |
-|------|------------|
-| Breaking streaming | Test each provider's streaming with real API calls |
-| bun:sqlite differences | Run parallel queries, compare results |
-| WebSocket behavior | Test reconnection, pub/sub with multiple clients |
-| Bun version issues | Pin Bun version in Dockerfile and CI |
-| Rollback needed | Keep old server.js until fully validated |
+| Risk                   | Mitigation                                         |
+| ---------------------- | -------------------------------------------------- |
+| Breaking streaming     | Test each provider's streaming with real API calls |
+| bun:sqlite differences | Run parallel queries, compare results              |
+| WebSocket behavior     | Test reconnection, pub/sub with multiple clients   |
+| Bun version issues     | Pin Bun version in Dockerfile and CI               |
+| Rollback needed        | Keep old server.js until fully validated           |
 
 ---
 

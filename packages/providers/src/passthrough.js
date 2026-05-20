@@ -1,5 +1,5 @@
 const https = require('https');
-const { v4: uuidv4 } = require('uuid');
+const uuidv4 = () => crypto.randomUUID();
 
 /**
  * Base passthrough handler for forwarding requests without body transformation.

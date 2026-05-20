@@ -65,11 +65,14 @@ function startServer() {
     return new Promise((resolve, reject) => {
         console.log(`${c.dim}Starting server...${c.reset}`);
         
-        // Use bun to run the TypeScript server
+        // Use bun to run the TypeScript server.
+        // Pin DASHBOARD_PORT/PROXY_PORT so HEALTH_URL below matches; the
+        // server otherwise falls back to 1337/8080 which leaves the health
+        // poll waiting on the wrong port.
         serverProcess = spawn('bun', ['run', SERVER_FILE], {
             cwd: ROOT_DIR,
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, NODE_ENV: 'test' }
+            env: { ...process.env, NODE_ENV: 'test', DASHBOARD_PORT: '3000', PROXY_PORT: '8080' }
         });
 
         let started = false;

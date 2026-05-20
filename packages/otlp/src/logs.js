@@ -11,7 +11,7 @@
  */
 
 const uuidv4 = () => crypto.randomUUID();
-const db = require('./src/db');
+const db = require('@llmflow/db');
 
 /**
  * Extract attributes from OTLP KeyValue array format

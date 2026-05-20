@@ -32,7 +32,7 @@ const {
     buildLogsPayload,
     buildMetricsPayload,
     getConfig
-} = require('../otlp-export');
+} = require('@llmflow/otlp/export');
 
 console.log('\n=== OTLP Export Tests ===\n');
 

@@ -11,8 +11,8 @@
  * - Standard OTEL span attributes
  */
 
-const db = require('./src/db');
-const { calculateCost } = require('./pricing');
+const db = require('@llmflow/db');
+const { calculateCost } = require('@llmflow/pricing');
 
 /**
  * Map gen_ai.system values to span types
