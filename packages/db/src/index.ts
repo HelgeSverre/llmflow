@@ -83,7 +83,14 @@ function initSchema() {
     ensureColumn('attributes', 'TEXT')
     ensureColumn('service_name', 'TEXT')
 
+    // Session correlation columns (v0.3+)
+    ensureColumn('session_id', 'TEXT')
+    ensureColumn('conversation_id', 'TEXT')
+    ensureColumn('agent_name', 'TEXT')
+
     db.exec('CREATE INDEX IF NOT EXISTS idx_traces_parent_id ON traces(parent_id)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_traces_session_id ON traces(session_id)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_traces_conversation_id ON traces(conversation_id)')
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS stats_cache (
