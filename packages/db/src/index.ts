@@ -611,6 +611,58 @@ export function getDistinctModels() {
         .map(r => r.model)
 }
 
+export interface SessionSummary {
+    session_id: string
+    first_seen: number
+    last_seen: number
+    trace_count: number
+    total_cost: number
+    total_tokens: number
+    agent_name: string | null
+    service_name: string | null
+}
+
+export function getSessions({ limit = 50, offset = 0 } = {}) {
+    return db.query(`
+        SELECT
+            session_id,
+            MIN(timestamp) AS first_seen,
+            MAX(timestamp) AS last_seen,
+            COUNT(DISTINCT trace_id) AS trace_count,
+            COALESCE(SUM(estimated_cost), 0) AS total_cost,
+            COALESCE(SUM(total_tokens), 0) AS total_tokens,
+            (SELECT agent_name FROM traces t2 WHERE t2.session_id = traces.session_id AND agent_name IS NOT NULL LIMIT 1) AS agent_name,
+            (SELECT service_name FROM traces t3 WHERE t3.session_id = traces.session_id AND service_name IS NOT NULL LIMIT 1) AS service_name
+        FROM traces
+        WHERE session_id IS NOT NULL
+        GROUP BY session_id
+        ORDER BY last_seen DESC
+        LIMIT $limit OFFSET $offset
+    `).all({ $limit: limit, $offset: offset }) as SessionSummary[]
+}
+
+export function getSessionTraces(session_id: string) {
+    return db.query(`
+        SELECT
+            trace_id,
+            MIN(timestamp) AS started_at,
+            MAX(timestamp + COALESCE(duration_ms, 0)) AS ended_at,
+            COALESCE(SUM(estimated_cost), 0) AS cost,
+            COALESCE(SUM(total_tokens), 0) AS tokens,
+            COUNT(*) AS span_count,
+            MAX(CASE WHEN status >= 400 THEN 1 ELSE 0 END) AS has_error
+        FROM traces
+        WHERE session_id = $session_id
+        GROUP BY trace_id
+        ORDER BY started_at ASC
+    `).all({ $session_id: session_id })
+}
+
+export function getSessionCount(): number {
+    const r = db.query('SELECT COUNT(DISTINCT session_id) AS cnt FROM traces WHERE session_id IS NOT NULL').get() as { cnt: number }
+    return r.cnt
+}
+
 // Log functions
 export function insertLog(log: Log) {
     insertLogStmt.run({
