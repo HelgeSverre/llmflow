@@ -40,11 +40,11 @@ release-notes/  v*.md per release.
 
 ```ts
 // In TypeScript (apps/server/src/server.ts)
-import * as db from '@llmflow/db'                                // ESM, typed
+import * as db from '@llmflow/db' // ESM, typed
 import { safeJson } from '@llmflow/db'
-const log = require('@llmflow/shared/logger')                    // CJS
-const { registry } = require('@llmflow/providers')               // CJS
-const { processOtlpTraces } = require('@llmflow/otlp/traces')    // CJS sub-path
+const log = require('@llmflow/shared/logger') // CJS
+const { registry } = require('@llmflow/providers') // CJS
+const { processOtlpTraces } = require('@llmflow/otlp/traces') // CJS sub-path
 ```
 
 `@llmflow/db` is ESM/TypeScript; all other workspace packages are CJS until ported.

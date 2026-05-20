@@ -1,4 +1,4 @@
-const BaseProvider = require('./base');
+const BaseProvider = require('./base')
 
 /**
  * Ollama provider - local LLM server with OpenAI-compatible API.
@@ -6,11 +6,11 @@ const BaseProvider = require('./base');
  */
 class OllamaProvider extends BaseProvider {
     constructor(config = {}) {
-        super();
-        this.name = 'ollama';
-        this.displayName = 'Ollama';
-        this.hostname = config.hostname || process.env.OLLAMA_HOST || 'localhost';
-        this.port = config.port || parseInt(process.env.OLLAMA_PORT) || 11434;
+        super()
+        this.name = 'ollama'
+        this.displayName = 'Ollama'
+        this.hostname = config.hostname || process.env.OLLAMA_HOST || 'localhost'
+        this.port = config.port || parseInt(process.env.OLLAMA_PORT) || 11434
     }
 
     getTarget(req) {
@@ -18,19 +18,19 @@ class OllamaProvider extends BaseProvider {
             hostname: this.hostname,
             port: this.port,
             path: req.path,
-            protocol: 'http'
-        };
+            protocol: 'http',
+        }
     }
 
     transformRequestHeaders(headers, req) {
         return {
-            'Content-Type': 'application/json'
-        };
+            'Content-Type': 'application/json',
+        }
     }
 
     getHttpModule() {
-        return require('http');
+        return require('http')
     }
 }
 
-module.exports = OllamaProvider;
+module.exports = OllamaProvider

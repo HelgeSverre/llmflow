@@ -7,8 +7,8 @@ export default defineConfig({
   plugins: [svelte()],
   resolve: {
     alias: {
-      '$lib': path.resolve(__dirname, './src/lib')
-    }
+      $lib: path.resolve(__dirname, './src/lib'),
+    },
   },
   build: {
     outDir: '../../public',
@@ -19,8 +19,8 @@ export default defineConfig({
       '/api': 'http://localhost:3000',
       '/ws': {
         target: 'ws://localhost:3000',
-        ws: true
-      }
-    }
-  }
+        ws: true,
+      },
+    },
+  },
 })

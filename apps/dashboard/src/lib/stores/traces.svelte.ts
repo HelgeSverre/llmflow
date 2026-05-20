@@ -71,35 +71,39 @@ export const traceFilters = $state<TraceFilters>({
   status: '',
   dateRange: '',
   date_from: null,
-  date_to: null
+  date_to: null,
 })
 export const filterOptions = $state<TraceFilterOptions>({
-  models: []
+  models: [],
 })
 
-function getDateRange(range: string): { from: number | null, to: number | null } {
+function getDateRange(range: string): { from: number | null; to: number | null } {
   if (!range) return { from: null, to: null }
   const now = Date.now()
   const hour = 60 * 60 * 1000
   const day = 24 * hour
-  
+
   switch (range) {
-    case '1h': return { from: now - hour, to: null }
-    case '24h': return { from: now - day, to: null }
-    case '7d': return { from: now - 7 * day, to: null }
-    default: return { from: null, to: null }
+    case '1h':
+      return { from: now - hour, to: null }
+    case '24h':
+      return { from: now - day, to: null }
+    case '7d':
+      return { from: now - 7 * day, to: null }
+    default:
+      return { from: null, to: null }
   }
 }
 
 export async function loadTraces() {
   if (tabState.current !== 'traces') return
-  
+
   try {
     const params = new URLSearchParams({ limit: '50' })
     if (traceFilters.q) params.set('q', traceFilters.q)
     if (traceFilters.model) params.set('model', traceFilters.model)
     if (traceFilters.status) params.set('status', traceFilters.status)
-    
+
     const { from, to } = getDateRange(traceFilters.dateRange)
     if (from) params.set('date_from', String(from))
     if (to) params.set('date_to', String(to))
@@ -115,7 +119,7 @@ export async function loadTraces() {
 export async function loadFilterOptions() {
   try {
     const data = await api.get<{ model: string }[]>('/api/models')
-    filterOptions.models = data.map(m => m.model).filter(Boolean)
+    filterOptions.models = data.map((m) => m.model).filter(Boolean)
   } catch (e) {
     console.error('Failed to load trace filter options:', e)
   }
@@ -126,7 +130,7 @@ export async function selectTrace(id: string) {
   try {
     const [detail, tree] = await Promise.all([
       api.get<TraceDetail>(`/api/traces/${id}`),
-      api.get<{ spans: Span[] }>(`/api/traces/${id}/tree`).catch(() => ({ spans: [] }))
+      api.get<{ spans: Span[] }>(`/api/traces/${id}/tree`).catch(() => ({ spans: [] })),
     ])
     selectedTrace.value = { ...detail, spans: tree.spans }
   } catch (e) {
@@ -154,7 +158,7 @@ export function initTracesSync() {
   onMessage((msg) => {
     if (msg.type === 'new_trace' && tabState.current === 'traces') {
       const trace = msg.payload as Trace
-      if (!traces.find(t => t.id === trace.id)) {
+      if (!traces.find((t) => t.id === trace.id)) {
         traces.unshift(trace)
         if (traces.length > 50) traces.length = 50
       }

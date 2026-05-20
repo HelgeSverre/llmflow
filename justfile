@@ -31,6 +31,36 @@ demo-many:
 test:
     bun run test
 
+# Run OTLP traces ingestion tests
+[group('test')]
+test-otlp:
+    bun run test:otlp
+
+# Run WebSocket fanout tests
+[group('test')]
+test-ws:
+    bun run test:ws
+
+# Run OTLP logs ingestion tests
+[group('test')]
+test-logs:
+    bun run test:logs
+
+# Run OTLP metrics ingestion tests
+[group('test')]
+test-metrics:
+    bun run test:metrics
+
+# Run provider adapter unit tests
+[group('test')]
+test-providers:
+    bun run test:providers
+
+# Run provider adapter end-to-end tests
+[group('test')]
+test-providers-e2e:
+    bun run test:providers-e2e
+
 # Run Playwright E2E tests
 [group('test')]
 test-e2e:
@@ -41,10 +71,25 @@ test-e2e:
 test-e2e-headed:
     bunx playwright test --headed
 
+# Open the Playwright UI runner
+[group('test')]
+test-e2e-ui:
+    bunx playwright test --ui
+
 # Typecheck all workspaces
 [group('test')]
 typecheck:
     bun run typecheck
+
+# Format all source, dashboard, and markdown files with Prettier
+[group('test')]
+format:
+    bunx prettier --write .
+
+# Check formatting without writing
+[group('test')]
+format-check:
+    bunx prettier --check .
 
 # Build the dashboard
 [group('build')]

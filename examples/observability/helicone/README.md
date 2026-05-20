@@ -27,19 +27,19 @@ Your App → LLMFlow Proxy → Helicone Gateway → OpenAI
 
    ```javascript
    const client = new OpenAI({
-     baseURL: "http://localhost:8080/passthrough/helicone/v1",
-   });
+     baseURL: 'http://localhost:8080/passthrough/helicone/v1',
+   })
    ```
 
    **Option B: Via headers**
 
    ```javascript
    const client = new OpenAI({
-     baseURL: "http://localhost:8080/passthrough/helicone/v1",
+     baseURL: 'http://localhost:8080/passthrough/helicone/v1',
      defaultHeaders: {
-       "Helicone-Auth": "Bearer sk-helicone-xxx",
+       'Helicone-Auth': 'Bearer sk-helicone-xxx',
      },
-   });
+   })
    ```
 
 3. Make LLM requests - they'll be logged in both LLMFlow and Helicone
@@ -67,30 +67,30 @@ When using the Helicone passthrough, you can use Helicone's features via headers
 ```javascript
 const response = await client.chat.completions.create(
   {
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: "Hello!" }],
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: 'Hello!' }],
   },
   {
     headers: {
       // Custom properties for filtering
-      "Helicone-Property-Environment": "production",
-      "Helicone-Property-Feature": "chatbot",
+      'Helicone-Property-Environment': 'production',
+      'Helicone-Property-Feature': 'chatbot',
 
       // User tracking
-      "Helicone-User-Id": "user-123",
+      'Helicone-User-Id': 'user-123',
 
       // Session grouping
-      "Helicone-Session-Id": "session-abc",
-      "Helicone-Session-Name": "Customer Support",
+      'Helicone-Session-Id': 'session-abc',
+      'Helicone-Session-Name': 'Customer Support',
 
       // Caching
-      "Helicone-Cache-Enabled": "true",
+      'Helicone-Cache-Enabled': 'true',
 
       // Retries
-      "Helicone-Retry-Enabled": "true",
+      'Helicone-Retry-Enabled': 'true',
     },
   },
-);
+)
 ```
 
 ## Benefits of Dual Logging
@@ -108,21 +108,21 @@ Using LLMFlow + Helicone together:
 ## Example Code
 
 ```javascript
-import OpenAI from "openai";
+import OpenAI from 'openai'
 
 const client = new OpenAI({
-  baseURL: "http://localhost:8080/passthrough/helicone/v1",
+  baseURL: 'http://localhost:8080/passthrough/helicone/v1',
   defaultHeaders: {
-    "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-    "Helicone-Property-App": "my-app",
+    'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+    'Helicone-Property-App': 'my-app',
   },
-});
+})
 
 const response = await client.chat.completions.create({
-  model: "gpt-4o-mini",
-  messages: [{ role: "user", content: "Hello!" }],
-});
+  model: 'gpt-4o-mini',
+  messages: [{ role: 'user', content: 'Hello!' }],
+})
 
-console.log(response.choices[0].message.content);
+console.log(response.choices[0].message.content)
 // Logged in both LLMFlow (localhost:3000) and Helicone (helicone.ai)
 ```

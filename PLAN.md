@@ -8,24 +8,24 @@
 
 ### What's Done
 
-| Feature              | Status                                       |
-| -------------------- | -------------------------------------------- |
-| SQLite Storage       | ✅ Persistent, queryable, auto-cleanup       |
-| Dynamic Pricing      | ✅ 2000+ models via LiteLLM                  |
-| Streaming Support    | ✅ SSE pass-through with full token tracking |
-| Search & Filtering   | ✅ Full filter bar with URL sync             |
-| Hierarchical Spans   | ✅ Full span tree visualization              |
-| JavaScript SDK       | ✅ `trace()`, `span()`, context propagation  |
-| Split-Panel UI       | ✅ Langfuse-inspired layout                  |
-| OTLP/HTTP Support    | ✅ OpenTelemetry/OpenLLMetry integration     |
-| Multi-Provider       | ✅ OpenAI, Anthropic, Ollama, Gemini, Cohere, Azure |
-| Passthrough Mode     | ✅ Native API format preservation            |
-| Real-time WebSocket  | ✅ Live trace updates                        |
-| Dark Mode            | ✅ System preference detection               |
-| Docker Distribution  | ✅ Multi-arch images on Docker Hub           |
-| NPX Distribution     | ✅ `npx llmflow` instant start               |
-| Data Export          | ✅ JSON, JSONL, CSV formats                  |
-| Keyboard Navigation  | ✅ Arrow keys, Esc, shortcuts                |
+| Feature             | Status                                              |
+| ------------------- | --------------------------------------------------- |
+| SQLite Storage      | ✅ Persistent, queryable, auto-cleanup              |
+| Dynamic Pricing     | ✅ 2000+ models via LiteLLM                         |
+| Streaming Support   | ✅ SSE pass-through with full token tracking        |
+| Search & Filtering  | ✅ Full filter bar with URL sync                    |
+| Hierarchical Spans  | ✅ Full span tree visualization                     |
+| JavaScript SDK      | ✅ `trace()`, `span()`, context propagation         |
+| Split-Panel UI      | ✅ Langfuse-inspired layout                         |
+| OTLP/HTTP Support   | ✅ OpenTelemetry/OpenLLMetry integration            |
+| Multi-Provider      | ✅ OpenAI, Anthropic, Ollama, Gemini, Cohere, Azure |
+| Passthrough Mode    | ✅ Native API format preservation                   |
+| Real-time WebSocket | ✅ Live trace updates                               |
+| Dark Mode           | ✅ System preference detection                      |
+| Docker Distribution | ✅ Multi-arch images on Docker Hub                  |
+| NPX Distribution    | ✅ `npx llmflow` instant start                      |
+| Data Export         | ✅ JSON, JSONL, CSV formats                         |
+| Keyboard Navigation | ✅ Arrow keys, Esc, shortcuts                       |
 
 ### Architecture
 
@@ -51,15 +51,15 @@ Your App
 
 ### Supported Providers
 
-| Provider   | Proxy Route           | Passthrough Route              |
-| ---------- | --------------------- | ------------------------------ |
-| OpenAI     | `/v1/*` (default)     | `/passthrough/openai/*`        |
-| Anthropic  | `/anthropic/v1/*`     | `/passthrough/anthropic/*`     |
-| Ollama     | `/ollama/v1/*`        | —                              |
-| Gemini     | `/gemini/v1/*`        | `/passthrough/gemini/*`        |
-| Cohere     | `/cohere/v1/*`        | —                              |
-| Azure      | `/azure/v1/*`         | —                              |
-| Helicone   | —                     | `/passthrough/helicone/*`      |
+| Provider  | Proxy Route       | Passthrough Route          |
+| --------- | ----------------- | -------------------------- |
+| OpenAI    | `/v1/*` (default) | `/passthrough/openai/*`    |
+| Anthropic | `/anthropic/v1/*` | `/passthrough/anthropic/*` |
+| Ollama    | `/ollama/v1/*`    | —                          |
+| Gemini    | `/gemini/v1/*`    | `/passthrough/gemini/*`    |
+| Cohere    | `/cohere/v1/*`    | —                          |
+| Azure     | `/azure/v1/*`     | —                          |
+| Helicone  | —                 | `/passthrough/helicone/*`  |
 
 ### Files
 
@@ -85,22 +85,22 @@ Your App
 
 ## Next: Phase 3 - Developer Experience
 
-| Task                 | Priority | Effort | Status      |
-| -------------------- | -------- | ------ | ----------- |
-| Python SDK           | High     | M      | 🔲 Planned  |
-| Go SDK               | Low      | M      | 🔲 Planned  |
-| Homebrew formula     | Low      | M      | 🔲 Planned  |
+| Task             | Priority | Effort | Status     |
+| ---------------- | -------- | ------ | ---------- |
+| Python SDK       | High     | M      | 🔲 Planned |
+| Go SDK           | Low      | M      | 🔲 Planned |
+| Homebrew formula | Low      | M      | 🔲 Planned |
 
 ---
 
 ## Phase 4 - Advanced Features
 
-| Task                        | Priority | Effort | Status |
-| --------------------------- | -------- | ------ | ------ |
-| Request replay              | Medium   | M      |        |
-| Cost alerts/budgets         | Medium   | M      |        |
-| Compare traces (diff view)  | Low      | M      |        |
-| Prompt versioning           | Low      | L      |        |
+| Task                       | Priority | Effort | Status |
+| -------------------------- | -------- | ------ | ------ |
+| Request replay             | Medium   | M      |        |
+| Cost alerts/budgets        | Medium   | M      |        |
+| Compare traces (diff view) | Low      | M      |        |
+| Prompt versioning          | Low      | L      |        |
 
 ---
 

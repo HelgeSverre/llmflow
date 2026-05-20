@@ -14,10 +14,10 @@ Then point your SDK at `http://localhost:8080/v1` and open `http://localhost:300
 
 ## Ports
 
-| Port | Description |
-|------|-------------|
+| Port | Description                   |
+| ---- | ----------------------------- |
 | 3000 | Web dashboard & OTLP receiver |
-| 8080 | LLM proxy server |
+| 8080 | LLM proxy server              |
 
 ## Persistent Storage
 
@@ -31,10 +31,10 @@ docker run -p 3000:3000 -p 8080:8080 \
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | Dashboard/OTLP port |
-| `PROXY_PORT` | `8080` | Proxy server port |
+| Variable        | Default             | Description          |
+| --------------- | ------------------- | -------------------- |
+| `PORT`          | `3000`              | Dashboard/OTLP port  |
+| `PROXY_PORT`    | `8080`              | Proxy server port    |
 | `DATABASE_PATH` | `./data/llmflow.db` | SQLite database path |
 
 ## Supported Providers

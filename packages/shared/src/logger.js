@@ -3,7 +3,7 @@
  * Clean, compact output with optional verbose mode
  */
 
-const VERBOSE = process.env.VERBOSE === '1' || process.argv.includes('--verbose');
+const VERBOSE = process.env.VERBOSE === '1' || process.argv.includes('--verbose')
 
 const c = {
     reset: '\x1b[0m',
@@ -15,82 +15,90 @@ const c = {
     cyan: '\x1b[36m',
     magenta: '\x1b[35m',
     blue: '\x1b[34m',
-};
+}
 
 function timestamp() {
-    return new Date().toISOString().slice(11, 23);
+    return new Date().toISOString().slice(11, 23)
 }
 
 function formatDuration(ms) {
-    if (ms < 1000) return `${ms}ms`;
-    return `${(ms / 1000).toFixed(1)}s`;
+    if (ms < 1000) return `${ms}ms`
+    return `${(ms / 1000).toFixed(1)}s`
 }
 
 function formatTokens(tokens) {
-    if (!tokens) return '';
-    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`;
-    return String(tokens);
+    if (!tokens) return ''
+    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`
+    return String(tokens)
 }
 
 const logger = {
     // Startup messages
     startup(message) {
-        console.log(`${c.cyan}[llmflow]${c.reset} ${message}`);
+        console.log(`${c.cyan}[llmflow]${c.reset} ${message}`)
     },
 
     // URL highlighting (yellow)
     url(urlString) {
-        return `${c.yellow}${urlString}${c.reset}`;
+        return `${c.yellow}${urlString}${c.reset}`
     },
 
     info(message) {
-        console.log(`${c.dim}[llmflow]${c.reset} ${message}`);
+        console.log(`${c.dim}[llmflow]${c.reset} ${message}`)
     },
 
     warn(message) {
-        console.log(`${c.yellow}[llmflow]${c.reset} ${message}`);
+        console.log(`${c.yellow}[llmflow]${c.reset} ${message}`)
     },
 
     error(message) {
-        console.log(`${c.red}[llmflow]${c.reset} ${message}`);
+        console.log(`${c.red}[llmflow]${c.reset} ${message}`)
     },
 
     // Request logging - compact by default
     request(method, path, traceId) {
         if (VERBOSE) {
-            console.log(`${c.dim}${timestamp()}${c.reset} ${c.blue}>>>${c.reset} ${method} ${path} ${c.dim}${traceId.slice(0, 8)}${c.reset}`);
+            console.log(
+                `${c.dim}${timestamp()}${c.reset} ${c.blue}>>>${c.reset} ${method} ${path} ${c.dim}${traceId.slice(0, 8)}${c.reset}`,
+            )
         }
     },
 
     // Response logging - always shown but compact
     response(opts) {
-        const { method, path, status, duration, model, tokens, streaming, traceId } = opts;
-        
-        const statusColor = status < 400 ? c.green : c.red;
-        const statusText = `${statusColor}${status}${c.reset}`;
-        const durationText = `${c.dim}${formatDuration(duration)}${c.reset}`;
-        
-        let details = '';
-        if (model) details += ` ${c.cyan}${model}${c.reset}`;
-        if (tokens) details += ` ${c.dim}${formatTokens(tokens)} tok${c.reset}`;
-        if (streaming) details += ` ${c.magenta}stream${c.reset}`;
-        
+        const { method, path, status, duration, model, tokens, streaming, traceId } = opts
+
+        const statusColor = status < 400 ? c.green : c.red
+        const statusText = `${statusColor}${status}${c.reset}`
+        const durationText = `${c.dim}${formatDuration(duration)}${c.reset}`
+
+        let details = ''
+        if (model) details += ` ${c.cyan}${model}${c.reset}`
+        if (tokens) details += ` ${c.dim}${formatTokens(tokens)} tok${c.reset}`
+        if (streaming) details += ` ${c.magenta}stream${c.reset}`
+
         if (VERBOSE) {
-            console.log(`${c.dim}${timestamp()}${c.reset} ${c.green}<<<${c.reset} ${statusText} ${durationText}${details} ${c.dim}${traceId.slice(0, 8)}${c.reset}`);
+            console.log(
+                `${c.dim}${timestamp()}${c.reset} ${c.green}<<<${c.reset} ${statusText} ${durationText}${details} ${c.dim}${traceId.slice(0, 8)}${c.reset}`,
+            )
         } else {
             // Compact: single line with key info
-            const shortPath = path.length > 20 ? '...' + path.slice(-17) : path;
-            console.log(`${c.dim}${timestamp()}${c.reset} ${method} ${shortPath.padEnd(20)} ${statusText} ${durationText.padStart(8)}${details}`);
+            const shortPath = path.length > 20 ? '...' + path.slice(-17) : path
+            console.log(
+                `${c.dim}${timestamp()}${c.reset} ${method} ${shortPath.padEnd(20)} ${statusText} ${durationText.padStart(8)}${details}`,
+            )
         }
     },
 
     // API proxy specific
     proxy(opts) {
-        const { model, tokens, cost, duration, streaming, error } = opts;
-        
+        const { model, tokens, cost, duration, streaming, error } = opts
+
         if (error) {
-            console.log(`${c.dim}${timestamp()}${c.reset} ${c.red}ERR${c.reset} ${error.slice(0, 50)}`);
-            return;
+            console.log(
+                `${c.dim}${timestamp()}${c.reset} ${c.red}ERR${c.reset} ${error.slice(0, 50)}`,
+            )
+            return
         }
 
         const parts = [
@@ -100,28 +108,30 @@ const logger = {
             tokens ? `${formatTokens(tokens)} tok` : '',
             cost ? `$${cost.toFixed(4)}` : '',
             `${c.dim}${formatDuration(duration)}${c.reset}`,
-        ].filter(Boolean);
+        ].filter(Boolean)
 
-        console.log(parts.join(' '));
+        console.log(parts.join(' '))
     },
 
     // Dashboard API (only in verbose)
     dashboard(method, path, duration) {
         if (VERBOSE) {
-            console.log(`${c.dim}${timestamp()} ${method} ${path} ${formatDuration(duration)}${c.reset}`);
+            console.log(
+                `${c.dim}${timestamp()} ${method} ${path} ${formatDuration(duration)}${c.reset}`,
+            )
         }
     },
 
     // Verbose only debug info
     debug(message) {
         if (VERBOSE) {
-            console.log(`${c.dim}${timestamp()} ${message}${c.reset}`);
+            console.log(`${c.dim}${timestamp()} ${message}${c.reset}`)
         }
     },
 
     isVerbose() {
-        return VERBOSE;
-    }
-};
+        return VERBOSE
+    },
+}
 
-module.exports = logger;
+module.exports = logger

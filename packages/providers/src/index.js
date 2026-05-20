@@ -1,18 +1,18 @@
-const BaseProvider = require('./base');
-const OpenAIProvider = require('./openai');
-const OllamaProvider = require('./ollama');
-const AnthropicProvider = require('./anthropic');
-const GeminiProvider = require('./gemini');
-const CohereProvider = require('./cohere');
-const AzureOpenAIProvider = require('./azure');
+const BaseProvider = require('./base')
+const OpenAIProvider = require('./openai')
+const OllamaProvider = require('./ollama')
+const AnthropicProvider = require('./anthropic')
+const GeminiProvider = require('./gemini')
+const CohereProvider = require('./cohere')
+const AzureOpenAIProvider = require('./azure')
 const {
     OpenAICompatibleProvider,
     GroqProvider,
     MistralProvider,
     TogetherProvider,
     PerplexityProvider,
-    OpenRouterProvider
-} = require('./openai-compatible');
+    OpenRouterProvider,
+} = require('./openai-compatible')
 
 /**
  * Provider Registry
@@ -20,28 +20,28 @@ const {
  */
 class ProviderRegistry {
     constructor() {
-        this.providers = new Map();
-        this.defaultProvider = null;
-        
+        this.providers = new Map()
+        this.defaultProvider = null
+
         // Register default providers
-        this.registerDefaults();
+        this.registerDefaults()
     }
 
     registerDefaults() {
         // Default OpenAI provider (no prefix)
-        this.defaultProvider = new OpenAIProvider();
-        
+        this.defaultProvider = new OpenAIProvider()
+
         // Path-based providers
-        this.register('ollama', new OllamaProvider());
-        this.register('anthropic', new AnthropicProvider());
-        this.register('gemini', new GeminiProvider());
-        this.register('cohere', new CohereProvider());
-        this.register('azure', new AzureOpenAIProvider());
-        this.register('groq', GroqProvider);
-        this.register('mistral', MistralProvider);
-        this.register('together', TogetherProvider);
-        this.register('perplexity', PerplexityProvider);
-        this.register('openrouter', OpenRouterProvider);
+        this.register('ollama', new OllamaProvider())
+        this.register('anthropic', new AnthropicProvider())
+        this.register('gemini', new GeminiProvider())
+        this.register('cohere', new CohereProvider())
+        this.register('azure', new AzureOpenAIProvider())
+        this.register('groq', GroqProvider)
+        this.register('mistral', MistralProvider)
+        this.register('together', TogetherProvider)
+        this.register('perplexity', PerplexityProvider)
+        this.register('openrouter', OpenRouterProvider)
     }
 
     /**
@@ -50,7 +50,7 @@ class ProviderRegistry {
      * @param {BaseProvider} provider - Provider instance
      */
     register(prefix, provider) {
-        this.providers.set(prefix.toLowerCase(), provider);
+        this.providers.set(prefix.toLowerCase(), provider)
     }
 
     /**
@@ -60,32 +60,32 @@ class ProviderRegistry {
      */
     resolve(req) {
         // Check for X-LLMFlow-Provider header override
-        const headerProvider = req.headers['x-llmflow-provider'];
+        const headerProvider = req.headers['x-llmflow-provider']
         if (headerProvider && this.providers.has(headerProvider.toLowerCase())) {
             return {
                 provider: this.providers.get(headerProvider.toLowerCase()),
-                cleanPath: req.path
-            };
+                cleanPath: req.path,
+            }
         }
 
         // Check path prefix: /ollama/v1/... -> ollama provider
-        const pathMatch = req.path.match(/^\/([^\/]+)(\/.*)?$/);
+        const pathMatch = req.path.match(/^\/([^\/]+)(\/.*)?$/)
         if (pathMatch) {
-            const prefix = pathMatch[1].toLowerCase();
+            const prefix = pathMatch[1].toLowerCase()
             if (this.providers.has(prefix)) {
-                const cleanPath = pathMatch[2] || '/';
+                const cleanPath = pathMatch[2] || '/'
                 return {
                     provider: this.providers.get(prefix),
-                    cleanPath: cleanPath
-                };
+                    cleanPath: cleanPath,
+                }
             }
         }
 
         // Default to OpenAI
         return {
             provider: this.defaultProvider,
-            cleanPath: req.path
-        };
+            cleanPath: req.path,
+        }
     }
 
     /**
@@ -93,28 +93,30 @@ class ProviderRegistry {
      * @returns {Array} List of { name, displayName, prefix }
      */
     list() {
-        const result = [{
-            name: this.defaultProvider.name,
-            displayName: this.defaultProvider.displayName,
-            prefix: '/v1/*',
-            default: true
-        }];
+        const result = [
+            {
+                name: this.defaultProvider.name,
+                displayName: this.defaultProvider.displayName,
+                prefix: '/v1/*',
+                default: true,
+            },
+        ]
 
         for (const [prefix, provider] of this.providers) {
             result.push({
                 name: provider.name,
                 displayName: provider.displayName,
                 prefix: `/${prefix}/v1/*`,
-                default: false
-            });
+                default: false,
+            })
         }
 
-        return result;
+        return result
     }
 }
 
 // Singleton instance
-const registry = new ProviderRegistry();
+const registry = new ProviderRegistry()
 
 module.exports = {
     registry,
@@ -126,5 +128,5 @@ module.exports = {
     GeminiProvider,
     CohereProvider,
     AzureOpenAIProvider,
-    OpenAICompatibleProvider
-};
+    OpenAICompatibleProvider,
+}

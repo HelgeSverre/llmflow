@@ -1,9 +1,9 @@
 // @ts-check
-const { defineConfig } = require('@playwright/test');
-const path = require('path');
+const { defineConfig } = require('@playwright/test')
+const path = require('path')
 
-const TEST_DATA_DIR = path.join(__dirname, 'test-data');
-const TEST_DB_PATH = path.join(TEST_DATA_DIR, 'e2e.db');
+const TEST_DATA_DIR = path.join(__dirname, 'test-data')
+const TEST_DB_PATH = path.join(TEST_DATA_DIR, 'e2e.db')
 
 module.exports = defineConfig({
     testDir: './e2e/playwright',
@@ -22,11 +22,11 @@ module.exports = defineConfig({
         navigationTimeout: 30000,
     },
     webServer: {
-        command: 'node e2e/playwright/start-test-server.js',
+        command: 'bun e2e/playwright/start-test-server.js',
         url: 'http://127.0.0.1:3001',
         reuseExistingServer: false,
         timeout: 120000,
         stdout: 'pipe',
         stderr: 'pipe',
     },
-});
+})

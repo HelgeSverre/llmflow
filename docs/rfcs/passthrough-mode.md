@@ -119,59 +119,59 @@ Configure specific providers for passthrough:
 
 class PassthroughHandler {
   constructor(targetHost, options = {}) {
-    this.targetHost = targetHost;
-    this.extractUsage = options.extractUsage || defaultExtractUsage;
-    this.identifyModel = options.identifyModel || defaultIdentifyModel;
-    this.headerTransform = options.headerTransform || defaultHeaderTransform;
+    this.targetHost = targetHost
+    this.extractUsage = options.extractUsage || defaultExtractUsage
+    this.identifyModel = options.identifyModel || defaultIdentifyModel
+    this.headerTransform = options.headerTransform || defaultHeaderTransform
   }
 
   async handle(req, res) {
-    const startTime = Date.now();
-    const traceId = req.headers["x-trace-id"] || uuidv4();
+    const startTime = Date.now()
+    const traceId = req.headers['x-trace-id'] || uuidv4()
 
     try {
       // Transform only headers, not body
-      const headers = this.headerTransform(req.headers);
+      const headers = this.headerTransform(req.headers)
 
       // Forward request as-is
-      const response = await this.forward(req, headers);
+      const response = await this.forward(req, headers)
 
       // Log for observability
-      const duration = Date.now() - startTime;
-      const usage = this.extractUsage(response.body);
-      const model = this.identifyModel(req.body, response.body);
+      const duration = Date.now() - startTime
+      const usage = this.extractUsage(response.body)
+      const model = this.identifyModel(req.body, response.body)
 
-      this.logInteraction(traceId, req, response, duration, usage, model);
+      this.logInteraction(traceId, req, response, duration, usage, model)
 
       // Return original response
-      res.status(response.status);
-      Object.entries(response.headers).forEach(([k, v]) => res.setHeader(k, v));
-      res.send(response.body);
+      res.status(response.status)
+      Object.entries(response.headers).forEach(([k, v]) => res.setHeader(k, v))
+      res.send(response.body)
     } catch (error) {
-      this.logError(traceId, req, error, Date.now() - startTime);
+      this.logError(traceId, req, error, Date.now() - startTime)
       res.status(502).json({
-        error: "Passthrough failed",
+        error: 'Passthrough failed',
         message: error.message,
-      });
+      })
     }
   }
 
   async forward(req, headers) {
-    const url = `https://${this.targetHost}${req.path}`;
+    const url = `https://${this.targetHost}${req.path}`
 
     const response = await fetch(url, {
       method: req.method,
       headers: headers,
-      body: req.method !== "GET" ? JSON.stringify(req.body) : undefined,
-    });
+      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+    })
 
-    const body = await response.json();
+    const body = await response.json()
 
     return {
       status: response.status,
       headers: Object.fromEntries(response.headers),
       body,
-    };
+    }
   }
 
   logInteraction(traceId, req, response, duration, usage, model) {
@@ -184,11 +184,7 @@ class PassthroughHandler {
       prompt_tokens: usage?.prompt_tokens || 0,
       completion_tokens: usage?.completion_tokens || 0,
       total_tokens: usage?.total_tokens || 0,
-      estimated_cost: calculateCost(
-        model,
-        usage?.prompt_tokens,
-        usage?.completion_tokens,
-      ),
+      estimated_cost: calculateCost(model, usage?.prompt_tokens, usage?.completion_tokens),
       status: response.status,
       request_method: req.method,
       request_path: req.path,
@@ -196,9 +192,9 @@ class PassthroughHandler {
       request_body: req.body,
       response_status: response.status,
       response_body: response.body,
-      span_type: "llm",
-      span_name: "passthrough",
-    });
+      span_type: 'llm',
+      span_name: 'passthrough',
+    })
   }
 }
 ```
@@ -210,26 +206,24 @@ class PassthroughHandler {
 
 class AnthropicPassthrough extends PassthroughHandler {
   constructor() {
-    super("api.anthropic.com", {
+    super('api.anthropic.com', {
       extractUsage: (body) => ({
         prompt_tokens: body.usage?.input_tokens || 0,
         completion_tokens: body.usage?.output_tokens || 0,
-        total_tokens:
-          (body.usage?.input_tokens || 0) + (body.usage?.output_tokens || 0),
+        total_tokens: (body.usage?.input_tokens || 0) + (body.usage?.output_tokens || 0),
       }),
       identifyModel: (reqBody) => reqBody?.model,
       headerTransform: (headers) => {
         // Pass through API key
-        const apiKey =
-          headers["x-api-key"] || headers.authorization?.replace("Bearer ", "");
+        const apiKey = headers['x-api-key'] || headers.authorization?.replace('Bearer ', '')
         return {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": headers["anthropic-version"] || "2023-06-01",
-        };
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': headers['anthropic-version'] || '2023-06-01',
+        }
       },
-    });
-    this.provider = "anthropic";
+    })
+    this.provider = 'anthropic'
   }
 }
 ```
@@ -241,7 +235,7 @@ class AnthropicPassthrough extends PassthroughHandler {
 
 class GeminiPassthrough extends PassthroughHandler {
   constructor() {
-    super("generativelanguage.googleapis.com", {
+    super('generativelanguage.googleapis.com', {
       extractUsage: (body) => ({
         prompt_tokens: body.usageMetadata?.promptTokenCount || 0,
         completion_tokens: body.usageMetadata?.candidatesTokenCount || 0,
@@ -249,16 +243,15 @@ class GeminiPassthrough extends PassthroughHandler {
       }),
       identifyModel: (reqBody, respBody) => {
         // Model is often in the path or response
-        return respBody?.modelVersion || "gemini-unknown";
+        return respBody?.modelVersion || 'gemini-unknown'
       },
       headerTransform: (headers) => ({
-        "Content-Type": "application/json",
-        "x-goog-api-key":
-          headers["x-goog-api-key"] ||
-          headers.authorization?.replace("Bearer ", ""),
+        'Content-Type': 'application/json',
+        'x-goog-api-key':
+          headers['x-goog-api-key'] || headers.authorization?.replace('Bearer ', ''),
       }),
-    });
-    this.provider = "gemini";
+    })
+    this.provider = 'gemini'
   }
 }
 ```
@@ -349,48 +342,48 @@ parseStreamChunk(chunk) {
 ```javascript
 // server.js
 
-const { AnthropicPassthrough } = require("./providers/anthropic-passthrough");
-const { GeminiPassthrough } = require("./providers/gemini-passthrough");
+const { AnthropicPassthrough } = require('./providers/anthropic-passthrough')
+const { GeminiPassthrough } = require('./providers/gemini-passthrough')
 
 const passthroughHandlers = {
   anthropic: new AnthropicPassthrough(),
   gemini: new GeminiPassthrough(),
-};
+}
 
 // Passthrough routes
-proxyApp.all("/passthrough/:provider/*", async (req, res) => {
-  const provider = req.params.provider.toLowerCase();
-  const handler = passthroughHandlers[provider];
+proxyApp.all('/passthrough/:provider/*', async (req, res) => {
+  const provider = req.params.provider.toLowerCase()
+  const handler = passthroughHandlers[provider]
 
   if (!handler) {
     return res.status(400).json({
-      error: "Unknown provider",
+      error: 'Unknown provider',
       available: Object.keys(passthroughHandlers),
-    });
+    })
   }
 
   // Remove /passthrough/:provider from path
-  req.path = req.path.replace(`/passthrough/${provider}`, "");
+  req.path = req.path.replace(`/passthrough/${provider}`, '')
 
   if (req.body?.stream) {
-    await handler.handleStreaming(req, res);
+    await handler.handleStreaming(req, res)
   } else {
-    await handler.handle(req, res);
+    await handler.handle(req, res)
   }
-});
+})
 
 // Header-based passthrough detection
 proxyApp.use((req, res, next) => {
-  if (req.headers["x-llmflow-passthrough"] === "true") {
-    const { provider } = registry.resolve(req);
-    const handler = passthroughHandlers[provider.name];
+  if (req.headers['x-llmflow-passthrough'] === 'true') {
+    const { provider } = registry.resolve(req)
+    const handler = passthroughHandlers[provider.name]
 
     if (handler) {
-      return handler.handle(req, res);
+      return handler.handle(req, res)
     }
   }
-  next();
-});
+  next()
+})
 ```
 
 ## Claude Code Integration
@@ -474,25 +467,25 @@ For tools using native OpenAI format but needing passthrough:
 
 ```javascript
 // Add passthrough filter to traces API
-app.get("/api/traces", (req, res) => {
-  const { passthrough } = req.query;
+app.get('/api/traces', (req, res) => {
+  const { passthrough } = req.query
 
   let traces = db.getTraces({
     filters: {
       ...req.query,
-      span_name: passthrough === "true" ? "passthrough" : undefined,
+      span_name: passthrough === 'true' ? 'passthrough' : undefined,
     },
-  });
+  })
 
-  res.json({ traces });
-});
+  res.json({ traces })
+})
 ```
 
 ### Passthrough Stats
 
 ```javascript
 // GET /api/stats/passthrough
-app.get("/api/stats/passthrough", (req, res) => {
+app.get('/api/stats/passthrough', (req, res) => {
   const stats = db
     .prepare(
       `
@@ -507,10 +500,10 @@ app.get("/api/stats/passthrough", (req, res) => {
         GROUP BY provider
     `,
     )
-    .all();
+    .all()
 
-  res.json({ stats });
-});
+  res.json({ stats })
+})
 ```
 
 ## Security Considerations
@@ -524,18 +517,18 @@ app.get("/api/stats/passthrough", (req, res) => {
 ```javascript
 headerTransform: (headers) => {
   // Use environment variable if client doesn't provide key
-  const apiKey = headers["x-api-key"] || process.env.ANTHROPIC_API_KEY;
+  const apiKey = headers['x-api-key'] || process.env.ANTHROPIC_API_KEY
 
   // Don't log the actual key
-  const safeHeaders = { ...headers };
-  delete safeHeaders["x-api-key"];
-  delete safeHeaders["authorization"];
+  const safeHeaders = { ...headers }
+  delete safeHeaders['x-api-key']
+  delete safeHeaders['authorization']
 
   return {
-    "x-api-key": apiKey,
+    'x-api-key': apiKey,
     // ... other headers
-  };
-};
+  }
+}
 ```
 
 ### Rate Limiting
@@ -543,15 +536,15 @@ headerTransform: (headers) => {
 Consider rate limiting passthrough to prevent abuse:
 
 ```javascript
-const rateLimit = require("express-rate-limit");
+const rateLimit = require('express-rate-limit')
 
 const passthroughLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100, // 100 requests per minute
-  message: { error: "Too many requests to passthrough" },
-});
+  message: { error: 'Too many requests to passthrough' },
+})
 
-proxyApp.use("/passthrough", passthroughLimiter);
+proxyApp.use('/passthrough', passthroughLimiter)
 ```
 
 ## Testing
@@ -559,37 +552,34 @@ proxyApp.use("/passthrough", passthroughLimiter);
 ### Unit Tests
 
 ```javascript
-describe("Passthrough Mode", () => {
-  it("should forward Anthropic requests without transformation", async () => {
+describe('Passthrough Mode', () => {
+  it('should forward Anthropic requests without transformation', async () => {
     const req = {
-      path: "/v1/messages",
-      headers: { "x-api-key": "test-key", "anthropic-version": "2023-06-01" },
+      path: '/v1/messages',
+      headers: { 'x-api-key': 'test-key', 'anthropic-version': '2023-06-01' },
       body: {
-        model: "claude-sonnet-4-20250514",
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 100,
-        system: "You are helpful",
-        messages: [{ role: "user", content: "Hi" }],
+        system: 'You are helpful',
+        messages: [{ role: 'user', content: 'Hi' }],
       },
-    };
+    }
 
     // Body should be forwarded as-is
-    const forwarded = await handler.forward(
-      req,
-      handler.headerTransform(req.headers),
-    );
-    expect(forwarded.body.model).to.equal("claude-sonnet-4-20250514");
-  });
+    const forwarded = await handler.forward(req, handler.headerTransform(req.headers))
+    expect(forwarded.body.model).to.equal('claude-sonnet-4-20250514')
+  })
 
-  it("should extract usage from Anthropic response", () => {
+  it('should extract usage from Anthropic response', () => {
     const response = {
       usage: { input_tokens: 10, output_tokens: 20 },
-    };
+    }
 
-    const usage = handler.extractUsage(response);
-    expect(usage.prompt_tokens).to.equal(10);
-    expect(usage.completion_tokens).to.equal(20);
-  });
-});
+    const usage = handler.extractUsage(response)
+    expect(usage.prompt_tokens).to.equal(10)
+    expect(usage.completion_tokens).to.equal(20)
+  })
+})
 ```
 
 ### Integration Test

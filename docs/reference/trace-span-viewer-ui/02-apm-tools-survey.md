@@ -352,7 +352,7 @@ These are _real_ tradeoffs, not bikeshed nits.
 
 3. **Time-unit auto-format**. Use ms for traces > 100ms, µs below. LLM calls are typically 100ms–60s so ms or s, but evaluation runs with mocked clients can be sub-millisecond.
 
-4. **Span color by `span_type`**, not by `model`. `span_type` is the analogue of "service" in APM terms (chat, embed, tool_call, retrieval, agent). Model gets a _badge_ in the name column. This frees up color encoding for the semantic dimension that matters most for visual orientation.
+4. **Span color by `span_type`**, not by `model`. `span_type` is the analogue of "service" in APM terms (chat, embed, tool*call, retrieval, agent). Model gets a \_badge* in the name column. This frees up color encoding for the semantic dimension that matters most for visual orientation.
 
 5. **Cost-aware row decoration**: put `$0.014` or token counts right-aligned in the name column. The Datadog "HTTP status inline in the row" pattern is exactly the right shape — display the most-actionable per-span numeric _in the row_, not buried in a detail panel.
 

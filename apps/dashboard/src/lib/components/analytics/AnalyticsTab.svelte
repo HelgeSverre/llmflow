@@ -27,16 +27,16 @@
   })
 
   // Compute max values for chart scaling
-  let maxDailyTokens = $derived(Math.max(...analytics.daily.map(d => d.total_tokens), 1))
-  let maxToolCost = $derived(Math.max(...analytics.by_tool.map(t => t.total_cost), 0.01))
-  let maxModelCost = $derived(Math.max(...analytics.by_model.map(m => m.total_cost), 0.01))
+  let maxDailyTokens = $derived(Math.max(...analytics.daily.map((d) => d.total_tokens), 1))
+  let maxToolCost = $derived(Math.max(...analytics.by_tool.map((t) => t.total_cost), 0.01))
+  let maxModelCost = $derived(Math.max(...analytics.by_model.map((m) => m.total_cost), 0.01))
   let totalToolCost = $derived(analytics.by_tool.reduce((sum, t) => sum + t.total_cost, 0))
   let totalModelCost = $derived(analytics.by_model.reduce((sum, m) => sum + m.total_cost, 0))
 </script>
 
 <div class="analytics-controls" data-testid="analytics-controls">
-  <select 
-    id="analyticsDaysFilter" 
+  <select
+    id="analyticsDaysFilter"
     data-testid="analytics-days-filter"
     value={String(analyticsDays.value)}
     onchange={handleDaysChange}
@@ -46,9 +46,9 @@
     <option value="30">Last 30 days</option>
     <option value="90">Last 90 days</option>
   </select>
-  <button 
-    id="refreshAnalytics" 
-    class="btn-secondary" 
+  <button
+    id="refreshAnalytics"
+    class="btn-secondary"
     data-testid="analytics-refresh"
     onclick={handleRefresh}
   >
@@ -71,13 +71,17 @@
           <div class="bar-chart">
             <div class="bar-chart-bars">
               {#each analytics.daily as day}
-                <div class="bar-group" style="flex: 1" title="{day.date}: {formatNumber(day.total_tokens)} tokens">
-                  <div 
-                    class="bar bar-total" 
+                <div
+                  class="bar-group"
+                  style="flex: 1"
+                  title="{day.date}: {formatNumber(day.total_tokens)} tokens"
+                >
+                  <div
+                    class="bar bar-total"
                     style="height: {(day.total_tokens / maxDailyTokens) * 100}%"
                   ></div>
-                  <div 
-                    class="bar bar-prompt" 
+                  <div
+                    class="bar bar-prompt"
                     style="height: {(day.prompt_tokens / maxDailyTokens) * 100}%"
                   ></div>
                 </div>
@@ -115,8 +119,8 @@
               <div class="h-bar-row">
                 <span class="h-bar-label" title={tool.tool}>{tool.tool}</span>
                 <div class="h-bar-track">
-                  <div 
-                    class="h-bar-fill tool-{tool.tool.toLowerCase().replace(/[^a-z]/g, '-')}" 
+                  <div
+                    class="h-bar-fill tool-{tool.tool.toLowerCase().replace(/[^a-z]/g, '-')}"
                     style="width: {(tool.total_cost / maxToolCost) * 100}%"
                   ></div>
                 </div>
@@ -146,8 +150,8 @@
               <div class="h-bar-row">
                 <span class="h-bar-label" title={model.model}>{model.model}</span>
                 <div class="h-bar-track">
-                  <div 
-                    class="h-bar-fill" 
+                  <div
+                    class="h-bar-fill"
                     style="width: {(model.total_cost / maxModelCost) * 100}%"
                   ></div>
                 </div>

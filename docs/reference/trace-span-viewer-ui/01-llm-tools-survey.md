@@ -71,9 +71,7 @@ Above the panels: `TraceHeader` with `<SpanStatusBadge statusCode={statusCode} l
 Indent is via inline style:
 
 ```css
-margin-left: calc(
-  (${props.nestingLevel} * var(--trace-tree-nesting-indent)) + 16px
-);
+margin-left: calc((${props.nestingLevel} * var(--trace-tree-nesting-indent)) + 16px);
 ```
 
 Vertical connector lines (the "L"s that draw the tree skeleton) are absolutely positioned at `left: ${nestingLevel * NESTING_INDENT + 29}px`. Error spans use `var(--global-color-danger)` for both connector and icon — this is a nice trick: **the line itself goes red when a descendant errors**, giving you an at-a-glance failure path.
