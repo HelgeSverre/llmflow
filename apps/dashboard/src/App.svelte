@@ -8,6 +8,7 @@
   import MetricsTab from '$lib/components/metrics/MetricsTab.svelte'
   import ModelsTab from '$lib/components/models/ModelsTab.svelte'
   import AnalyticsTab from '$lib/components/analytics/AnalyticsTab.svelte'
+  import SessionsTab from '$lib/components/sessions/SessionsTab.svelte'
   import { tabState, initTabHashSync, setTab, validTabs } from '$lib/stores/tabs.svelte'
   import { initTheme, toggleTheme } from '$lib/stores/theme.svelte'
   import { initWebSocket } from '$lib/stores/websocket.svelte'
@@ -135,6 +136,9 @@
     </div>
     <div id="tracesTab" class="tab-content {tabState.current === 'traces' ? 'active' : ''}" data-testid="traces-tab">
       <TracesTab />
+    </div>
+    <div id="sessionsTab" class="tab-content {tabState.current === 'sessions' ? 'active' : ''}" data-testid="sessions-tab">
+      <SessionsTab />
     </div>
     <div id="logsTab" class="tab-content {tabState.current === 'logs' ? 'active' : ''}" data-testid="logs-tab">
       <LogsTab />
