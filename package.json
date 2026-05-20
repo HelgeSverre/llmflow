@@ -2,48 +2,44 @@
   "name": "llmflow",
   "version": "0.4.1",
   "description": "See what your LLM calls cost. One command. No signup.",
-  "main": "src/server.ts",
+  "private": false,
+  "type": "module",
   "bin": {
     "llmflow": "./bin/llmflow.js"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "start": "bun run src/server.ts",
-    "start:verbose": "VERBOSE=1 bun run src/server.ts",
-    "dev": "bun run --hot src/server.ts",
-    "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "bun run --hot src/server.ts",
-    "build": "npm run build:frontend",
-    "build:frontend": "cd frontend && npm run build",
-    "demo": "bun run test/demo.js",
-    "demo:many": "bun run test/demo.js --count=20",
-    "test": "bun run test/run-tests.js",
-    "test:otlp": "bun run test/run-tests.js otlp-e2e.js",
-    "test:ws": "bun run test/run-tests.js websocket-e2e.js",
-    "test:logs": "bun run test/run-tests.js otlp-logs-e2e.js",
-    "test:metrics": "bun run test/run-tests.js otlp-metrics-e2e.js",
-    "test:providers": "bun run test/run-tests.js providers.js",
-    "test:providers-e2e": "bun run test/run-tests.js providers-e2e.js",
+    "start": "bun run --filter @llmflow/server start",
+    "start:verbose": "VERBOSE=1 bun run --filter @llmflow/server start",
+    "dev": "bun run --filter @llmflow/server dev",
+    "dev:server": "bun run --filter @llmflow/server dev",
+    "dev:dashboard": "bun run --filter @llmflow/dashboard dev",
+    "build": "bun run --filter @llmflow/dashboard build",
+    "demo": "bun run --filter @llmflow/server demo",
+    "demo:many": "bun run --filter @llmflow/server demo:many",
+    "test": "bun run --filter @llmflow/server test",
+    "test:otlp": "bun run --filter @llmflow/server test:otlp",
+    "test:ws": "bun run --filter @llmflow/server test:ws",
+    "test:logs": "bun run --filter @llmflow/server test:logs",
+    "test:metrics": "bun run --filter @llmflow/server test:metrics",
+    "test:providers": "bun run --filter @llmflow/server test:providers",
+    "test:providers-e2e": "bun run --filter @llmflow/server test:providers-e2e",
     "test:e2e": "bunx playwright test",
     "test:e2e:headed": "bunx playwright test --headed",
     "test:e2e:ui": "bunx playwright test --ui",
-    "typecheck": "bun run frontend/node_modules/.bin/tsc --noEmit -p src/tsconfig.json",
-    "prepublishOnly": "cd frontend && npm install && npm run build"
-  },
-  "dependencies": {
-    "get-port": "^7.1.0"
+    "typecheck": "bun run --filter '*' typecheck",
+    "prepublishOnly": "bun install && bun run build"
   },
   "files": [
     "bin/",
-    "src/",
-    "providers/",
-    "public/",
-    "pricing.js",
-    "pricing.fallback.json",
-    "logger.js",
-    "otlp.js",
-    "otlp-logs.js",
-    "otlp-metrics.js",
-    "otlp-export.js"
+    "apps/server/src/",
+    "packages/*/src/",
+    "packages/*/package.json",
+    "packages/pricing/pricing.fallback.json",
+    "public/"
   ],
   "keywords": [
     "llm",
@@ -64,11 +60,12 @@
     "url": "https://github.com/HelgeSverre/llmflow"
   },
   "engines": {
-    "bun": ">=1.0.0"
+    "bun": ">=1.1.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@types/bun": "^1.3.5",
-    "bun-types": "^1.3.5"
+    "bun-types": "^1.3.5",
+    "typescript": "^5.9.3"
   }
 }
