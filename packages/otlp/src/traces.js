@@ -81,6 +81,42 @@ function extractAttributes(attrs) {
 }
 
 /**
+ * Resolve a session ID from span + resource attribute bags.
+ * Priority: OpenInference > LangSmith > Traceloop > Vercel AI SDK.
+ * service.instance.id is a last-resort heuristic for daemons that never set
+ * an explicit session.id — same physical process, same session.
+ */
+function extractSessionId(attrs, resourceAttrs) {
+    return attrs['session.id']
+        || attrs['langsmith.trace.session_id']
+        || attrs['traceloop.association.properties.session_id']
+        || attrs['ai.telemetry.metadata.sessionId']
+        || resourceAttrs['service.instance.id']
+        || null;
+}
+
+/**
+ * Resolve a conversation/thread ID. Conversation = one chat thread.
+ * Distinct from session — a session can contain many conversations.
+ * Priority: OTel official (Development) > Traceloop > Vercel AI SDK.
+ * NB: LangSmith conflates conversation and session in `langsmith.trace.session_id`;
+ *     we read it once into session_id and leave conversation_id null rather
+ *     than duplicate.
+ */
+function extractConversationId(attrs) {
+    return attrs['gen_ai.conversation.id']
+        || attrs['traceloop.association.properties.thread_id']
+        || attrs['ai.telemetry.metadata.threadId']
+        || null;
+}
+
+function extractAgentName(attrs) {
+    return attrs['gen_ai.agent.name']
+        || attrs['gen_ai.agent.id']
+        || null;
+}
+
+/**
  * Determine span type from OTEL attributes
  */
 function determineSpanType(attrs) {
@@ -278,6 +314,9 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
         tags: [],
         trace_id: traceId,
         parent_id: parentId,
+        session_id: extractSessionId(attrs, resourceAttrs),
+        conversation_id: extractConversationId(attrs),
+        agent_name: extractAgentName(attrs),
         span_type: spanType,
         span_name: span.name || attrs['traceloop.entity.name'] || spanType,
         input,
