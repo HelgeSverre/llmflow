@@ -587,6 +587,37 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             })
         }
         
+        // Sessions list
+        if (pathname === '/api/sessions' && method === 'GET') {
+            const limit = Number(url.searchParams.get('limit') || '50')
+            const offset = Number(url.searchParams.get('offset') || '0')
+            return Response.json({
+                sessions: db.getSessions({ limit, offset }),
+                total: db.getSessionCount()
+            })
+        }
+
+        // Session detail
+        if (pathname.match(/^\/api\/sessions\/[^/]+$/) && method === 'GET') {
+            const id = decodeURIComponent(pathname.split('/').pop()!)
+            const traces = db.getSessionTraces(id)
+            if (!traces.length) return Response.json({ error: 'Session not found' }, { status: 404 })
+
+            type Totals = { cost: number; tokens: number; spans: number; errors: number }
+            const totals = (traces as Record<string, unknown>[]).reduce<Totals>((acc, t) => ({
+                cost: acc.cost + ((t.cost as number) || 0),
+                tokens: acc.tokens + ((t.tokens as number) || 0),
+                spans: acc.spans + ((t.span_count as number) || 0),
+                errors: acc.errors + ((t.has_error as number) || 0)
+            }), { cost: 0, tokens: 0, spans: 0, errors: 0 })
+
+            return Response.json({
+                session_id: id,
+                traces,
+                summary: totals
+            })
+        }
+
         // Timeline
         if (pathname === '/api/timeline' && method === 'GET') {
             const limit = Number(url.searchParams.get('limit') || '100')
