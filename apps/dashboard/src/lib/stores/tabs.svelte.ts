@@ -1,4 +1,4 @@
-export const validTabs = ['timeline', 'traces', 'logs', 'metrics', 'models', 'analytics'] as const
+export const validTabs = ['timeline', 'traces', 'sessions', 'logs', 'metrics', 'models', 'analytics'] as const
 export type Tab = typeof validTabs[number]
 
 function getTabFromHash(): Tab {

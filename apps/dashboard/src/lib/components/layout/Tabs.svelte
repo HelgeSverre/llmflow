@@ -4,6 +4,7 @@
   const tabLabels: Record<Tab, string> = {
     timeline: 'Timeline',
     traces: 'Traces',
+    sessions: 'Sessions',
     logs: 'Logs',
     metrics: 'Metrics',
     models: 'Models',
