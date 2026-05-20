@@ -58,11 +58,11 @@ if (args.includes('--version') || args.includes('-v')) {
     process.exit(0);
 }
 
-const serverFile = path.join(__dirname, '..', 'src', 'server.ts');
+const serverFile = path.join(__dirname, '..', 'apps', 'server', 'src', 'server.ts');
 
 // Verify server file exists
 if (!fs.existsSync(serverFile)) {
-    console.error('Error: src/server.ts not found at', serverFile);
+    console.error('Error: apps/server/src/server.ts not found at', serverFile);
     process.exit(1);
 }
 
