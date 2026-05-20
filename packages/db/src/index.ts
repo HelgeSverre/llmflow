@@ -182,7 +182,8 @@ const insertTraceStmt = db.query(`
         request_method, request_path, request_headers, request_body,
         response_status, response_headers, response_body,
         tags, trace_id, parent_id,
-        span_type, span_name, input, output, attributes, service_name
+        span_type, span_name, input, output, attributes, service_name,
+        session_id, conversation_id, agent_name
     ) VALUES (
         $id, $timestamp, $duration_ms,
         $provider, $model,
@@ -191,7 +192,8 @@ const insertTraceStmt = db.query(`
         $request_method, $request_path, $request_headers, $request_body,
         $response_status, $response_headers, $response_body,
         $tags, $trace_id, $parent_id,
-        $span_type, $span_name, $input, $output, $attributes, $service_name
+        $span_type, $span_name, $input, $output, $attributes, $service_name,
+        $session_id, $conversation_id, $agent_name
     )
 `)
 
@@ -298,6 +300,9 @@ export interface Trace {
     output?: unknown
     attributes?: Record<string, unknown>
     service_name?: string
+    session_id?: string | null
+    conversation_id?: string | null
+    agent_name?: string | null
 }
 
 export interface TraceSummary {
@@ -428,7 +433,10 @@ export function insertTrace(trace: Trace) {
         $input: JSON.stringify(trace.input || null),
         $output: JSON.stringify(trace.output || null),
         $attributes: JSON.stringify(trace.attributes || {}),
-        $service_name: trace.service_name || null
+        $service_name: trace.service_name || null,
+        $session_id: trace.session_id || null,
+        $conversation_id: trace.conversation_id || null,
+        $agent_name: trace.agent_name || null
     })
 
     const count = getTraceCount()
