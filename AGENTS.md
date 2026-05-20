@@ -20,6 +20,10 @@ packages/
   db/           bun:sqlite schema + queries (TS, ESM). The safeJson helper lives here.
   providers/    LLM provider adapters (OpenAI, Anthropic, Gemini, …) + passthrough handlers (CJS).
   otlp/         OTLP/HTTP ingestion (traces / logs / metrics) + export to upstream backends (CJS).
+                Sessions: `traces.session_id` (nullable) groups multiple traces. Filled by OTLP
+                ingest from `session.id`, `langsmith.trace.session_id`, `traceloop.association.properties.session_id`,
+                `ai.telemetry.metadata.sessionId`, or `service.instance.id`. `traces.conversation_id`
+                holds `gen_ai.conversation.id` for chat threads. See `packages/otlp/src/traces.js`.
   pricing/      LiteLLM-backed cost calculation + bundled pricing.fallback.json (CJS).
   shared/       logger + cross-cutting utilities (CJS).
   sdk/          Published as `llmflow-sdk` on npm. Workspace-internal name still `llmflow-sdk`.

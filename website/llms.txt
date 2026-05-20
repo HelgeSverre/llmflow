@@ -236,6 +236,20 @@ curl http://localhost:8080/v1/chat/completions \
   -d '{"model":"gpt-4o-mini","messages":[...]}'
 ```
 
+### Custom Sessions
+
+Group multiple traces under a single session by setting `session.id` (OpenInference)
+or `gen_ai.conversation.id` (OTel) on your spans. llmflow recognizes a priority chain:
+
+1. `session.id` (OpenInference) — recommended
+2. `langsmith.trace.session_id`
+3. `traceloop.association.properties.session_id`
+4. `ai.telemetry.metadata.sessionId` (Vercel AI SDK)
+5. `service.instance.id` resource attribute (process-level fallback)
+
+A session shows up in the dashboard's Sessions tab with aggregate cost/token/trace counts.
+Query `GET /api/sessions/:id` for programmatic access.
+
 ## Span Types
 
 LLMFlow recognizes these span types from OpenTelemetry semantic conventions:
