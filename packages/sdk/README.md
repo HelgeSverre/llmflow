@@ -1,20 +1,31 @@
 # LLMFlow SDK
 
-Minimal tracing SDK for LLM applications. Create hierarchical spans to trace your AI pipelines.
+Minimal tracing SDK for LLM applications. Create hierarchical spans to trace
+your AI pipelines and send them to a running LLMFlow instance.
 
 ## Installation
 
-The SDK is included in the LLMFlow repository. Copy `sdk/index.js` to your project or reference it directly:
+```bash
+npm install llmflow-sdk
+# or
+bun add llmflow-sdk
+# or
+pnpm add llmflow-sdk
+```
 
 ```javascript
-const { trace, span, currentTraceHeaders, wrapOpenAI } = require('./sdk')
+import { trace, span, currentTraceHeaders, wrapOpenAI } from 'llmflow-sdk'
+// or, if you prefer CommonJS:
+const { trace, span, currentTraceHeaders, wrapOpenAI } = require('llmflow-sdk')
 ```
+
+The SDK is published from `packages/sdk/` in this monorepo.
 
 ## Quick Start
 
 ```javascript
-const { trace, span, currentTraceHeaders } = require('./sdk')
-const OpenAI = require('openai')
+import { trace, span, currentTraceHeaders } from 'llmflow-sdk'
+import OpenAI from 'openai'
 
 // Use the LLMFlow proxy for automatic LLM call tracing
 const openai = new OpenAI({ baseURL: 'http://localhost:8080/v1' })
@@ -124,7 +135,7 @@ Wrap an OpenAI client to automatically inject trace headers into all requests.
 
 ```javascript
 const OpenAI = require('openai')
-const { wrapOpenAI } = require('./sdk')
+const { wrapOpenAI } = require('llmflow-sdk')
 
 const openai = wrapOpenAI(
   new OpenAI({
@@ -284,10 +295,10 @@ LLM calls made through the proxy with `x-trace-id` and `x-parent-id` headers are
 
 ## TypeScript
 
-TypeScript definitions are included in `sdk/index.d.ts`:
+TypeScript definitions ship with the package (`index.d.ts`):
 
 ```typescript
-import { trace, span, SpanOptions, SpanContext } from './sdk'
+import { trace, span, SpanOptions, SpanContext } from 'llmflow-sdk'
 
 const opts: SpanOptions = {
   type: 'retrieval',
