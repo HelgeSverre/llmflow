@@ -64,16 +64,16 @@ Open [localhost:3000](http://localhost:3000) to see your traces, costs, and toke
 
 ## Features
 
-| Feature                 | Description                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------- |
-| **Cost Tracking**       | Real-time pricing for 2000+ models                                                          |
-| **Request Logging**     | See every request/response with latency                                                     |
-| **Multi-Provider**      | OpenAI, Anthropic, Gemini, Ollama, Groq, Mistral, and more                                  |
-| **OpenTelemetry**       | Accept OTLP/HTTP traces from LangChain, LlamaIndex, Traceloop, Vercel AI SDK, etc.          |
-| **Session correlation** | Group multi-turn agent runs under one session via `session.id` (OpenInference / OTel)       |
-| **Span timeline**       | Virtualized waterfall view; ~5k spans per trace stays smooth                                |
-| **Zero Config**         | Just run it, point your SDK, done                                                           |
-| **Local Storage**       | SQLite database, no external services                                                       |
+| Feature                 | Description                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| **Cost Tracking**       | Real-time pricing for 2000+ models                                                    |
+| **Request Logging**     | See every request/response with latency                                               |
+| **Multi-Provider**      | OpenAI, Anthropic, Gemini, Ollama, Groq, Mistral, and more                            |
+| **OpenTelemetry**       | Accept OTLP/HTTP traces from LangChain, LlamaIndex, Traceloop, Vercel AI SDK, etc.    |
+| **Session correlation** | Group multi-turn agent runs under one session via `session.id` (OpenInference / OTel) |
+| **Span timeline**       | Virtualized waterfall view; ~5k spans per trace stays smooth                          |
+| **Zero Config**         | Just run it, point your SDK, done                                                     |
+| **Local Storage**       | SQLite database, no external services                                                 |
 
 ---
 
@@ -120,13 +120,13 @@ new OTLPTraceExporter({ url: 'http://localhost:3000/v1/traces' })
 If your spans carry one of these attributes, LLMFlow groups multiple traces into
 a single session and exposes them in the **Sessions** tab:
 
-| Convention                                       | Attribute                                        |
-| ------------------------------------------------ | ------------------------------------------------ |
-| OpenInference / Phoenix / Arize                  | `session.id` _(recommended)_                     |
-| LangSmith                                        | `langsmith.trace.session_id`                     |
-| Traceloop / OpenLLMetry                          | `traceloop.association.properties.session_id`    |
-| Vercel AI SDK                                    | `ai.telemetry.metadata.sessionId`                |
-| OTel resource fallback                           | `service.instance.id` resource attribute         |
+| Convention                      | Attribute                                     |
+| ------------------------------- | --------------------------------------------- |
+| OpenInference / Phoenix / Arize | `session.id` _(recommended)_                  |
+| LangSmith                       | `langsmith.trace.session_id`                  |
+| Traceloop / OpenLLMetry         | `traceloop.association.properties.session_id` |
+| Vercel AI SDK                   | `ai.telemetry.metadata.sessionId`             |
+| OTel resource fallback          | `service.instance.id` resource attribute      |
 
 For chat-thread correlation, set `gen_ai.conversation.id` (OTel) or
 `traceloop.association.properties.thread_id`.
@@ -135,13 +135,13 @@ For chat-thread correlation, set `gen_ai.conversation.id` (OTel) or
 
 ## Configuration
 
-| Variable         | Default      | Description                                                  |
-| ---------------- | ------------ | ------------------------------------------------------------ |
-| `PROXY_PORT`     | `8080`       | Proxy port                                                   |
-| `DASHBOARD_PORT` | `3000`       | Dashboard + OTLP receiver port (npx falls back to 1337)      |
-| `DATA_DIR`       | `~/.llmflow` | Data directory                                               |
-| `MAX_TRACES`     | `10000`      | Max traces to retain                                         |
-| `VERBOSE`        | `0`          | Enable verbose logging                                       |
+| Variable         | Default      | Description                                             |
+| ---------------- | ------------ | ------------------------------------------------------- |
+| `PROXY_PORT`     | `8080`       | Proxy port                                              |
+| `DASHBOARD_PORT` | `3000`       | Dashboard + OTLP receiver port (npx falls back to 1337) |
+| `DATA_DIR`       | `~/.llmflow` | Data directory                                          |
+| `MAX_TRACES`     | `10000`      | Max traces to retain                                    |
+| `VERBOSE`        | `0`          | Enable verbose logging                                  |
 
 Set provider API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) if you want the proxy to forward requests.
 

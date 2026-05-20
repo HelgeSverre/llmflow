@@ -31,13 +31,13 @@ docker run -p 3000:3000 -p 8080:8080 \
 
 ## Environment Variables
 
-| Variable         | Default        | Description                              |
-| ---------------- | -------------- | ---------------------------------------- |
-| `DASHBOARD_PORT` | `3000`         | Dashboard + OTLP receiver port           |
-| `PROXY_PORT`     | `8080`         | Proxy server port                        |
-| `DATA_DIR`       | `/root/.llmflow` | SQLite + WAL directory                 |
-| `DB_PATH`        | `$DATA_DIR/data.db` | Override the SQLite file path     |
-| `MAX_TRACES`     | `10000`        | Trace-retention cap (older traces pruned)|
+| Variable         | Default             | Description                               |
+| ---------------- | ------------------- | ----------------------------------------- |
+| `DASHBOARD_PORT` | `3000`              | Dashboard + OTLP receiver port            |
+| `PROXY_PORT`     | `8080`              | Proxy server port                         |
+| `DATA_DIR`       | `/root/.llmflow`    | SQLite + WAL directory                    |
+| `DB_PATH`        | `$DATA_DIR/data.db` | Override the SQLite file path             |
+| `MAX_TRACES`     | `10000`             | Trace-retention cap (older traces pruned) |
 
 ## Supported Providers
 
