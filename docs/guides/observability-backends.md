@@ -18,6 +18,14 @@ LLMFlow can integrate with popular LLM observability platforms, either by:
 | **Zipkin**          | Zipkin Format      | 9411      | `http://localhost:9411/api/v2/spans`                  |
 | **Grafana Tempo**   | OTLP Export        | 4318      | `http://localhost:4318/v1/traces`                     |
 
+> **Sessions work across all OTLP backends.** When LLMFlow ingests spans that
+> carry `session.id` (OpenInference) — or any of `langsmith.trace.session_id`,
+> `traceloop.association.properties.session_id`, `ai.telemetry.metadata.sessionId`,
+> or the `service.instance.id` resource attribute — they show up in the
+> **Sessions** tab grouped by ID. If you also forward to an upstream backend
+> via `OTLP_EXPORT_ENDPOINT`, the same attributes flow through unchanged, so
+> Langfuse / Phoenix / Opik / Tempo all see the same session grouping.
+
 ---
 
 ## Architecture Overview

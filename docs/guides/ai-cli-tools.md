@@ -9,13 +9,23 @@ AI CLI tools can be integrated with LLMFlow in two ways:
 1. **Passthrough Proxy** - Forward native API requests through LLMFlow for logging
 2. **OTLP Telemetry** - Send OpenTelemetry logs/metrics directly to LLMFlow
 
-| Tool        | Passthrough | OTLP Logs | OTLP Metrics |
-| ----------- | ----------- | --------- | ------------ |
-| Claude Code | ✅          | ✅        | ✅           |
-| Codex CLI   | ✅          | ✅        | -            |
-| Gemini CLI  | ✅          | ✅        | ✅           |
-| Aider       | ✅          | -         | -            |
-| Cline       | ✅          | -         | -            |
+| Tool        | Passthrough | OTLP Logs | OTLP Metrics | Sessions                         |
+| ----------- | ----------- | --------- | ------------ | -------------------------------- |
+| Claude Code | ✅          | ✅        | ✅           | via `session.id` resource attr ¹ |
+| Codex CLI   | ✅          | ✅        | -            | via `session.id` resource attr ¹ |
+| Gemini CLI  | ✅          | ✅        | ✅           | via `session.id` resource attr ¹ |
+| Aider       | ✅          | -         | -            | n/a (passthrough only)           |
+| Cline       | ✅          | -         | -            | n/a (passthrough only)           |
+| Glue        | -           | ✅        | -            | ✅ emitted out of the box        |
+
+¹ Many CLI tools don't emit `session.id` by default but accept arbitrary OTel
+resource attributes via environment variables. If you can set
+`OTEL_RESOURCE_ATTRIBUTES=session.id=<your-id>` before launching the tool,
+LLMFlow groups the resulting traces in its **Sessions** tab. See the per-tool
+sections below for specifics. The OpenInference convention (`session.id`) is
+the recommended attribute; LLMFlow also accepts `langsmith.trace.session_id`,
+`traceloop.association.properties.session_id`, `ai.telemetry.metadata.sessionId`,
+and `service.instance.id` as a last-resort fallback.
 
 ---
 
