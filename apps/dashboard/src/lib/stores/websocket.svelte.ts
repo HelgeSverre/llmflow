@@ -19,28 +19,28 @@ export function onMessage(handler: MessageHandler) {
 
 export function initWebSocket() {
   if (typeof window === 'undefined') return
-  
+
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
   ws = new WebSocket(`${protocol}//${location.host}/ws`)
-  
+
   ws.onopen = () => {
     connectionStatus.value = 'connected'
     retryDelay = 1000
   }
-  
+
   ws.onclose = () => {
     connectionStatus.value = 'disconnected'
-    setTimeout(initWebSocket, Math.min(retryDelay *= 1.5, WS_MAX_RETRY))
+    setTimeout(initWebSocket, Math.min((retryDelay *= 1.5), WS_MAX_RETRY))
   }
-  
+
   ws.onerror = () => {
     connectionStatus.value = 'disconnected'
   }
-  
+
   ws.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data)
-      handlers.forEach(h => h(msg))
+      handlers.forEach((h) => h(msg))
     } catch (e) {
       console.error('WebSocket message parse error:', e)
     }

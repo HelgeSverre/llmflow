@@ -8,7 +8,7 @@ LLMFlow is a local observability tool for LLM applications. Point your SDK at it
 npx llmflow
 ```
 
-Dashboard: [localhost:1337](http://localhost:1337) · Proxy: [localhost:8080](http://localhost:8080)
+Dashboard: [localhost:3000](http://localhost:3000) · Proxy: [localhost:8080](http://localhost:8080)
 
 ![LLMFlow Dashboard](art/screenshot-dark.png)
 
@@ -22,12 +22,12 @@ Dashboard: [localhost:1337](http://localhost:1337) · Proxy: [localhost:8080](ht
 # Option A: npx (recommended)
 npx llmflow
 
-# Option B: Clone and run
+# Option B: Clone and run (requires Bun)
 git clone https://github.com/HelgeSverre/llmflow.git
-cd llmflow && npm install && npm start
+cd llmflow && bun install && bun run dev
 
 # Option C: Docker
-docker run -p 1337:1337 -p 8080:8080 helgesverre/llmflow
+docker run -p 3000:3000 -p 8080:8080 helgesverre/llmflow
 ```
 
 ### 2. Point Your SDK
@@ -40,7 +40,7 @@ client = OpenAI(base_url="http://localhost:8080/v1")
 
 ```javascript
 // JavaScript
-const client = new OpenAI({ baseURL: "http://localhost:8080/v1" });
+const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' })
 ```
 
 ```php
@@ -50,7 +50,7 @@ $client = OpenAI::factory()->withBaseUri('http://localhost:8080/v1')->make();
 
 ### 3. View Dashboard
 
-Open [localhost:1337](http://localhost:1337) to see your traces, costs, and token usage.
+Open [localhost:3000](http://localhost:3000) to see your traces, costs, and token usage.
 
 ---
 
@@ -64,14 +64,16 @@ Open [localhost:1337](http://localhost:1337) to see your traces, costs, and toke
 
 ## Features
 
-| Feature             | Description                                                |
-| ------------------- | ---------------------------------------------------------- |
-| **Cost Tracking**   | Real-time pricing for 2000+ models                         |
-| **Request Logging** | See every request/response with latency                    |
-| **Multi-Provider**  | OpenAI, Anthropic, Gemini, Ollama, Groq, Mistral, and more |
-| **OpenTelemetry**   | Accept traces from LangChain, LlamaIndex, etc.             |
-| **Zero Config**     | Just run it, point your SDK, done                          |
-| **Local Storage**   | SQLite database, no external services                      |
+| Feature                 | Description                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------- |
+| **Cost Tracking**       | Real-time pricing for 2000+ models                                                          |
+| **Request Logging**     | See every request/response with latency                                                     |
+| **Multi-Provider**      | OpenAI, Anthropic, Gemini, Ollama, Groq, Mistral, and more                                  |
+| **OpenTelemetry**       | Accept OTLP/HTTP traces from LangChain, LlamaIndex, Traceloop, Vercel AI SDK, etc.          |
+| **Session correlation** | Group multi-turn agent runs under one session via `session.id` (OpenInference / OTel)       |
+| **Span timeline**       | Virtualized waterfall view; ~5k spans per trace stays smooth                                |
+| **Zero Config**         | Just run it, point your SDK, done                                                           |
+| **Local Storage**       | SQLite database, no external services                                                       |
 
 ---
 
@@ -103,27 +105,43 @@ If you're using LangChain, LlamaIndex, or other instrumented frameworks:
 # Python - point OTLP exporter to LLMFlow
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
-exporter = OTLPSpanExporter(endpoint="http://localhost:1337/v1/traces")
+exporter = OTLPSpanExporter(endpoint="http://localhost:3000/v1/traces")
 ```
 
 ```javascript
 // JavaScript
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 
-new OTLPTraceExporter({ url: "http://localhost:1337/v1/traces" });
+new OTLPTraceExporter({ url: 'http://localhost:3000/v1/traces' })
 ```
+
+### Session correlation
+
+If your spans carry one of these attributes, LLMFlow groups multiple traces into
+a single session and exposes them in the **Sessions** tab:
+
+| Convention                                       | Attribute                                        |
+| ------------------------------------------------ | ------------------------------------------------ |
+| OpenInference / Phoenix / Arize                  | `session.id` _(recommended)_                     |
+| LangSmith                                        | `langsmith.trace.session_id`                     |
+| Traceloop / OpenLLMetry                          | `traceloop.association.properties.session_id`    |
+| Vercel AI SDK                                    | `ai.telemetry.metadata.sessionId`                |
+| OTel resource fallback                           | `service.instance.id` resource attribute         |
+
+For chat-thread correlation, set `gen_ai.conversation.id` (OTel) or
+`traceloop.association.properties.thread_id`.
 
 ---
 
 ## Configuration
 
-| Variable         | Default      | Description            |
-| ---------------- | ------------ | ---------------------- |
-| `PROXY_PORT`     | `8080`       | Proxy port             |
-| `DASHBOARD_PORT` | `1337`       | Dashboard port         |
-| `DATA_DIR`       | `~/.llmflow` | Data directory         |
-| `MAX_TRACES`     | `10000`      | Max traces to retain   |
-| `VERBOSE`        | `0`          | Enable verbose logging |
+| Variable         | Default      | Description                                                  |
+| ---------------- | ------------ | ------------------------------------------------------------ |
+| `PROXY_PORT`     | `8080`       | Proxy port                                                   |
+| `DASHBOARD_PORT` | `3000`       | Dashboard + OTLP receiver port (npx falls back to 1337)      |
+| `DATA_DIR`       | `~/.llmflow` | Data directory                                               |
+| `MAX_TRACES`     | `10000`      | Max traces to retain                                         |
+| `VERBOSE`        | `0`          | Enable verbose logging                                       |
 
 Set provider API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) if you want the proxy to forward requests.
 
@@ -131,29 +149,32 @@ Set provider API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API
 
 ## Development
 
+LLMFlow is a Bun workspaces monorepo (`apps/server`, `apps/dashboard`, plus
+six packages under `packages/`). Bun is required.
+
 ```bash
-# Clone and install
+# Clone and install (one workspace install at root covers every package)
 git clone https://github.com/HelgeSverre/llmflow.git
-cd llmflow
-npm install
+cd llmflow && bun install
 
-# Install frontend dependencies
-cd frontend && npm install && cd ..
+# Server (dashboard on :3000, proxy on :8080)
+bun run dev
 
-# Run development mode (backend only)
-npm start
+# Dashboard dev server with HMR (separate terminal, proxies /api + /ws)
+bun run dev:dashboard
 
-# Run frontend dev server with hot reload (separate terminal)
-cd frontend && npm run dev
+# Build dashboard for production (outputs to /public/)
+bun run build
 
-# Build frontend for production
-cd frontend && npm run build
-
-# Run E2E tests
-npm run test:e2e
+# Tests
+bun run test                # server unit/integration
+bun run --filter @llmflow/dashboard test    # viewport vitest suite
+bun run test:e2e            # Playwright
 ```
 
-The frontend is built with Svelte 5 + Vite and outputs to `public/`. The backend serves static files from `public/` in production.
+The dashboard is Svelte 5 + Vite 8 and builds to `/public/` at the repo root.
+The bin entry `bin/llmflow.js` (used by `npx llmflow`) spawns
+`apps/server/src/server.ts` directly.
 
 ---
 

@@ -2,11 +2,11 @@
   import { onMount } from 'svelte'
   import TimelineList from './TimelineList.svelte'
   import TimelineDetail from './TimelineDetail.svelte'
-  import { 
-    timelineFilters, 
-    loadTimeline, 
+  import {
+    timelineFilters,
+    loadTimeline,
     clearFilters,
-    initTimelineSync 
+    initTimelineSync,
   } from '$lib/stores/timeline.svelte'
   import { tabState } from '$lib/stores/tabs.svelte'
 
@@ -55,16 +55,16 @@
 </script>
 
 <div class="filter-bar" data-testid="timeline-filters">
-  <input 
-    type="text" 
+  <input
+    type="text"
     id="timelineSearchInput"
-    data-testid="timeline-search" 
-    placeholder="Search timeline... (press /)" 
+    data-testid="timeline-search"
+    placeholder="Search timeline... (press /)"
     value={searchInput}
     oninput={handleSearchInput}
   />
-  <select 
-    id="toolFilter" 
+  <select
+    id="toolFilter"
     data-testid="timeline-tool-filter"
     value={timelineFilters.tool}
     onchange={handleToolChange}
@@ -76,8 +76,8 @@
     <option value="aider">Aider</option>
     <option value="proxy">Proxy</option>
   </select>
-  <select 
-    id="timelineTypeFilter" 
+  <select
+    id="timelineTypeFilter"
     data-testid="timeline-type-filter"
     value={timelineFilters.type}
     onchange={handleTypeChange}
@@ -87,8 +87,8 @@
     <option value="log">Logs</option>
     <option value="metric">Metrics</option>
   </select>
-  <select 
-    id="timelineDateFilter" 
+  <select
+    id="timelineDateFilter"
     data-testid="timeline-date-filter"
     value={timelineFilters.dateRange}
     onchange={handleDateChange}
@@ -98,9 +98,9 @@
     <option value="24h">Last 24h</option>
     <option value="7d">Last 7d</option>
   </select>
-  <button 
-    id="clearTimelineFilters" 
-    class="btn-secondary" 
+  <button
+    id="clearTimelineFilters"
+    class="btn-secondary"
     data-testid="timeline-clear-filters"
     onclick={handleClear}
   >

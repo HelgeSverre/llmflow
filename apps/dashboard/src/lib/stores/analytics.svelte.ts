@@ -30,7 +30,7 @@ export interface Analytics {
 export const analytics = $state<Analytics>({
   daily: [],
   by_tool: [],
-  by_model: []
+  by_model: [],
 })
 export const analyticsDays = $state<{ value: number }>({ value: 30 })
 

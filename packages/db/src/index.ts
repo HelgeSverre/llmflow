@@ -38,7 +38,7 @@ export function safeJson<T>(raw: unknown, fallback: T): T {
 // Helper to add columns if they don't exist (simple migration)
 function ensureColumn(name: string, definition: string) {
     const info = db.query('PRAGMA table_info(traces)').all() as { name: string }[]
-    if (!info.find(c => c.name === name)) {
+    if (!info.find((c) => c.name === name)) {
         db.exec(`ALTER TABLE traces ADD COLUMN ${name} ${definition}`)
     }
 }
@@ -83,7 +83,14 @@ function initSchema() {
     ensureColumn('attributes', 'TEXT')
     ensureColumn('service_name', 'TEXT')
 
+    // Session correlation columns (v0.3+)
+    ensureColumn('session_id', 'TEXT')
+    ensureColumn('conversation_id', 'TEXT')
+    ensureColumn('agent_name', 'TEXT')
+
     db.exec('CREATE INDEX IF NOT EXISTS idx_traces_parent_id ON traces(parent_id)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_traces_session_id ON traces(session_id)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_traces_conversation_id ON traces(conversation_id)')
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS stats_cache (
@@ -175,7 +182,8 @@ const insertTraceStmt = db.query(`
         request_method, request_path, request_headers, request_body,
         response_status, response_headers, response_body,
         tags, trace_id, parent_id,
-        span_type, span_name, input, output, attributes, service_name
+        span_type, span_name, input, output, attributes, service_name,
+        session_id, conversation_id, agent_name
     ) VALUES (
         $id, $timestamp, $duration_ms,
         $provider, $model,
@@ -184,7 +192,8 @@ const insertTraceStmt = db.query(`
         $request_method, $request_path, $request_headers, $request_body,
         $response_status, $response_headers, $response_body,
         $tags, $trace_id, $parent_id,
-        $span_type, $span_name, $input, $output, $attributes, $service_name
+        $span_type, $span_name, $input, $output, $attributes, $service_name,
+        $session_id, $conversation_id, $agent_name
     )
 `)
 
@@ -291,6 +300,9 @@ export interface Trace {
     output?: unknown
     attributes?: Record<string, unknown>
     service_name?: string
+    session_id?: string | null
+    conversation_id?: string | null
+    agent_name?: string | null
 }
 
 export interface TraceSummary {
@@ -372,6 +384,8 @@ export interface TraceFilters {
     provider?: string
     tag?: string
     service_name?: string
+    session_id?: string
+    conversation_id?: string
 }
 
 export interface LogFilters {
@@ -421,7 +435,10 @@ export function insertTrace(trace: Trace) {
         $input: JSON.stringify(trace.input || null),
         $output: JSON.stringify(trace.output || null),
         $attributes: JSON.stringify(trace.attributes || {}),
-        $service_name: trace.service_name || null
+        $service_name: trace.service_name || null,
+        $session_id: trace.session_id || null,
+        $conversation_id: trace.conversation_id || null,
+        $agent_name: trace.agent_name || null,
     })
 
     const count = getTraceCount()
@@ -443,7 +460,7 @@ export function insertTrace(trace: Trace) {
             parent_id: trace.parent_id || null,
             span_type: trace.span_type || 'llm',
             span_name: trace.span_name || null,
-            service_name: trace.service_name || null
+            service_name: trace.service_name || null,
         }
         try {
             onInsertTrace(summary)
@@ -471,7 +488,9 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
     }
 
     if (filters.q) {
-        where.push('(request_body LIKE $q OR response_body LIKE $q OR input LIKE $q OR output LIKE $q)')
+        where.push(
+            '(request_body LIKE $q OR response_body LIKE $q OR input LIKE $q OR output LIKE $q)',
+        )
         params.$q = `%${filters.q}%`
     }
 
@@ -505,6 +524,16 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
         params.$provider = filters.provider
     }
 
+    if (filters.session_id) {
+        where.push('session_id = $session_id')
+        params.$session_id = filters.session_id
+    }
+
+    if (filters.conversation_id) {
+        where.push('conversation_id = $conversation_id')
+        params.$conversation_id = filters.conversation_id
+    }
+
     if (filters.tag) {
         where.push('tags LIKE $tag')
         params.$tag = `%${filters.tag}%`
@@ -517,11 +546,12 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
     const stmt = db.query(`
-        SELECT 
+        SELECT
             id, timestamp, duration_ms, provider, model,
             prompt_tokens, completion_tokens, total_tokens,
             estimated_cost, status, error, trace_id, parent_id,
-            span_type, span_name, service_name
+            span_type, span_name, service_name,
+            session_id, conversation_id, agent_name
         FROM traces
         ${whereSql}
         ORDER BY timestamp DESC
@@ -532,12 +562,16 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
 }
 
 export function getSpansByTraceId(traceId: string) {
-    return db.query(`
+    return db
+        .query(
+            `
         SELECT *
         FROM traces
         WHERE trace_id = $traceId
         ORDER BY timestamp ASC
-    `).all({ $traceId: traceId })
+    `,
+        )
+        .all({ $traceId: traceId })
 }
 
 export function getTraceById(id: string) {
@@ -545,7 +579,9 @@ export function getTraceById(id: string) {
 }
 
 export function getStats() {
-    const row = db.query(`
+    const row = db
+        .query(
+            `
         SELECT
             COUNT(*) as total_requests,
             COALESCE(SUM(total_tokens), 0) as total_tokens,
@@ -553,9 +589,13 @@ export function getStats() {
             COALESCE(SUM(duration_ms), 0) as total_duration,
             SUM(CASE WHEN status >= 400 THEN 1 ELSE 0 END) as error_count
         FROM traces
-    `).get() as Record<string, number>
+    `,
+        )
+        .get() as Record<string, number>
 
-    const models = db.query(`
+    const models = db
+        .query(
+            `
         SELECT
             model,
             COUNT(*) as count,
@@ -564,11 +604,11 @@ export function getStats() {
         FROM traces
         GROUP BY model
         ORDER BY count DESC
-    `).all()
+    `,
+        )
+        .all()
 
-    const avg_duration = row.total_requests > 0
-        ? row.total_duration / row.total_requests
-        : 0
+    const avg_duration = row.total_requests > 0 ? row.total_duration / row.total_requests : 0
 
     return { ...row, avg_duration, models }
 }
@@ -579,8 +619,73 @@ export function getTraceCount() {
 }
 
 export function getDistinctModels() {
-    return (db.query('SELECT DISTINCT model FROM traces WHERE model IS NOT NULL ORDER BY model').all() as { model: string }[])
-        .map(r => r.model)
+    return (
+        db
+            .query('SELECT DISTINCT model FROM traces WHERE model IS NOT NULL ORDER BY model')
+            .all() as { model: string }[]
+    ).map((r) => r.model)
+}
+
+export interface SessionSummary {
+    session_id: string
+    first_seen: number
+    last_seen: number
+    trace_count: number
+    total_cost: number
+    total_tokens: number
+    agent_name: string | null
+    service_name: string | null
+}
+
+export function getSessions({ limit = 50, offset = 0 } = {}) {
+    return db
+        .query(
+            `
+        SELECT
+            session_id,
+            MIN(timestamp) AS first_seen,
+            MAX(timestamp) AS last_seen,
+            COUNT(DISTINCT trace_id) AS trace_count,
+            COALESCE(SUM(estimated_cost), 0) AS total_cost,
+            COALESCE(SUM(total_tokens), 0) AS total_tokens,
+            (SELECT agent_name FROM traces t2 WHERE t2.session_id = traces.session_id AND agent_name IS NOT NULL LIMIT 1) AS agent_name,
+            (SELECT service_name FROM traces t3 WHERE t3.session_id = traces.session_id AND service_name IS NOT NULL LIMIT 1) AS service_name
+        FROM traces
+        WHERE session_id IS NOT NULL
+        GROUP BY session_id
+        ORDER BY last_seen DESC
+        LIMIT $limit OFFSET $offset
+    `,
+        )
+        .all({ $limit: limit, $offset: offset }) as SessionSummary[]
+}
+
+export function getSessionTraces(session_id: string) {
+    return db
+        .query(
+            `
+        SELECT
+            trace_id,
+            MIN(timestamp) AS started_at,
+            MAX(timestamp + COALESCE(duration_ms, 0)) AS ended_at,
+            COALESCE(SUM(estimated_cost), 0) AS cost,
+            COALESCE(SUM(total_tokens), 0) AS tokens,
+            COUNT(*) AS span_count,
+            MAX(CASE WHEN status >= 400 THEN 1 ELSE 0 END) AS has_error
+        FROM traces
+        WHERE session_id = $session_id
+        GROUP BY trace_id
+        ORDER BY started_at ASC
+    `,
+        )
+        .all({ $session_id: session_id })
+}
+
+export function getSessionCount(): number {
+    const r = db
+        .query('SELECT COUNT(DISTINCT session_id) AS cnt FROM traces WHERE session_id IS NOT NULL')
+        .get() as { cnt: number }
+    return r.cnt
 }
 
 // Log functions
@@ -598,7 +703,7 @@ export function insertLog(log: Log) {
         $service_name: log.service_name || null,
         $scope_name: log.scope_name || null,
         $attributes: JSON.stringify(log.attributes || {}),
-        $resource_attributes: JSON.stringify(log.resource_attributes || {})
+        $resource_attributes: JSON.stringify(log.resource_attributes || {}),
     })
 
     const count = getLogCount()
@@ -614,7 +719,7 @@ export function insertLog(log: Log) {
             event_name: log.event_name || null,
             service_name: log.service_name || null,
             trace_id: log.trace_id || null,
-            body: typeof log.body === 'string' ? log.body.slice(0, 200) : null
+            body: typeof log.body === 'string' ? log.body.slice(0, 200) : null,
         }
         try {
             onInsertLog(summary)
@@ -681,7 +786,10 @@ export function getLogs({ limit = 50, offset = 0, filters = {} as LogFilters } =
 }
 
 export function getLogById(id: string) {
-    const log = db.query('SELECT * FROM logs WHERE id = $id').get({ $id: id }) as Record<string, unknown> | null
+    const log = db.query('SELECT * FROM logs WHERE id = $id').get({ $id: id }) as Record<
+        string,
+        unknown
+    > | null
     if (log) {
         log.attributes = safeJson(log.attributes, {})
         log.resource_attributes = safeJson(log.resource_attributes, {})
@@ -690,12 +798,16 @@ export function getLogById(id: string) {
 }
 
 export function getLogsByTraceId(traceId: string) {
-    return db.query(`
+    return db
+        .query(
+            `
         SELECT *
         FROM logs
         WHERE trace_id = $traceId
         ORDER BY timestamp ASC
-    `).all({ $traceId: traceId })
+    `,
+        )
+        .all({ $traceId: traceId })
 }
 
 export function getLogCount(filters: Partial<LogFilters> = {}) {
@@ -703,7 +815,7 @@ export function getLogCount(filters: Partial<LogFilters> = {}) {
         const result = db.query('SELECT COUNT(*) as cnt FROM logs').get() as { cnt: number }
         return result.cnt
     }
-    
+
     const where: string[] = []
     const params: Record<string, unknown> = {}
 
@@ -718,18 +830,30 @@ export function getLogCount(filters: Partial<LogFilters> = {}) {
     }
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
-    const result = db.query(`SELECT COUNT(*) as cnt FROM logs ${whereSql}`).get(params) as { cnt: number }
+    const result = db.query(`SELECT COUNT(*) as cnt FROM logs ${whereSql}`).get(params) as {
+        cnt: number
+    }
     return result.cnt
 }
 
 export function getDistinctEventNames() {
-    return (db.query('SELECT DISTINCT event_name FROM logs WHERE event_name IS NOT NULL ORDER BY event_name').all() as { event_name: string }[])
-        .map(r => r.event_name)
+    return (
+        db
+            .query(
+                'SELECT DISTINCT event_name FROM logs WHERE event_name IS NOT NULL ORDER BY event_name',
+            )
+            .all() as { event_name: string }[]
+    ).map((r) => r.event_name)
 }
 
 export function getDistinctLogServices() {
-    return (db.query('SELECT DISTINCT service_name FROM logs WHERE service_name IS NOT NULL ORDER BY service_name').all() as { service_name: string }[])
-        .map(r => r.service_name)
+    return (
+        db
+            .query(
+                'SELECT DISTINCT service_name FROM logs WHERE service_name IS NOT NULL ORDER BY service_name',
+            )
+            .all() as { service_name: string }[]
+    ).map((r) => r.service_name)
 }
 
 // Metric functions
@@ -747,7 +871,7 @@ export function insertMetric(metric: Metric) {
         $service_name: metric.service_name || null,
         $scope_name: metric.scope_name || null,
         $attributes: JSON.stringify(metric.attributes || {}),
-        $resource_attributes: JSON.stringify(metric.resource_attributes || {})
+        $resource_attributes: JSON.stringify(metric.resource_attributes || {}),
     })
 
     const count = getMetricCount()
@@ -763,7 +887,7 @@ export function insertMetric(metric: Metric) {
             metric_type: metric.metric_type || 'gauge',
             value_int: metric.value_int,
             value_double: metric.value_double,
-            service_name: metric.service_name || null
+            service_name: metric.service_name || null,
         }
         try {
             onInsertMetric(summary)
@@ -818,7 +942,10 @@ export function getMetrics({ limit = 50, offset = 0, filters = {} as MetricFilte
 }
 
 export function getMetricById(id: string) {
-    const metric = db.query('SELECT * FROM metrics WHERE id = $id').get({ $id: id }) as Record<string, unknown> | null
+    const metric = db.query('SELECT * FROM metrics WHERE id = $id').get({ $id: id }) as Record<
+        string,
+        unknown
+    > | null
     if (metric) {
         metric.attributes = safeJson(metric.attributes, {})
         metric.resource_attributes = safeJson(metric.resource_attributes, {})
@@ -834,7 +961,7 @@ export function getMetricCount(filters: Partial<MetricFilters> = {}) {
         const result = db.query('SELECT COUNT(*) as cnt FROM metrics').get() as { cnt: number }
         return result.cnt
     }
-    
+
     const where: string[] = []
     const params: Record<string, unknown> = {}
 
@@ -849,15 +976,19 @@ export function getMetricCount(filters: Partial<MetricFilters> = {}) {
     }
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
-    const result = db.query(`SELECT COUNT(*) as cnt FROM metrics ${whereSql}`).get(params) as { cnt: number }
+    const result = db.query(`SELECT COUNT(*) as cnt FROM metrics ${whereSql}`).get(params) as {
+        cnt: number
+    }
     return result.cnt
 }
 
 export function getMetricsSummary(filters: { date_from?: number; date_to?: number } = {}) {
     const fromTs = filters.date_from || 0
     const toTs = filters.date_to || Date.now()
-    
-    return db.query(`
+
+    return db
+        .query(
+            `
         SELECT 
             name,
             service_name,
@@ -873,11 +1004,15 @@ export function getMetricsSummary(filters: { date_from?: number; date_to?: numbe
         WHERE timestamp >= $fromTs AND timestamp <= $toTs
         GROUP BY name, service_name
         ORDER BY data_points DESC
-    `).all({ $fromTs: fromTs, $toTs: toTs })
+    `,
+        )
+        .all({ $fromTs: fromTs, $toTs: toTs })
 }
 
 export function getTokenUsage() {
-    return db.query(`
+    return db
+        .query(
+            `
         SELECT 
             service_name,
             json_extract(attributes, '$.model') as model,
@@ -886,17 +1021,27 @@ export function getTokenUsage() {
         FROM metrics
         WHERE name LIKE '%token%' OR name LIKE '%usage%'
         GROUP BY service_name, model, token_type
-    `).all()
+    `,
+        )
+        .all()
 }
 
 export function getDistinctMetricNames() {
-    return (db.query('SELECT DISTINCT name FROM metrics WHERE name IS NOT NULL ORDER BY name').all() as { name: string }[])
-        .map(r => r.name)
+    return (
+        db
+            .query('SELECT DISTINCT name FROM metrics WHERE name IS NOT NULL ORDER BY name')
+            .all() as { name: string }[]
+    ).map((r) => r.name)
 }
 
 export function getDistinctMetricServices() {
-    return (db.query('SELECT DISTINCT service_name FROM metrics WHERE service_name IS NOT NULL ORDER BY service_name').all() as { service_name: string }[])
-        .map(r => r.service_name)
+    return (
+        db
+            .query(
+                'SELECT DISTINCT service_name FROM metrics WHERE service_name IS NOT NULL ORDER BY service_name',
+            )
+            .all() as { service_name: string }[]
+    ).map((r) => r.service_name)
 }
 
 // Analytics functions
@@ -914,9 +1059,9 @@ function formatDateLabel(timestamp: number, interval: string) {
 
 export function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
     if (days <= 0) return []
-    
+
     const now = Date.now()
-    const fromTs = now - (days * 24 * 60 * 60 * 1000)
+    const fromTs = now - days * 24 * 60 * 60 * 1000
 
     let bucketSize: number
     let dateFormat: string
@@ -933,7 +1078,9 @@ export function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
             break
     }
 
-    const data = db.query(`
+    const data = db
+        .query(
+            `
         SELECT
             CAST(timestamp / $bucketSize AS INTEGER) * $bucketSize as bucket,
             strftime($dateFormat, timestamp / 1000, 'unixepoch') as label,
@@ -946,9 +1093,14 @@ export function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
         WHERE timestamp >= $fromTs
         GROUP BY bucket
         ORDER BY bucket ASC
-    `).all({ $bucketSize: bucketSize, $dateFormat: dateFormat, $fromTs: fromTs }) as Record<string, unknown>[]
+    `,
+        )
+        .all({ $bucketSize: bucketSize, $dateFormat: dateFormat, $fromTs: fromTs }) as Record<
+        string,
+        unknown
+    >[]
 
-    const dataMap = new Map(data.map(d => [d.bucket, d]))
+    const dataMap = new Map(data.map((d) => [d.bucket, d]))
 
     const result = []
     const startBucket = Math.floor(fromTs / bucketSize) * bucketSize
@@ -966,7 +1118,7 @@ export function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
                 completion_tokens: 0,
                 total_tokens: 0,
                 total_cost: 0,
-                request_count: 0
+                request_count: 0,
             })
         }
     }
@@ -975,9 +1127,11 @@ export function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
 }
 
 export function getCostByTool({ days = 30 } = {}) {
-    const fromTs = Date.now() - (days * 24 * 60 * 60 * 1000)
-    
-    return db.query(`
+    const fromTs = Date.now() - days * 24 * 60 * 60 * 1000
+
+    return db
+        .query(
+            `
         SELECT 
             provider,
             service_name,
@@ -991,13 +1145,17 @@ export function getCostByTool({ days = 30 } = {}) {
         WHERE timestamp >= $fromTs
         GROUP BY provider, service_name
         ORDER BY total_cost DESC
-    `).all({ $fromTs: fromTs })
+    `,
+        )
+        .all({ $fromTs: fromTs })
 }
 
 export function getCostByModel({ days = 30 } = {}) {
-    const fromTs = Date.now() - (days * 24 * 60 * 60 * 1000)
-    
-    return db.query(`
+    const fromTs = Date.now() - days * 24 * 60 * 60 * 1000
+
+    return db
+        .query(
+            `
         SELECT 
             model,
             provider,
@@ -1010,17 +1168,21 @@ export function getCostByModel({ days = 30 } = {}) {
         WHERE timestamp >= $fromTs AND model IS NOT NULL
         GROUP BY model
         ORDER BY total_cost DESC
-    `).all({ $fromTs: fromTs })
+    `,
+        )
+        .all({ $fromTs: fromTs })
 }
 
 export function getDailyStats({ days = 30 } = {}) {
     if (days <= 0) return []
-    
+
     const now = Date.now()
-    const fromTs = now - (days * 24 * 60 * 60 * 1000)
+    const fromTs = now - days * 24 * 60 * 60 * 1000
     const bucketSize = 24 * 60 * 60 * 1000
 
-    const data = db.query(`
+    const data = db
+        .query(
+            `
         SELECT
             CAST(timestamp / $bucketSize AS INTEGER) * $bucketSize as bucket,
             strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch') as date,
@@ -1031,9 +1193,11 @@ export function getDailyStats({ days = 30 } = {}) {
         WHERE timestamp >= $fromTs
         GROUP BY bucket
         ORDER BY bucket ASC
-    `).all({ $bucketSize: bucketSize, $fromTs: fromTs }) as Record<string, unknown>[]
+    `,
+        )
+        .all({ $bucketSize: bucketSize, $fromTs: fromTs }) as Record<string, unknown>[]
 
-    const dataMap = new Map(data.map(d => [d.bucket, d]))
+    const dataMap = new Map(data.map((d) => [d.bucket, d]))
 
     const result = []
     const startBucket = Math.floor(fromTs / bucketSize) * bucketSize
@@ -1049,7 +1213,7 @@ export function getDailyStats({ days = 30 } = {}) {
                 date: formatDateLabel(bucket, 'day'),
                 tokens: 0,
                 cost: 0,
-                requests: 0
+                requests: 0,
             })
         }
     }

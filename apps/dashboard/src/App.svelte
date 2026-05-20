@@ -8,12 +8,11 @@
   import MetricsTab from '$lib/components/metrics/MetricsTab.svelte'
   import ModelsTab from '$lib/components/models/ModelsTab.svelte'
   import AnalyticsTab from '$lib/components/analytics/AnalyticsTab.svelte'
+  import SessionsTab from '$lib/components/sessions/SessionsTab.svelte'
   import { tabState, initTabHashSync, setTab, validTabs } from '$lib/stores/tabs.svelte'
   import { initTheme, toggleTheme } from '$lib/stores/theme.svelte'
   import { initWebSocket } from '$lib/stores/websocket.svelte'
   import { loadStats, initStatsSync } from '$lib/stores/stats.svelte'
-
-  
 
   onMount(() => {
     initTheme()
@@ -21,32 +20,36 @@
     initWebSocket()
     loadStats()
     initStatsSync()
-    
+
     // Polling fallback for stats
     const statsInterval = setInterval(loadStats, 30000)
-    
+
     // Keyboard shortcuts
     const handleKeydown = (e: KeyboardEvent) => {
-      const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement?.tagName || ''))
-      
+      const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes(
+        document.activeElement?.tagName || '',
+      )
+
       // "/" to focus search
       if (e.key === '/' && !isInputFocused) {
         e.preventDefault()
-        const searchInput = document.querySelector<HTMLInputElement>('.filter-bar input[type="text"]')
+        const searchInput = document.querySelector<HTMLInputElement>(
+          '.filter-bar input[type="text"]',
+        )
         searchInput?.focus()
         return
       }
-      
+
       // Escape: blur input
       if (e.key === 'Escape') {
         if (isInputFocused) {
-          (document.activeElement as HTMLElement)?.blur()
+          ;(document.activeElement as HTMLElement)?.blur()
         }
         return
       }
-      
+
       if (isInputFocused) return
-      
+
       // Tab shortcuts: 1-6 for tabs
       if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const tabIndex = parseInt(e.key) - 1
@@ -56,21 +59,21 @@
         }
         return
       }
-      
+
       // "t" to toggle theme
       if (e.key === 't' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
         toggleTheme()
         return
       }
-      
+
       // Arrow key / j/k navigation
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'j' || e.key === 'k') {
         e.preventDefault()
         navigateList(e.key === 'ArrowDown' || e.key === 'j' ? 1 : -1)
         return
       }
-      
+
       // "r" to refresh
       if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
@@ -79,11 +82,11 @@
         return
       }
     }
-    
+
     function navigateList(direction: number) {
       let rows: HTMLElement[]
       let currentSelected: HTMLElement | null
-      
+
       if (tabState.current === 'timeline') {
         rows = Array.from(document.querySelectorAll('.timeline-item'))
         currentSelected = document.querySelector('.timeline-item.selected')
@@ -99,24 +102,24 @@
       } else {
         return
       }
-      
+
       if (rows.length === 0) return
-      
+
       let currentIndex = currentSelected ? rows.indexOf(currentSelected) : -1
       let newIndex = currentIndex + direction
-      
+
       if (newIndex < 0) newIndex = rows.length - 1
       if (newIndex >= rows.length) newIndex = 0
-      
+
       const newRow = rows[newIndex]
       if (newRow) {
         newRow.click()
         newRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
       }
     }
-    
+
     window.addEventListener('keydown', handleKeydown)
-    
+
     return () => {
       clearInterval(statsInterval)
       window.removeEventListener('keydown', handleKeydown)
@@ -130,22 +133,53 @@
   <main>
     <Tabs />
 
-    <div id="timelineTab" class="tab-content {tabState.current === 'timeline' ? 'active' : ''}" data-testid="timeline-tab">
+    <div
+      id="timelineTab"
+      class="tab-content {tabState.current === 'timeline' ? 'active' : ''}"
+      data-testid="timeline-tab"
+    >
       <TimelineTab />
     </div>
-    <div id="tracesTab" class="tab-content {tabState.current === 'traces' ? 'active' : ''}" data-testid="traces-tab">
+    <div
+      id="tracesTab"
+      class="tab-content {tabState.current === 'traces' ? 'active' : ''}"
+      data-testid="traces-tab"
+    >
       <TracesTab />
     </div>
-    <div id="logsTab" class="tab-content {tabState.current === 'logs' ? 'active' : ''}" data-testid="logs-tab">
+    <div
+      id="sessionsTab"
+      class="tab-content {tabState.current === 'sessions' ? 'active' : ''}"
+      data-testid="sessions-tab"
+    >
+      <SessionsTab />
+    </div>
+    <div
+      id="logsTab"
+      class="tab-content {tabState.current === 'logs' ? 'active' : ''}"
+      data-testid="logs-tab"
+    >
       <LogsTab />
     </div>
-    <div id="metricsTab" class="tab-content {tabState.current === 'metrics' ? 'active' : ''}" data-testid="metrics-tab">
+    <div
+      id="metricsTab"
+      class="tab-content {tabState.current === 'metrics' ? 'active' : ''}"
+      data-testid="metrics-tab"
+    >
       <MetricsTab />
     </div>
-    <div id="modelsTab" class="tab-content {tabState.current === 'models' ? 'active' : ''}" data-testid="models-tab">
+    <div
+      id="modelsTab"
+      class="tab-content {tabState.current === 'models' ? 'active' : ''}"
+      data-testid="models-tab"
+    >
       <ModelsTab />
     </div>
-    <div id="analyticsTab" class="tab-content {tabState.current === 'analytics' ? 'active' : ''}" data-testid="analytics-tab">
+    <div
+      id="analyticsTab"
+      class="tab-content {tabState.current === 'analytics' ? 'active' : ''}"
+      data-testid="analytics-tab"
+    >
       <AnalyticsTab />
     </div>
   </main>

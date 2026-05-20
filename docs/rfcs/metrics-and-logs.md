@@ -49,9 +49,7 @@ LLMFlow will initially support JSON encoding only (matching current `/v1/traces`
   "resourceLogs": [
     {
       "resource": {
-        "attributes": [
-          { "key": "service.name", "value": { "stringValue": "claude-code" } }
-        ]
+        "attributes": [{ "key": "service.name", "value": { "stringValue": "claude-code" } }]
       },
       "scopeLogs": [
         {
@@ -131,27 +129,25 @@ CREATE INDEX IF NOT EXISTS idx_logs_service_name ON logs(service_name);
 
 function extractLogEventName(attrs) {
   // Common patterns for AI CLI tools
-  return (
-    attrs["event.name"] || attrs["log.event.name"] || attrs["name"] || null
-  );
+  return attrs['event.name'] || attrs['log.event.name'] || attrs['name'] || null
 }
 
 function processOtlpLogs(body) {
-  const results = { accepted: 0, rejected: 0, errors: [] };
+  const results = { accepted: 0, rejected: 0, errors: [] }
 
   if (!body || !body.resourceLogs) {
-    return results;
+    return results
   }
 
   for (const resourceLog of body.resourceLogs) {
-    const resourceAttrs = extractAttributes(resourceLog.resource?.attributes);
+    const resourceAttrs = extractAttributes(resourceLog.resource?.attributes)
 
     for (const scopeLog of resourceLog.scopeLogs || []) {
-      const scopeInfo = scopeLog.scope || {};
+      const scopeInfo = scopeLog.scope || {}
 
       for (const logRecord of scopeLog.logRecords || []) {
         try {
-          const attrs = extractAttributes(logRecord.attributes);
+          const attrs = extractAttributes(logRecord.attributes)
 
           db.insertLog({
             id: generateId(),
@@ -163,53 +159,53 @@ function processOtlpLogs(body) {
             trace_id: normalizeId(logRecord.traceId),
             span_id: normalizeId(logRecord.spanId),
             event_name: extractLogEventName(attrs),
-            service_name: resourceAttrs["service.name"] || "unknown",
+            service_name: resourceAttrs['service.name'] || 'unknown',
             scope_name: scopeInfo.name,
             attributes: attrs,
             resource_attributes: resourceAttrs,
-          });
-          results.accepted++;
+          })
+          results.accepted++
         } catch (err) {
-          results.rejected++;
-          results.errors.push(err.message);
+          results.rejected++
+          results.errors.push(err.message)
         }
       }
     }
   }
 
-  return results;
+  return results
 }
 
 function createLogsHandler() {
   return (req, res) => {
-    const contentType = req.headers["content-type"] || "";
+    const contentType = req.headers['content-type'] || ''
 
-    if (!contentType.includes("application/json")) {
+    if (!contentType.includes('application/json')) {
       return res.status(415).json({
-        error: "Unsupported Media Type",
-        message: "Only application/json is supported",
-      });
+        error: 'Unsupported Media Type',
+        message: 'Only application/json is supported',
+      })
     }
 
     try {
-      const results = processOtlpLogs(req.body);
+      const results = processOtlpLogs(req.body)
 
       res.status(200).json({
         partialSuccess:
           results.rejected > 0
             ? {
                 rejectedLogRecords: results.rejected,
-                errorMessage: results.errors.slice(0, 5).join("; "),
+                errorMessage: results.errors.slice(0, 5).join('; '),
               }
             : undefined,
-      });
+      })
     } catch (err) {
       res.status(500).json({
-        error: "Internal Server Error",
+        error: 'Internal Server Error',
         message: err.message,
-      });
+      })
     }
-  };
+  }
 }
 ```
 
@@ -225,7 +221,7 @@ function createLogsHandler() {
 
 ```javascript
 // GET /api/logs
-app.get("/api/logs", (req, res) => {
+app.get('/api/logs', (req, res) => {
   const {
     limit = 50,
     offset = 0,
@@ -235,7 +231,7 @@ app.get("/api/logs", (req, res) => {
     severity_min,
     date_from,
     date_to,
-  } = req.query;
+  } = req.query
 
   const logs = db.getLogs({
     limit: parseInt(limit),
@@ -248,17 +244,17 @@ app.get("/api/logs", (req, res) => {
       date_from,
       date_to,
     },
-  });
+  })
 
-  res.json({ logs, total: db.getLogCount(filters) });
-});
+  res.json({ logs, total: db.getLogCount(filters) })
+})
 
 // GET /api/logs/:id
-app.get("/api/logs/:id", (req, res) => {
-  const log = db.getLogById(req.params.id);
-  if (!log) return res.status(404).json({ error: "Log not found" });
-  res.json(log);
-});
+app.get('/api/logs/:id', (req, res) => {
+  const log = db.getLogById(req.params.id)
+  if (!log) return res.status(404).json({ error: 'Log not found' })
+  res.json(log)
+})
 ```
 
 ## Metrics Implementation
@@ -270,9 +266,7 @@ app.get("/api/logs/:id", (req, res) => {
   "resourceMetrics": [
     {
       "resource": {
-        "attributes": [
-          { "key": "service.name", "value": { "stringValue": "claude-code" } }
-        ]
+        "attributes": [{ "key": "service.name", "value": { "stringValue": "claude-code" } }]
       },
       "scopeMetrics": [
         {
@@ -383,7 +377,7 @@ function getMetricsSummary(filters = {}) {
         ORDER BY data_points DESC
     `,
     )
-    .all(filters);
+    .all(filters)
 }
 
 // Token usage aggregation (common for AI tools)
@@ -401,7 +395,7 @@ function getTokenUsage(filters = {}) {
         GROUP BY service_name, model, token_type
     `,
     )
-    .all();
+    .all()
 }
 ```
 
@@ -409,11 +403,11 @@ function getTokenUsage(filters = {}) {
 
 ```javascript
 // GET /api/metrics
-app.get("/api/metrics", (req, res) => {
-  const { name, service, from, to, aggregation } = req.query;
+app.get('/api/metrics', (req, res) => {
+  const { name, service, from, to, aggregation } = req.query
 
-  if (aggregation === "summary") {
-    return res.json(db.getMetricsSummary({ from, to }));
+  if (aggregation === 'summary') {
+    return res.json(db.getMetricsSummary({ from, to }))
   }
 
   const metrics = db.getMetrics({
@@ -421,16 +415,16 @@ app.get("/api/metrics", (req, res) => {
     service,
     from: parseInt(from),
     to: parseInt(to),
-  });
+  })
 
-  res.json({ metrics });
-});
+  res.json({ metrics })
+})
 
 // GET /api/metrics/tokens - Token usage summary
-app.get("/api/metrics/tokens", (req, res) => {
-  const usage = db.getTokenUsage(req.query);
-  res.json({ usage });
-});
+app.get('/api/metrics/tokens', (req, res) => {
+  const usage = db.getTokenUsage(req.query)
+  res.json({ usage })
+})
 ```
 
 ## Unified Telemetry View
@@ -441,19 +435,19 @@ When logs and spans share `trace_id`, display them together:
 
 ```javascript
 // GET /api/traces/:id/telemetry
-app.get("/api/traces/:id/telemetry", (req, res) => {
-  const traceId = req.params.id;
+app.get('/api/traces/:id/telemetry', (req, res) => {
+  const traceId = req.params.id
 
-  const spans = db.getSpansByTraceId(traceId);
-  const logs = db.getLogsByTraceId(traceId);
+  const spans = db.getSpansByTraceId(traceId)
+  const logs = db.getLogsByTraceId(traceId)
 
   // Merge and sort by timestamp
   const timeline = [...spans, ...logs]
     .map((item) => ({
       ...item,
-      type: item.span_type ? "span" : "log",
+      type: item.span_type ? 'span' : 'log',
     }))
-    .sort((a, b) => a.timestamp - b.timestamp);
+    .sort((a, b) => a.timestamp - b.timestamp)
 
   res.json({
     trace_id: traceId,
@@ -462,8 +456,8 @@ app.get("/api/traces/:id/telemetry", (req, res) => {
       span_count: spans.length,
       log_count: logs.length,
     },
-  });
-});
+  })
+})
 ```
 
 ## Real-time Updates
@@ -473,21 +467,21 @@ Extend WebSocket broadcasts for new signals:
 ```javascript
 // Hook for log insertions
 db.setInsertLogHook((logSummary) => {
-  broadcast({ type: "new_log", payload: logSummary });
+  broadcast({ type: 'new_log', payload: logSummary })
 
   // If log has trace_id, notify trace subscribers
   if (logSummary.trace_id) {
     broadcast({
-      type: "trace_log_added",
+      type: 'trace_log_added',
       payload: { trace_id: logSummary.trace_id, log: logSummary },
-    });
+    })
   }
-});
+})
 
 // Hook for metric insertions
 db.setInsertMetricHook((metricSummary) => {
-  broadcast({ type: "new_metric", payload: metricSummary });
-});
+  broadcast({ type: 'new_metric', payload: metricSummary })
+})
 ```
 
 ## Configuration

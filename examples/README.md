@@ -45,35 +45,35 @@ This folder contains working examples of LLMFlow integrations with popular LLM f
 Point your LLM SDK at the LLMFlow proxy to automatically capture all LLM calls:
 
 ```javascript
-import OpenAI from "openai";
+import OpenAI from 'openai'
 
 const client = new OpenAI({
-  baseURL: "http://localhost:8080/v1",
-});
+  baseURL: 'http://localhost:8080/v1',
+})
 ```
 
 Or with LangChain:
 
 ```javascript
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI } from '@langchain/openai'
 
 const model = new ChatOpenAI({
-  modelName: "gpt-4o-mini",
+  modelName: 'gpt-4o-mini',
   configuration: {
-    baseURL: "http://localhost:8080/v1",
+    baseURL: 'http://localhost:8080/v1',
   },
-});
+})
 ```
 
 Or with Vercel AI SDK:
 
 ```javascript
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAI } from '@ai-sdk/openai'
 
 const openai = createOpenAI({
-  baseURL: "http://localhost:8080/v1",
+  baseURL: 'http://localhost:8080/v1',
   apiKey: process.env.OPENAI_API_KEY,
-});
+})
 ```
 
 ### Method 2: LLMFlow SDK (Manual Spans)
@@ -81,23 +81,23 @@ const openai = createOpenAI({
 For custom workflows, use the LLMFlow SDK directly:
 
 ```javascript
-import { trace, span, currentTraceHeaders } from "llmflow-sdk";
+import { trace, span, currentTraceHeaders } from 'llmflow-sdk'
 
-await trace("my-pipeline", async () => {
-  const docs = await span("retrieval", "vector-search", async () => {
-    return await vectorDB.search(query);
-  });
+await trace('my-pipeline', async () => {
+  const docs = await span('retrieval', 'vector-search', async () => {
+    return await vectorDB.search(query)
+  })
 
   const response = await openai.chat.completions.create(
     {
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: query }],
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: query }],
     },
     {
       headers: currentTraceHeaders(),
     },
-  );
-});
+  )
+})
 ```
 
 ### Method 3: OpenTelemetry (OTLP)
@@ -105,11 +105,11 @@ await trace("my-pipeline", async () => {
 Send traces via the OTLP/HTTP endpoint:
 
 ```javascript
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 
 new OTLPTraceExporter({
-  url: "http://localhost:3000/v1/traces",
-});
+  url: 'http://localhost:3000/v1/traces',
+})
 ```
 
 ## Environment Variables

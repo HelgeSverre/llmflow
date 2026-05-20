@@ -4,8 +4,8 @@
  */
 class BaseProvider {
     constructor() {
-        this.name = 'base';
-        this.displayName = 'Base Provider';
+        this.name = 'base'
+        this.displayName = 'Base Provider'
     }
 
     /**
@@ -14,7 +14,7 @@ class BaseProvider {
      * @returns {Object} { hostname, port, path, protocol }
      */
     getTarget(req) {
-        throw new Error('getTarget() must be implemented by provider');
+        throw new Error('getTarget() must be implemented by provider')
     }
 
     /**
@@ -25,12 +25,12 @@ class BaseProvider {
      */
     transformRequestHeaders(headers, req) {
         const result = {
-            'Content-Type': 'application/json'
-        };
-        if (headers.authorization) {
-            result['Authorization'] = headers.authorization;
+            'Content-Type': 'application/json',
         }
-        return result;
+        if (headers.authorization) {
+            result['Authorization'] = headers.authorization
+        }
+        return result
     }
 
     /**
@@ -40,7 +40,7 @@ class BaseProvider {
      * @returns {Object} Transformed body
      */
     transformRequestBody(body, req) {
-        return body;
+        return body
     }
 
     /**
@@ -53,8 +53,8 @@ class BaseProvider {
         return {
             data: body,
             usage: body.usage || null,
-            model: body.model || req.body?.model || 'unknown'
-        };
+            model: body.model || req.body?.model || 'unknown',
+        }
     }
 
     /**
@@ -63,32 +63,32 @@ class BaseProvider {
      * @returns {Object} { content, usage, done }
      */
     parseStreamChunk(chunk) {
-        const lines = chunk.split('\n');
-        let content = '';
-        let usage = null;
-        let done = false;
+        const lines = chunk.split('\n')
+        let content = ''
+        let usage = null
+        let done = false
 
         for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith('data:')) continue;
+            const trimmed = line.trim()
+            if (!trimmed.startsWith('data:')) continue
 
-            const payload = trimmed.slice(5).trim();
+            const payload = trimmed.slice(5).trim()
             if (payload === '[DONE]') {
-                done = true;
-                continue;
+                done = true
+                continue
             }
 
             try {
-                const json = JSON.parse(payload);
-                const delta = json.choices?.[0]?.delta?.content;
-                if (delta) content += delta;
-                if (json.usage) usage = json.usage;
+                const json = JSON.parse(payload)
+                const delta = json.choices?.[0]?.delta?.content
+                if (delta) content += delta
+                if (json.usage) usage = json.usage
             } catch {
                 // Ignore parse errors
             }
         }
 
-        return { content, usage, done };
+        return { content, usage, done }
     }
 
     /**
@@ -104,13 +104,15 @@ class BaseProvider {
             id: traceId,
             object: 'chat.completion',
             model: req.body?.model,
-            choices: [{
-                message: { role: 'assistant', content: fullContent },
-                finish_reason: 'stop'
-            }],
+            choices: [
+                {
+                    message: { role: 'assistant', content: fullContent },
+                    finish_reason: 'stop',
+                },
+            ],
             usage: usage,
-            _streaming: true
-        };
+            _streaming: true,
+        }
     }
 
     /**
@@ -119,12 +121,13 @@ class BaseProvider {
      * @returns {Object} { prompt_tokens, completion_tokens, total_tokens }
      */
     extractUsage(response) {
-        const usage = response.usage || {};
+        const usage = response.usage || {}
         return {
             prompt_tokens: usage.prompt_tokens || 0,
             completion_tokens: usage.completion_tokens || 0,
-            total_tokens: usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0)
-        };
+            total_tokens:
+                usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+        }
     }
 
     /**
@@ -133,7 +136,7 @@ class BaseProvider {
      * @returns {boolean}
      */
     isStreamingRequest(req) {
-        return req.body && req.body.stream === true;
+        return req.body && req.body.stream === true
     }
 
     /**
@@ -141,8 +144,8 @@ class BaseProvider {
      * @returns {Object} http or https module
      */
     getHttpModule() {
-        return require('https');
+        return require('https')
     }
 }
 
-module.exports = BaseProvider;
+module.exports = BaseProvider

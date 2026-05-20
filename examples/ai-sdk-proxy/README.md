@@ -36,20 +36,20 @@ Instead of calling OpenAI directly, we configure the AI SDK to route requests th
 ## Key Code
 
 ```javascript
-import { createOpenAI } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { createOpenAI } from '@ai-sdk/openai'
+import { generateText } from 'ai'
 
 // Create OpenAI client that routes through LLMFlow proxy
 const openai = createOpenAI({
-  baseURL: "http://localhost:8080/v1",
+  baseURL: 'http://localhost:8080/v1',
   apiKey: process.env.OPENAI_API_KEY,
-});
+})
 
 // Use as normal - all calls are traced
 const { text } = await generateText({
-  model: openai("gpt-4o-mini"),
-  prompt: "Hello!",
-});
+  model: openai('gpt-4o-mini'),
+  prompt: 'Hello!',
+})
 ```
 
 ## Comparison with OTLP

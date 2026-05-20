@@ -44,16 +44,16 @@ export const metricsSummary = $state<MetricSummary[]>([])
 export const metricFilters = $state<MetricFilters>({
   name: '',
   service_name: '',
-  metric_type: ''
+  metric_type: '',
 })
 export const filterOptions = $state<MetricFilterOptions>({
   names: [],
-  services: []
+  services: [],
 })
 
 export async function loadMetrics() {
   if (tabState.current !== 'metrics') return
-  
+
   try {
     const params = new URLSearchParams({ limit: '100' })
     if (metricFilters.name) params.set('name', metricFilters.name)
@@ -70,7 +70,7 @@ export async function loadMetrics() {
 
 export async function loadMetricsSummary() {
   if (tabState.current !== 'metrics') return
-  
+
   try {
     const data = await api.get<{ summary: MetricSummary[] }>('/api/metrics?aggregation=summary')
     metricsSummary.length = 0
@@ -82,7 +82,7 @@ export async function loadMetricsSummary() {
 
 export async function loadFilterOptions() {
   try {
-    const data = await api.get<{ names?: string[], services?: string[] }>('/api/metrics/filters')
+    const data = await api.get<{ names?: string[]; services?: string[] }>('/api/metrics/filters')
     filterOptions.names = data.names || []
     filterOptions.services = data.services || []
   } catch (e) {

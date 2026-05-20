@@ -14,28 +14,30 @@ Then point your SDK at `http://localhost:8080/v1` and open `http://localhost:300
 
 ## Ports
 
-| Port | Description |
-|------|-------------|
+| Port | Description                   |
+| ---- | ----------------------------- |
 | 3000 | Web dashboard & OTLP receiver |
-| 8080 | LLM proxy server |
+| 8080 | LLM proxy server              |
 
 ## Persistent Storage
 
-Mount a volume to persist your data:
+Mount a volume to persist your data (the container's data dir is `/root/.llmflow`):
 
 ```bash
 docker run -p 3000:3000 -p 8080:8080 \
-  -v llmflow-data:/app/data \
+  -v llmflow-data:/root/.llmflow \
   helgesverre/llmflow
 ```
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | Dashboard/OTLP port |
-| `PROXY_PORT` | `8080` | Proxy server port |
-| `DATABASE_PATH` | `./data/llmflow.db` | SQLite database path |
+| Variable         | Default        | Description                              |
+| ---------------- | -------------- | ---------------------------------------- |
+| `DASHBOARD_PORT` | `3000`         | Dashboard + OTLP receiver port           |
+| `PROXY_PORT`     | `8080`         | Proxy server port                        |
+| `DATA_DIR`       | `/root/.llmflow` | SQLite + WAL directory                 |
+| `DB_PATH`        | `$DATA_DIR/data.db` | Override the SQLite file path     |
+| `MAX_TRACES`     | `10000`        | Trace-retention cap (older traces pruned)|
 
 ## Supported Providers
 

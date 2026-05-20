@@ -12,7 +12,7 @@ export const stats = $state<Stats>({
   total_requests: 0,
   total_tokens: 0,
   total_cost: 0,
-  avg_duration: 0
+  avg_duration: 0,
 })
 
 export async function loadStats() {

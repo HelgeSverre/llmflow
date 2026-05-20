@@ -20,6 +20,10 @@ packages/
   db/           bun:sqlite schema + queries (TS, ESM). The safeJson helper lives here.
   providers/    LLM provider adapters (OpenAI, Anthropic, Gemini, …) + passthrough handlers (CJS).
   otlp/         OTLP/HTTP ingestion (traces / logs / metrics) + export to upstream backends (CJS).
+                Sessions: `traces.session_id` (nullable) groups multiple traces. Filled by OTLP
+                ingest from `session.id`, `langsmith.trace.session_id`, `traceloop.association.properties.session_id`,
+                `ai.telemetry.metadata.sessionId`, or `service.instance.id`. `traces.conversation_id`
+                holds `gen_ai.conversation.id` for chat threads. See `packages/otlp/src/traces.js`.
   pricing/      LiteLLM-backed cost calculation + bundled pricing.fallback.json (CJS).
   shared/       logger + cross-cutting utilities (CJS).
   sdk/          Published as `llmflow-sdk` on npm. Workspace-internal name still `llmflow-sdk`.
@@ -36,11 +40,11 @@ release-notes/  v*.md per release.
 
 ```ts
 // In TypeScript (apps/server/src/server.ts)
-import * as db from '@llmflow/db'                                // ESM, typed
+import * as db from '@llmflow/db' // ESM, typed
 import { safeJson } from '@llmflow/db'
-const log = require('@llmflow/shared/logger')                    // CJS
-const { registry } = require('@llmflow/providers')               // CJS
-const { processOtlpTraces } = require('@llmflow/otlp/traces')    // CJS sub-path
+const log = require('@llmflow/shared/logger') // CJS
+const { registry } = require('@llmflow/providers') // CJS
+const { processOtlpTraces } = require('@llmflow/otlp/traces') // CJS sub-path
 ```
 
 `@llmflow/db` is ESM/TypeScript; all other workspace packages are CJS until ported.
@@ -48,7 +52,7 @@ const { processOtlpTraces } = require('@llmflow/otlp/traces')    // CJS sub-path
 ## Code Style
 
 - Backend: TS in `apps/server/src/` + `packages/db/src/`, CJS in every other package (transitional).
-- No semicolons in TS files; semicolons in JS files. No linter/formatter configured.
+- Formatting: Prettier (`just format` / `just format-check`). No semicolons, single quotes, trailing commas, 4-space indent for backend / 2-space for `apps/dashboard/**` and Markdown/JSON/YAML.
 - No comments unless WHY is non-obvious. Minimal dependencies (only `get-port` in production).
 - Naming: camelCase for variables/functions, UPPER_SNAKE for constants, snake_case for DB columns/trace fields.
 - Error handling: try/catch with `log.error(...)`, never throw in request handlers — return error Response.

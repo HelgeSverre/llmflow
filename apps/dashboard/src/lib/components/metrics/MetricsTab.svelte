@@ -2,13 +2,13 @@
   import { onMount } from 'svelte'
   import MetricsSummary from './MetricsSummary.svelte'
   import MetricsTable from './MetricsTable.svelte'
-  import { 
-    metricFilters, 
-    filterOptions, 
-    loadMetrics, 
+  import {
+    metricFilters,
+    filterOptions,
+    loadMetrics,
     loadMetricsSummary,
-    loadFilterOptions, 
-    clearFilters 
+    loadFilterOptions,
+    clearFilters,
   } from '$lib/stores/metrics.svelte'
   import { tabState } from '$lib/stores/tabs.svelte'
 
@@ -44,8 +44,8 @@
 </script>
 
 <div class="filter-bar" data-testid="metrics-filters">
-  <select 
-    id="metricNameFilter" 
+  <select
+    id="metricNameFilter"
     data-testid="metrics-name-filter"
     value={metricFilters.name}
     onchange={handleNameChange}
@@ -55,8 +55,8 @@
       <option value={name}>{name}</option>
     {/each}
   </select>
-  <select 
-    id="metricServiceFilter" 
+  <select
+    id="metricServiceFilter"
     data-testid="metrics-service-filter"
     value={metricFilters.service_name}
     onchange={handleServiceChange}
@@ -66,8 +66,8 @@
       <option value={service}>{service}</option>
     {/each}
   </select>
-  <select 
-    id="metricTypeFilter" 
+  <select
+    id="metricTypeFilter"
     data-testid="metrics-type-filter"
     value={metricFilters.metric_type}
     onchange={handleTypeChange}
@@ -77,9 +77,9 @@
     <option value="gauge">Gauge</option>
     <option value="histogram">Histogram</option>
   </select>
-  <button 
-    id="clearMetricFilters" 
-    class="btn-secondary" 
+  <button
+    id="clearMetricFilters"
+    class="btn-secondary"
     data-testid="metrics-clear-filters"
     onclick={handleClear}
   >

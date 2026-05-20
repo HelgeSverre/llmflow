@@ -89,22 +89,22 @@ src/
 **Before (Express):**
 
 ```javascript
-const express = require("express");
-const app = express();
+const express = require('express')
+const app = express()
 
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ limit: '50mb' }))
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' })
+})
 
-app.get("/api/traces", (req, res) => {
-  const limit = parseInt(req.query.limit) || 50;
-  const traces = db.getTraces({ limit });
-  res.json(traces);
-});
+app.get('/api/traces', (req, res) => {
+  const limit = parseInt(req.query.limit) || 50
+  const traces = db.getTraces({ limit })
+  res.json(traces)
+})
 
-app.listen(3000);
+app.listen(3000)
 ```
 
 **After (Bun):**
@@ -114,21 +114,21 @@ Bun.serve({
   port: 3000,
 
   async fetch(req) {
-    const url = new URL(req.url);
+    const url = new URL(req.url)
 
-    if (url.pathname === "/health" && req.method === "GET") {
-      return Response.json({ status: "ok" });
+    if (url.pathname === '/health' && req.method === 'GET') {
+      return Response.json({ status: 'ok' })
     }
 
-    if (url.pathname === "/api/traces" && req.method === "GET") {
-      const limit = Number(url.searchParams.get("limit") || "50");
-      const traces = db.getTraces({ limit });
-      return Response.json(traces);
+    if (url.pathname === '/api/traces' && req.method === 'GET') {
+      const limit = Number(url.searchParams.get('limit') || '50')
+      const traces = db.getTraces({ limit })
+      return Response.json(traces)
     }
 
-    return new Response("Not Found", { status: 404 });
+    return new Response('Not Found', { status: 404 })
   },
-});
+})
 ```
 
 ### Database: better-sqlite3 → bun:sqlite
@@ -173,24 +173,24 @@ insertStmt.run({ $id: id, $timestamp: timestamp, ... });
 **Before (ws):**
 
 ```javascript
-const WebSocket = require("ws");
-const wss = new WebSocket.Server({ server });
+const WebSocket = require('ws')
+const wss = new WebSocket.Server({ server })
 
-wss.on("connection", (ws) => {
-  ws.send(JSON.stringify({ type: "hello" }));
+wss.on('connection', (ws) => {
+  ws.send(JSON.stringify({ type: 'hello' }))
 
-  ws.on("message", (data) => {
-    console.log("received:", data);
-  });
-});
+  ws.on('message', (data) => {
+    console.log('received:', data)
+  })
+})
 
 // Broadcast to all clients
 function broadcast(data) {
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(data));
+      client.send(JSON.stringify(data))
     }
-  });
+  })
 }
 ```
 
@@ -202,12 +202,12 @@ const server = Bun.serve({
 
   websocket: {
     open(ws) {
-      ws.subscribe("updates");
-      ws.send(JSON.stringify({ type: "hello" }));
+      ws.subscribe('updates')
+      ws.send(JSON.stringify({ type: 'hello' }))
     },
 
     message(ws, message) {
-      console.log("received:", message);
+      console.log('received:', message)
     },
 
     close(ws) {
@@ -216,17 +216,17 @@ const server = Bun.serve({
   },
 
   fetch(req, server) {
-    if (new URL(req.url).pathname === "/ws") {
-      if (server.upgrade(req)) return;
-      return new Response("Upgrade failed", { status: 400 });
+    if (new URL(req.url).pathname === '/ws') {
+      if (server.upgrade(req)) return
+      return new Response('Upgrade failed', { status: 400 })
     }
     // ... other routes
   },
-});
+})
 
 // Broadcast using pub/sub
 function broadcast(data: any) {
-  server.publish("updates", JSON.stringify(data));
+  server.publish('updates', JSON.stringify(data))
 }
 ```
 
@@ -357,58 +357,58 @@ Replace Express with Bun.serve() for dashboard server first (simpler).
 
 ```typescript
 // src/server.ts
-import dashboard from "./index.html";
-import * as db from "./db";
-import { apiRoutes } from "./routes/api";
-import { wsHandler } from "./websocket";
+import dashboard from './index.html'
+import * as db from './db'
+import { apiRoutes } from './routes/api'
+import { wsHandler } from './websocket'
 
-const DASHBOARD_PORT = Number(Bun.env.DASHBOARD_PORT || 3000);
-const PROXY_PORT = Number(Bun.env.PROXY_PORT || 8080);
+const DASHBOARD_PORT = Number(Bun.env.DASHBOARD_PORT || 3000)
+const PROXY_PORT = Number(Bun.env.PROXY_PORT || 8080)
 
 // Dashboard server
 export const dashboardServer = Bun.serve({
   port: DASHBOARD_PORT,
 
   routes: {
-    "/": dashboard, // Svelte app via HTML import
+    '/': dashboard, // Svelte app via HTML import
   },
 
   websocket: wsHandler,
 
   async fetch(req, server) {
-    const url = new URL(req.url);
+    const url = new URL(req.url)
 
     // WebSocket upgrade
-    if (url.pathname === "/ws") {
-      if (server.upgrade(req)) return;
-      return new Response("Upgrade failed", { status: 400 });
+    if (url.pathname === '/ws') {
+      if (server.upgrade(req)) return
+      return new Response('Upgrade failed', { status: 400 })
     }
 
     // API routes
-    if (url.pathname.startsWith("/api/")) {
-      return apiRoutes(req);
+    if (url.pathname.startsWith('/api/')) {
+      return apiRoutes(req)
     }
 
     // OTLP ingestion
-    if (url.pathname.startsWith("/v1/")) {
-      return otlpRoutes(req);
+    if (url.pathname.startsWith('/v1/')) {
+      return otlpRoutes(req)
     }
 
-    return new Response("Not Found", { status: 404 });
+    return new Response('Not Found', { status: 404 })
   },
-});
+})
 
 // Proxy server (separate port)
 export const proxyServer = Bun.serve({
   port: PROXY_PORT,
 
   async fetch(req, server) {
-    return proxyHandler(req, server);
+    return proxyHandler(req, server)
   },
-});
+})
 
-console.log(`Dashboard: http://localhost:${DASHBOARD_PORT}`);
-console.log(`Proxy: http://localhost:${PROXY_PORT}`);
+console.log(`Dashboard: http://localhost:${DASHBOARD_PORT}`)
+console.log(`Proxy: http://localhost:${PROXY_PORT}`)
 ```
 
 **Deliverable:** Both servers running on Bun.serve()
@@ -423,37 +423,37 @@ Convert LLM proxy from http/https to fetch.
 ```typescript
 // src/routes/proxy.ts
 export async function proxyHandler(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const body = req.method !== "GET" ? await req.json() : undefined;
+  const url = new URL(req.url)
+  const body = req.method !== 'GET' ? await req.json() : undefined
 
-  const { provider, cleanPath } = registry.resolve(url.pathname, req.headers);
-  const target = provider.getTarget(cleanPath);
-  const headers = provider.transformRequestHeaders(req.headers);
-  const transformedBody = provider.transformRequestBody(body);
+  const { provider, cleanPath } = registry.resolve(url.pathname, req.headers)
+  const target = provider.getTarget(cleanPath)
+  const headers = provider.transformRequestHeaders(req.headers)
+  const transformedBody = provider.transformRequestBody(body)
 
-  const upstreamUrl = `https://${target.hostname}${target.path}`;
+  const upstreamUrl = `https://${target.hostname}${target.path}`
 
   const upstreamRes = await fetch(upstreamUrl, {
     method: req.method,
     headers,
     body: transformedBody ? JSON.stringify(transformedBody) : undefined,
-  });
+  })
 
   if (body?.stream) {
     // Streaming response
-    const [clientBody, logBody] = upstreamRes.body!.tee();
-    logStreamAsync(logBody, provider, body);
+    const [clientBody, logBody] = upstreamRes.body!.tee()
+    logStreamAsync(logBody, provider, body)
     return new Response(clientBody, {
       status: upstreamRes.status,
       headers: upstreamRes.headers,
-    });
+    })
   }
 
   // Non-streaming
-  const data = await upstreamRes.json();
-  const normalized = provider.normalizeResponse(data);
-  logInteraction(normalized);
-  return Response.json(normalized.data);
+  const data = await upstreamRes.json()
+  const normalized = provider.normalizeResponse(data)
+  logInteraction(normalized)
+  return Response.json(normalized.data)
 }
 ```
 
@@ -470,11 +470,11 @@ Replace ws library with Bun native WebSocket + pub/sub.
 // src/websocket.ts
 export const wsHandler = {
   open(ws: ServerWebSocket) {
-    ws.subscribe("traces");
-    ws.subscribe("logs");
-    ws.subscribe("metrics");
-    ws.subscribe("stats");
-    ws.send(JSON.stringify({ type: "hello", time: Date.now() }));
+    ws.subscribe('traces')
+    ws.subscribe('logs')
+    ws.subscribe('metrics')
+    ws.subscribe('stats')
+    ws.send(JSON.stringify({ type: 'hello', time: Date.now() }))
   },
 
   message(ws: ServerWebSocket, message: string) {
@@ -484,28 +484,28 @@ export const wsHandler = {
   close(ws: ServerWebSocket) {
     // Bun auto-unsubscribes
   },
-};
+}
 
 // Hook into DB for real-time updates
 db.setInsertTraceHook((trace) => {
   dashboardServer.publish(
-    "traces",
+    'traces',
     JSON.stringify({
-      type: "new_trace",
+      type: 'new_trace',
       payload: trace,
     }),
-  );
-});
+  )
+})
 
 db.setInsertLogHook((log) => {
   dashboardServer.publish(
-    "logs",
+    'logs',
     JSON.stringify({
-      type: "new_log",
+      type: 'new_log',
       payload: log,
     }),
-  );
-});
+  )
+})
 ```
 
 **Deliverable:** Real-time updates working via Bun pub/sub
@@ -519,19 +519,19 @@ Use Bun's HTML imports for fullstack bundling.
 
 ```typescript
 // src/server.ts
-import dashboard from "./frontend/index.html";
+import dashboard from './frontend/index.html'
 
 export const dashboardServer = Bun.serve({
   port: 3000,
-  development: Bun.env.NODE_ENV !== "production",
+  development: Bun.env.NODE_ENV !== 'production',
 
   routes: {
-    "/": dashboard,
-    "/dashboard": dashboard,
+    '/': dashboard,
+    '/dashboard': dashboard,
   },
 
   // ... rest of config
-});
+})
 ```
 
 **Deliverable:** Svelte app bundled and served by Bun

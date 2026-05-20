@@ -6,7 +6,7 @@
       return m.sum.toLocaleString()
     }
     if (m.latest_value != null) {
-      return typeof m.latest_value === 'number' 
+      return typeof m.latest_value === 'number'
         ? m.latest_value.toLocaleString(undefined, { maximumFractionDigits: 2 })
         : String(m.latest_value)
     }
@@ -23,7 +23,9 @@
       <div class="metric-card">
         <div class="metric-card-header">
           <span class="metric-card-name" title={m.name}>{m.name}</span>
-          <span class="metric-badge metric-{m.metric_type || 'gauge'}">{m.metric_type || 'gauge'}</span>
+          <span class="metric-badge metric-{m.metric_type || 'gauge'}"
+            >{m.metric_type || 'gauge'}</span
+          >
         </div>
         <div class="metric-card-value">{formatMetricValue(m)}</div>
         <div class="metric-card-meta">

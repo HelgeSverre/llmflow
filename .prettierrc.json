@@ -1,0 +1,25 @@
+{
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "tabWidth": 4,
+  "useTabs": false,
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "plugins": ["prettier-plugin-svelte"],
+  "overrides": [
+    {
+      "files": "*.svelte",
+      "options": { "parser": "svelte" }
+    },
+    {
+      "files": ["apps/dashboard/**/*.{ts,js,svelte,css}"],
+      "options": { "tabWidth": 2 }
+    },
+    {
+      "files": ["*.{md,json,yml,yaml}", "**/*.{md,json,yml,yaml}"],
+      "options": { "tabWidth": 2 }
+    }
+  ]
+}
