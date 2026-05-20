@@ -15,6 +15,26 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const db = new Database(DB_PATH, { create: true })
 
+// Enable WAL so concurrent writers (OTLP ingest, proxy logging) and readers
+// (dashboard polling, WebSocket fanout) don't serialize through a single
+// rollback journal. busy_timeout gives statements a grace period before
+// surfacing SQLITE_BUSY to the caller.
+db.exec('PRAGMA journal_mode=WAL')
+db.exec('PRAGMA busy_timeout=5000')
+db.exec('PRAGMA synchronous=NORMAL')
+
+// Parse a JSON column that may be NULL, empty, or malformed (e.g. a
+// passthrough body that wasn't actually JSON). Never throws.
+export function safeJson<T>(raw: unknown, fallback: T): T {
+    if (raw == null || raw === '') return fallback
+    if (typeof raw !== 'string') return raw as T
+    try {
+        return JSON.parse(raw) as T
+    } catch {
+        return fallback
+    }
+}
+
 // Helper to add columns if they don't exist (simple migration)
 function ensureColumn(name: string, definition: string) {
     const info = db.query('PRAGMA table_info(traces)').all() as { name: string }[]
@@ -29,7 +49,7 @@ function initSchema() {
             id TEXT PRIMARY KEY,
             timestamp INTEGER NOT NULL,
             duration_ms INTEGER,
-            provider TEXT DEFAULT 'openai',
+            provider TEXT,
             model TEXT,
             prompt_tokens INTEGER DEFAULT 0,
             completion_tokens INTEGER DEFAULT 0,
@@ -663,8 +683,8 @@ export function getLogs({ limit = 50, offset = 0, filters = {} as LogFilters } =
 export function getLogById(id: string) {
     const log = db.query('SELECT * FROM logs WHERE id = $id').get({ $id: id }) as Record<string, unknown> | null
     if (log) {
-        log.attributes = JSON.parse(log.attributes as string || '{}')
-        log.resource_attributes = JSON.parse(log.resource_attributes as string || '{}')
+        log.attributes = safeJson(log.attributes, {})
+        log.resource_attributes = safeJson(log.resource_attributes, {})
     }
     return log
 }
@@ -800,10 +820,10 @@ export function getMetrics({ limit = 50, offset = 0, filters = {} as MetricFilte
 export function getMetricById(id: string) {
     const metric = db.query('SELECT * FROM metrics WHERE id = $id').get({ $id: id }) as Record<string, unknown> | null
     if (metric) {
-        metric.attributes = JSON.parse(metric.attributes as string || '{}')
-        metric.resource_attributes = JSON.parse(metric.resource_attributes as string || '{}')
+        metric.attributes = safeJson(metric.attributes, {})
+        metric.resource_attributes = safeJson(metric.resource_attributes, {})
         if (metric.histogram_data) {
-            metric.histogram_data = JSON.parse(metric.histogram_data as string)
+            metric.histogram_data = safeJson(metric.histogram_data, null)
         }
     }
     return metric

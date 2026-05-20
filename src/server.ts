@@ -1,4 +1,5 @@
 import * as db from './db'
+import { safeJson } from './db'
 import path from 'path'
 import fs from 'fs'
 import getPort from 'get-port'
@@ -229,7 +230,8 @@ function getMimeType(filePath: string): string {
 }
 
 // Dashboard server
-export const dashboardServer = Bun.serve({
+function startDashboardServer() {
+    return Bun.serve({
     port: DASHBOARD_PORT,
     
     websocket: {
@@ -269,10 +271,11 @@ export const dashboardServer = Bun.serve({
         if (pathname === '/' || pathname === '/index.html') {
             return serveStaticFile('index.html')
         }
-        
+
         return serveStaticFile(pathname)
     }
-})
+    })
+}
 
 // Sanitize analytics data to ensure no null values that break frontend
 function sanitizeByTool(data: unknown[]): unknown[] {
@@ -508,13 +511,13 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
                 request: {
                     method: t.request_method,
                     path: t.request_path,
-                    headers: JSON.parse(t.request_headers as string || '{}'),
-                    body: JSON.parse(t.request_body as string || '{}')
+                    headers: safeJson(t.request_headers, {}),
+                    body: safeJson(t.request_body, {})
                 },
                 response: {
                     status: t.response_status,
-                    headers: JSON.parse(t.response_headers as string || '{}'),
-                    body: JSON.parse(t.response_body as string || '{}')
+                    headers: safeJson(t.response_headers, {}),
+                    body: safeJson(t.response_body, {})
                 }
             })
         }
@@ -532,17 +535,18 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             const spans = db.getSpansByTraceId(traceId) as Record<string, unknown>[]
             
             // Parse JSON fields and add children array
-            const parsedSpans = spans.map(s => ({
+            type ParsedSpan = Record<string, unknown> & { children: ParsedSpan[] }
+            const parsedSpans: ParsedSpan[] = spans.map(s => ({
                 ...s,
-                request_headers: JSON.parse(s.request_headers as string || '{}'),
-                request_body: JSON.parse(s.request_body as string || '{}'),
-                response_headers: JSON.parse(s.response_headers as string || '{}'),
-                response_body: JSON.parse(s.response_body as string || '{}'),
-                input: JSON.parse(s.input as string || 'null'),
-                output: JSON.parse(s.output as string || 'null'),
-                attributes: JSON.parse(s.attributes as string || '{}'),
-                tags: JSON.parse(s.tags as string || '[]'),
-                children: [] as Record<string, unknown>[]
+                request_headers: safeJson(s.request_headers, {}),
+                request_body: safeJson(s.request_body, {}),
+                response_headers: safeJson(s.response_headers, {}),
+                response_body: safeJson(s.response_body, {}),
+                input: safeJson(s.input, null),
+                output: safeJson(s.output, null),
+                attributes: safeJson(s.attributes, {}),
+                tags: safeJson<unknown[]>(s.tags, []),
+                children: [] as ParsedSpan[]
             }))
             
             // Build tree
@@ -1317,7 +1321,8 @@ async function processPassthroughStreamForLogging(
 }
 
 // Proxy server
-export const proxyServer = Bun.serve({
+function startProxyServer() {
+    return Bun.serve({
     port: PROXY_PORT,
     
     async fetch(req) {
@@ -1396,13 +1401,24 @@ export const proxyServer = Bun.serve({
             headers: corsHeaders
         })
     }
-})
-
-// Initialize OTLP export hooks (forwards traces/logs/metrics to external backends)
-if (EXPORT_ENABLED) {
-    initExportHooks(db)
-    log.info('OTLP export enabled')
+    })
 }
 
-console.log(`[llmflow] Dashboard: http://localhost:${DASHBOARD_PORT}`)
-console.log(`[llmflow] Proxy:     http://localhost:${PROXY_PORT}`)
+// Entry point. Imports of this module from tests or tooling will NOT start
+// listeners — only direct execution (`bun run src/server.ts`) does.
+function main() {
+    if (EXPORT_ENABLED) {
+        initExportHooks(db)
+        log.info('OTLP export enabled')
+    }
+
+    startDashboardServer()
+    startProxyServer()
+
+    console.log(`[llmflow] Dashboard: http://localhost:${DASHBOARD_PORT}`)
+    console.log(`[llmflow] Proxy:     http://localhost:${PROXY_PORT}`)
+}
+
+if (import.meta.main) {
+    main()
+}
