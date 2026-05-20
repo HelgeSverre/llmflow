@@ -52,7 +52,7 @@ const { processOtlpTraces } = require('@llmflow/otlp/traces') // CJS sub-path
 ## Code Style
 
 - Backend: TS in `apps/server/src/` + `packages/db/src/`, CJS in every other package (transitional).
-- No semicolons in TS files; semicolons in JS files. No linter/formatter configured.
+- Formatting: Prettier (`just format` / `just format-check`). No semicolons, single quotes, trailing commas, 4-space indent for backend / 2-space for `apps/dashboard/**` and Markdown/JSON/YAML.
 - No comments unless WHY is non-obvious. Minimal dependencies (only `get-port` in production).
 - Naming: camelCase for variables/functions, UPPER_SNAKE for constants, snake_case for DB columns/trace fields.
 - Error handling: try/catch with `log.error(...)`, never throw in request handlers — return error Response.
