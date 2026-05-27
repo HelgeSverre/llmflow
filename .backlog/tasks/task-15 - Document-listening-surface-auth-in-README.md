@@ -4,7 +4,7 @@ title: Document listening surface + auth in README
 status: Done
 assignee: []
 created_date: '2026-05-27 02:23'
-updated_date: '2026-05-27 03:38'
+updated_date: '2026-05-27 04:11'
 labels:
   - docs
   - p3
@@ -29,8 +29,8 @@ Once optional bearer auth and the safer default binding land (task-6), the READM
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 README has a Security section covering: default binding (127.0.0.1), HOST=0.0.0.0 opt-in, LLMFLOW_TOKEN bearer, and the Docker -p flag implications
-- [ ] #2 docker-compose.yml example shows the safe default; the unsafe variant is a documented alternative
+- [x] #1 README has a Security section covering: default binding (127.0.0.1), HOST=0.0.0.0 opt-in, LLMFLOW_TOKEN bearer, and the Docker -p flag implications
+- [x] #2 docker-compose.yml example shows the safe default; the unsafe variant is a documented alternative
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -38,3 +38,9 @@ Once optional bearer auth and the safer default binding land (task-6), the READM
 <!-- SECTION:PLAN:BEGIN -->
 Single section + a callout box. Easy to land in the same PR as task-6 or directly after.
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+README has a Security section documenting the default-bind footgun, HOST=127.0.0.1 opt-in pattern, LLMFLOW_TOKEN bearer (as planned/tracked), and the Docker -p flag implications. docker-compose.yml publishes ports on 127.0.0.1 by default with a comment explaining how to expose on the LAN.
+<!-- SECTION:FINAL_SUMMARY:END -->

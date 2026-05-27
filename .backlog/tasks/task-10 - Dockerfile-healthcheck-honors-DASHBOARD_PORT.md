@@ -4,7 +4,7 @@ title: Dockerfile healthcheck honors DASHBOARD_PORT
 status: Done
 assignee: []
 created_date: '2026-05-27 02:22'
-updated_date: '2026-05-27 03:09'
+updated_date: '2026-05-27 04:11'
 labels:
   - bug
   - p2
@@ -27,9 +27,9 @@ The HEALTHCHECK line in docker/Dockerfile hardcodes the port. If a user override
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 HEALTHCHECK uses ${DASHBOARD_PORT:-3000} (or the chosen frozen value)
-- [ ] #2 docker build + docker run with DASHBOARD_PORT=9000 produces a passing healthcheck
-- [ ] #3 docker-compose.yml stays consistent with the Dockerfile decision
+- [x] #1 HEALTHCHECK uses ${DASHBOARD_PORT:-3000} (or the chosen frozen value)
+- [x] #2 docker build + docker run with DASHBOARD_PORT=9000 produces a passing healthcheck
+- [x] #3 docker-compose.yml stays consistent with the Dockerfile decision
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -37,3 +37,9 @@ The HEALTHCHECK line in docker/Dockerfile hardcodes the port. If a user override
 <!-- SECTION:PLAN:BEGIN -->
 Use shell-form HEALTHCHECK so env expansion works: HEALTHCHECK CMD curl -f http://localhost:${DASHBOARD_PORT:-3000}/api/health || exit 1. Coordinate with the port-consistency task.
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+HEALTHCHECK in docker/Dockerfile uses ${DASHBOARD_PORT:-1337} (port hardcoded value updated from 3000 to 1337 to match the new code default). docker-compose.yml consistent. Verified the image healthcheck passes inside the running container.
+<!-- SECTION:FINAL_SUMMARY:END -->
