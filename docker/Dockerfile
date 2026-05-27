@@ -12,6 +12,7 @@ COPY packages/pricing/package.json ./packages/pricing/package.json
 COPY packages/providers/package.json ./packages/providers/package.json
 COPY packages/sdk/package.json ./packages/sdk/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY e2e/playwright/package.json ./e2e/playwright/package.json
 
 RUN bun install --frozen-lockfile --production 2>/dev/null || bun install --production
 
