@@ -14,6 +14,21 @@
  */
 
 const http = require('http')
+const {
+    traceId: newTraceId,
+    spanId: newSpanId,
+    SpanKind,
+    buildSpan,
+    buildTracesPayload,
+    genAiChatAttributes,
+    genAiChatAttributesLegacy,
+    genAiEmbeddingsAttributes,
+    genAiToolAttributes,
+    genAiAgentAttributes,
+    genAiWorkflowAttributes,
+    genAiRetrievalAttributes,
+    postOtlp,
+} = require('./lib/otlp-builders.js')
 
 const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000'
 
@@ -346,6 +361,202 @@ async function runTests() {
     assert(modelFilter.status === 200, 'Model filter returns 200')
     const hasOurLlmSpan = modelFilter.data.some((t) => t.id === llmSpanId)
     assert(hasOurLlmSpan, 'LLM span found with model filter')
+
+    // ───────────────────────────────────────────────────────────────────
+    // Tests 9-11: GenAI semconv hardening (current spec + dual-read path)
+    // ───────────────────────────────────────────────────────────────────
+
+    // Test 9: Dual-name equivalence — new (gen_ai.provider.name,
+    // input_tokens/output_tokens) vs deprecated v1.36.0 (gen_ai.system,
+    // prompt_tokens/completion_tokens) produce identical DB rows.
+    console.log(`\n${c.yellow}Test 9: Dual-name equivalence${c.reset}`)
+
+    const newSpan = newSpanId()
+    const oldSpan = newSpanId()
+    const t9now = Date.now()
+    const dualPayload = buildTracesPayload({
+        spans: [
+            buildSpan({
+                traceId: newTraceId(),
+                spanId: newSpan,
+                name: 'chat gpt-4o-mini',
+                kind: SpanKind.CLIENT,
+                startMs: t9now,
+                endMs: t9now + 100,
+                attributes: genAiChatAttributes({
+                    provider: 'openai',
+                    model: 'gpt-4o-mini',
+                    inputTokens: 100,
+                    outputTokens: 50,
+                    finishReasons: ['stop'],
+                }),
+            }),
+            buildSpan({
+                traceId: newTraceId(),
+                spanId: oldSpan,
+                name: 'openai.chat',
+                kind: SpanKind.CLIENT,
+                startMs: t9now,
+                endMs: t9now + 100,
+                attributes: genAiChatAttributesLegacy({
+                    provider: 'openai',
+                    model: 'gpt-4o-mini',
+                    inputTokens: 100,
+                    outputTokens: 50,
+                }),
+            }),
+        ],
+    })
+
+    const dualResult = await postOtlp(LLMFLOW_URL, '/v1/traces', dualPayload)
+    assert(dualResult.status === 200, 'Dual-name payload accepted')
+
+    await new Promise((r) => setTimeout(r, 150))
+    const newRow = await httpRequest('GET', `/api/traces/${newSpan}`)
+    const oldRow = await httpRequest('GET', `/api/traces/${oldSpan}`)
+    assert(
+        newRow.data.trace?.prompt_tokens === oldRow.data.trace?.prompt_tokens,
+        'New + old attribute names produce equal prompt_tokens',
+    )
+    assert(
+        newRow.data.trace?.completion_tokens === oldRow.data.trace?.completion_tokens,
+        'New + old attribute names produce equal completion_tokens',
+    )
+    assert(
+        newRow.data.trace?.total_tokens === oldRow.data.trace?.total_tokens,
+        'New + old attribute names produce equal total_tokens',
+    )
+    assert(
+        newRow.data.trace?.model === oldRow.data.trace?.model,
+        'New + old attribute names produce equal model',
+    )
+
+    // Test 10: New-field capture — cache_creation/cache_read/reasoning tokens
+    // reach the attributes blob.
+    console.log(`\n${c.yellow}Test 10: Cache + reasoning token capture${c.reset}`)
+
+    const cacheSpan = newSpanId()
+    const t10now = Date.now()
+    await postOtlp(LLMFLOW_URL, '/v1/traces', buildTracesPayload({
+        spans: [
+            buildSpan({
+                traceId: newTraceId(),
+                spanId: cacheSpan,
+                name: 'chat claude-3-5-sonnet',
+                kind: SpanKind.CLIENT,
+                startMs: t10now,
+                endMs: t10now + 200,
+                attributes: genAiChatAttributes({
+                    provider: 'anthropic',
+                    model: 'claude-3-5-sonnet',
+                    inputTokens: 50,
+                    outputTokens: 100,
+                    cacheCreationInputTokens: 25,
+                    cacheReadInputTokens: 200,
+                    reasoningOutputTokens: 512,
+                }),
+            }),
+        ],
+    }))
+
+    await new Promise((r) => setTimeout(r, 150))
+    const cacheTree = await httpRequest('GET', `/api/traces/${cacheSpan}/tree`)
+    const cacheSpanRow = cacheTree.data.spans?.find((s) => s.id === cacheSpan)
+    const cacheAttrs = cacheSpanRow?.attributes || {}
+    assert(
+        cacheAttrs.cache_creation_input_tokens === 25,
+        'cache_creation_input_tokens stored in attributes blob',
+    )
+    assert(
+        cacheAttrs.cache_read_input_tokens === 200,
+        'cache_read_input_tokens stored in attributes blob',
+    )
+    assert(
+        cacheAttrs.reasoning_output_tokens === 512,
+        'reasoning_output_tokens stored in attributes blob',
+    )
+
+    // Test 11: Operation-driven span_type mapping — each of the 6 GenAI
+    // operation.name values yields the correct LLMFlow span_type.
+    console.log(`\n${c.yellow}Test 11: gen_ai.operation.name → span_type${c.reset}`)
+
+    const opCases = [
+        {
+            op: 'chat',
+            expected: 'llm',
+            attrs: genAiChatAttributes({
+                provider: 'openai',
+                model: 'gpt-4',
+                inputTokens: 1,
+                outputTokens: 1,
+            }),
+        },
+        {
+            op: 'embeddings',
+            expected: 'embedding',
+            attrs: genAiEmbeddingsAttributes({
+                provider: 'openai',
+                model: 'text-embedding-3-small',
+                inputTokens: 1,
+                dimensions: 1536,
+            }),
+        },
+        {
+            op: 'execute_tool',
+            expected: 'tool',
+            attrs: genAiToolAttributes({ name: 'web_search', callId: 'c1' }),
+        },
+        {
+            op: 'invoke_agent',
+            expected: 'agent',
+            attrs: genAiAgentAttributes({ id: 'a1', name: 'researcher' }),
+        },
+        {
+            op: 'invoke_workflow',
+            expected: 'chain',
+            attrs: genAiWorkflowAttributes({ name: 'rag-pipeline' }),
+        },
+        {
+            op: 'retrieval',
+            expected: 'retrieval',
+            attrs: genAiRetrievalAttributes({ dataSourceId: 'pinecone-prod', topK: 5 }),
+        },
+    ]
+
+    const opSpans = opCases.map((tc) => ({
+        ...tc,
+        spanId: newSpanId(),
+        traceId: newTraceId(),
+    }))
+
+    const t11now = Date.now()
+    await postOtlp(
+        LLMFLOW_URL,
+        '/v1/traces',
+        buildTracesPayload({
+            spans: opSpans.map((s) =>
+                buildSpan({
+                    traceId: s.traceId,
+                    spanId: s.spanId,
+                    name: `${s.op} test`,
+                    kind: SpanKind.INTERNAL,
+                    startMs: t11now,
+                    endMs: t11now + 10,
+                    attributes: s.attrs,
+                }),
+            ),
+        }),
+    )
+
+    await new Promise((r) => setTimeout(r, 200))
+    for (const s of opSpans) {
+        const tree = await httpRequest('GET', `/api/traces/${s.spanId}/tree`)
+        const row = tree.data.spans?.find((x) => x.id === s.spanId)
+        assert(
+            row?.span_type === s.expected,
+            `operation.name=${s.op} → span_type=${s.expected} (got ${row?.span_type})`,
+        )
+    }
 
     // Summary
     console.log(`\n${c.cyan}Summary${c.reset}`)

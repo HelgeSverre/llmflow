@@ -107,10 +107,15 @@ test('traceToOtlpSpan extracts gen_ai attributes', () => {
 
     const attrMap = Object.fromEntries(span.attributes.map((a) => [a.key, a.value]))
 
-    assert.strictEqual(attrMap['gen_ai.system'].stringValue, 'anthropic')
+    // Export emits current OTel GenAI semconv names by default
+    assert.strictEqual(attrMap['gen_ai.provider.name'].stringValue, 'anthropic')
+    assert.strictEqual(attrMap['gen_ai.operation.name'].stringValue, 'chat')
     assert.strictEqual(attrMap['gen_ai.request.model'].stringValue, 'claude-3-haiku')
-    assert.strictEqual(attrMap['gen_ai.usage.prompt_tokens'].intValue, '50')
-    assert.strictEqual(attrMap['gen_ai.usage.completion_tokens'].intValue, '100')
+    assert.strictEqual(attrMap['gen_ai.usage.input_tokens'].intValue, '50')
+    assert.strictEqual(attrMap['gen_ai.usage.output_tokens'].intValue, '100')
+    // Deprecated names are NOT emitted unless LLMFLOW_OTLP_LEGACY_ATTRS=1
+    assert.strictEqual(attrMap['gen_ai.system'], undefined)
+    assert.strictEqual(attrMap['gen_ai.usage.prompt_tokens'], undefined)
 })
 
 // Test log conversion

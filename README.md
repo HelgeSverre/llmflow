@@ -115,6 +115,14 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 new OTLPTraceExporter({ url: 'http://localhost:1337/v1/traces' })
 ```
 
+LLMFlow accepts both the current
+[OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+(`gen_ai.provider.name`, `gen_ai.usage.input_tokens`, structured
+`gen_ai.input.messages`, etc.) and the deprecated v1.36.0 names
+(`gen_ai.system`, `gen_ai.usage.prompt_tokens`). See
+[GenAI semantic conventions](docs/guides/genai-semconv.md) for the full key
+list, precedence rules, and the `LLMFLOW_OTLP_LEGACY_ATTRS` export flag.
+
 ### Session correlation
 
 If your spans carry one of these attributes, LLMFlow groups multiple traces into
@@ -243,6 +251,7 @@ For advanced usage, see the [docs/](docs/) folder:
 
 - [AI CLI Tools](docs/guides/ai-cli-tools.md) - Claude Code, Codex CLI, Gemini CLI
 - [Observability Backends](docs/guides/observability-backends.md) - Export to Jaeger, Langfuse, Phoenix
+- [GenAI Semantic Conventions](docs/guides/genai-semconv.md) - Supported `gen_ai.*` attributes (current + legacy)
 - [Passthrough Mode](docs/guides/ai-cli-tools.md#passthrough-mode) - Forward native API formats
 
 ---

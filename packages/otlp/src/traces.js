@@ -15,20 +15,48 @@ const db = require('@llmflow/db')
 const { calculateCost } = require('@llmflow/pricing')
 
 /**
- * Map gen_ai.system values to span types
+ * Map gen_ai.operation.name (OTel GenAI semconv, Development status) to span types.
+ * This is the highest-priority signal — newer instrumentations (OpenAI SDK,
+ * Anthropic SDK, Vercel AI SDK v5+) emit operation.name directly.
+ * Spec: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+ */
+const GENAI_OPERATION_TO_SPAN_TYPE = {
+    chat: 'llm',
+    text_completion: 'llm',
+    generate_content: 'llm',
+    embeddings: 'embedding',
+    execute_tool: 'tool',
+    create_agent: 'agent',
+    invoke_agent: 'agent',
+    invoke_workflow: 'chain',
+    retrieval: 'retrieval',
+}
+
+/**
+ * Map gen_ai.system / gen_ai.provider.name values to span types
  */
 const PROVIDER_TO_SPAN_TYPE = {
     openai: 'llm',
     anthropic: 'llm',
     cohere: 'llm',
     bedrock: 'llm',
+    'aws.bedrock': 'llm',
     azure: 'llm',
+    'azure.ai.openai': 'llm',
     google: 'llm',
+    'gcp.gemini': 'llm',
+    'gcp.gen_ai': 'llm',
+    'gcp.vertex_ai': 'llm',
     ollama: 'llm',
     groq: 'llm',
     together: 'llm',
     mistral: 'llm',
+    mistral_ai: 'llm',
     replicate: 'llm',
+    deepseek: 'llm',
+    perplexity: 'llm',
+    x_ai: 'llm',
+    'ibm.watsonx.ai': 'llm',
 }
 
 /**
@@ -119,19 +147,28 @@ function extractAgentName(attrs) {
 }
 
 /**
- * Determine span type from OTEL attributes
+ * Determine span type from OTEL attributes.
+ * Precedence: gen_ai.operation.name (current spec) → traceloop.span.kind →
+ * gen_ai.system/gen_ai.provider.name (legacy/v1.36.0) → llm.request.type →
+ * db.system (vector DBs) → span-name heuristics.
  */
 function determineSpanType(attrs) {
-    // Check for traceloop span kind first (LangChain, etc.)
+    // Highest priority: gen_ai.operation.name (current OTel spec)
+    const operationName = attrs['gen_ai.operation.name']
+    if (operationName && GENAI_OPERATION_TO_SPAN_TYPE[operationName]) {
+        return GENAI_OPERATION_TO_SPAN_TYPE[operationName]
+    }
+
+    // Traceloop span kind (LangChain, etc.)
     const traceloopKind = attrs['traceloop.span.kind']
     if (traceloopKind && TRACELOOP_KIND_TO_SPAN_TYPE[traceloopKind]) {
         return TRACELOOP_KIND_TO_SPAN_TYPE[traceloopKind]
     }
 
-    // Check for gen_ai.system (OpenLLMetry)
-    const genAiSystem = attrs['gen_ai.system']
-    if (genAiSystem) {
-        return PROVIDER_TO_SPAN_TYPE[genAiSystem.toLowerCase()] || 'llm'
+    // gen_ai.provider.name (current spec) or gen_ai.system (deprecated)
+    const provider = attrs['gen_ai.provider.name'] || attrs['gen_ai.system']
+    if (provider) {
+        return PROVIDER_TO_SPAN_TYPE[provider.toLowerCase()] || 'llm'
     }
 
     // Check for llm.request.type
@@ -174,66 +211,116 @@ function extractModel(attrs) {
 }
 
 /**
- * Extract token usage from attributes
+ * Extract token usage from attributes.
+ * Dual-reads current spec (input_tokens/output_tokens) and deprecated
+ * (prompt_tokens/completion_tokens), with current names taking precedence.
+ * Also surfaces newer fields — Anthropic prompt-cache tokens and o1-style
+ * reasoning tokens — for callers that want to stash them in the attributes
+ * blob (the DB schema only has prompt_tokens/completion_tokens columns).
  */
 function extractTokens(attrs) {
     return {
         prompt:
-            attrs['gen_ai.usage.prompt_tokens'] ||
-            attrs['llm.usage.prompt_tokens'] ||
-            attrs['llm.token_count.prompt'] ||
+            attrs['gen_ai.usage.input_tokens'] ??
+            attrs['gen_ai.usage.prompt_tokens'] ??
+            attrs['llm.usage.prompt_tokens'] ??
+            attrs['llm.token_count.prompt'] ??
             0,
         completion:
-            attrs['gen_ai.usage.completion_tokens'] ||
-            attrs['llm.usage.completion_tokens'] ||
-            attrs['llm.token_count.completion'] ||
+            attrs['gen_ai.usage.output_tokens'] ??
+            attrs['gen_ai.usage.completion_tokens'] ??
+            attrs['llm.usage.completion_tokens'] ??
+            attrs['llm.token_count.completion'] ??
             0,
         total:
-            attrs['gen_ai.usage.total_tokens'] ||
-            attrs['llm.usage.total_tokens'] ||
-            attrs['llm.token_count.total'] ||
+            attrs['gen_ai.usage.total_tokens'] ??
+            attrs['llm.usage.total_tokens'] ??
+            attrs['llm.token_count.total'] ??
             0,
+        cacheCreationInput: attrs['gen_ai.usage.cache_creation.input_tokens'] ?? null,
+        cacheReadInput: attrs['gen_ai.usage.cache_read.input_tokens'] ?? null,
+        reasoningOutput: attrs['gen_ai.usage.reasoning.output_tokens'] ?? null,
     }
 }
 
 /**
- * Extract input/output from attributes or events
+ * Parse an attribute value that may be a JSON-encoded string or already an
+ * object/array (instrumentations vary).
+ */
+function parseMaybeJson(value) {
+    if (value == null) return null
+    if (typeof value !== 'string') return value
+    try {
+        return JSON.parse(value)
+    } catch {
+        return value
+    }
+}
+
+/**
+ * Extract input/output from attributes or events.
+ * Precedence:
+ *   1. gen_ai.input.messages / gen_ai.output.messages (current spec,
+ *      structured array with role + parts)
+ *   2. gen_ai.system_instructions (current spec, system-prompt array)
+ *   3. gen_ai.prompt / gen_ai.completion (deprecated v1.36.0 attributes)
+ *   4. Span events: gen_ai.content.prompt / completion, or the newer
+ *      gen_ai.client.inference.operation.details event carrying messages
  */
 function extractIO(attrs, events) {
     let input = null
     let output = null
 
-    // Try gen_ai.prompt / gen_ai.completion (OpenLLMetry)
-    if (attrs['gen_ai.prompt']) {
-        try {
-            input =
-                typeof attrs['gen_ai.prompt'] === 'string'
-                    ? JSON.parse(attrs['gen_ai.prompt'])
-                    : attrs['gen_ai.prompt']
-        } catch {
-            input = { prompt: attrs['gen_ai.prompt'] }
-        }
+    // 1. Current spec — structured messages
+    if (attrs['gen_ai.input.messages'] !== undefined) {
+        input = { messages: parseMaybeJson(attrs['gen_ai.input.messages']) }
+    }
+    if (attrs['gen_ai.output.messages'] !== undefined) {
+        output = { messages: parseMaybeJson(attrs['gen_ai.output.messages']) }
     }
 
-    if (attrs['gen_ai.completion']) {
-        try {
-            output =
-                typeof attrs['gen_ai.completion'] === 'string'
-                    ? JSON.parse(attrs['gen_ai.completion'])
-                    : attrs['gen_ai.completion']
-        } catch {
-            output = { completion: attrs['gen_ai.completion'] }
-        }
+    // 2. System instructions attach to input when present
+    if (attrs['gen_ai.system_instructions'] !== undefined) {
+        input = input || {}
+        input.system_instructions = parseMaybeJson(attrs['gen_ai.system_instructions'])
     }
 
-    // Check events for prompt/completion data
+    // 3. Legacy gen_ai.prompt / gen_ai.completion (OpenLLMetry v1.36.0)
+    if (input == null && attrs['gen_ai.prompt'] !== undefined) {
+        const parsed = parseMaybeJson(attrs['gen_ai.prompt'])
+        input = typeof parsed === 'object' && parsed !== null ? parsed : { prompt: parsed }
+    }
+    if (output == null && attrs['gen_ai.completion'] !== undefined) {
+        const parsed = parseMaybeJson(attrs['gen_ai.completion'])
+        output = typeof parsed === 'object' && parsed !== null ? parsed : { completion: parsed }
+    }
+
+    // 4. Span events
     if (events && events.length > 0) {
         for (const event of events) {
             const eventAttrs = extractAttributes(event.attributes)
-            if (event.name === 'gen_ai.content.prompt' || event.name?.includes('prompt')) {
+            const name = event.name || ''
+
+            // Current spec: gen_ai.client.inference.operation.details carries
+            // structured messages in its attributes
+            if (name === 'gen_ai.client.inference.operation.details') {
+                if (input == null && eventAttrs['gen_ai.input.messages'] !== undefined) {
+                    input = { messages: parseMaybeJson(eventAttrs['gen_ai.input.messages']) }
+                }
+                if (output == null && eventAttrs['gen_ai.output.messages'] !== undefined) {
+                    output = { messages: parseMaybeJson(eventAttrs['gen_ai.output.messages']) }
+                }
+                continue
+            }
+
+            // Legacy event names
+            if (input == null && (name === 'gen_ai.content.prompt' || name.includes('prompt'))) {
                 input = eventAttrs
             }
-            if (event.name === 'gen_ai.content.completion' || event.name?.includes('completion')) {
+            if (
+                output == null &&
+                (name === 'gen_ai.content.completion' || name.includes('completion'))
+            ) {
                 output = eventAttrs
             }
         }
@@ -288,15 +375,30 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
         }
     }
 
-    // Extract provider. Only use attributes that actually identify the LLM
-    // backend — NOT service.name, which identifies the calling application
-    // (e.g. "my-agent") and was previously masquerading as the provider
-    // whenever instrumentation forgot to emit gen_ai.system.
+    // Extract provider. Prefer the current-spec key (gen_ai.provider.name)
+    // over the deprecated gen_ai.system. Never fall back to service.name —
+    // that identifies the calling application, not the LLM backend.
     const provider =
-        attrs['gen_ai.system'] || attrs['gen_ai.provider.name'] || attrs['llm.vendor'] || null
+        attrs['gen_ai.provider.name'] || attrs['gen_ai.system'] || attrs['llm.vendor'] || null
 
     // Extract service name
     const serviceName = resourceAttrs['service.name'] || scopeAttrs?.name || 'otel'
+
+    // New-spec fields that don't have dedicated DB columns get folded into the
+    // attributes blob so they reach the dashboard's span detail view.
+    // The generic attrs spread below already includes them via their canonical
+    // keys; we additionally lift cache/reasoning tokens to short keys for
+    // convenient display.
+    const extraAttrs = {}
+    if (tokens.cacheCreationInput != null) {
+        extraAttrs.cache_creation_input_tokens = tokens.cacheCreationInput
+    }
+    if (tokens.cacheReadInput != null) {
+        extraAttrs.cache_read_input_tokens = tokens.cacheReadInput
+    }
+    if (tokens.reasoningOutput != null) {
+        extraAttrs.reasoning_output_tokens = tokens.reasoningOutput
+    }
 
     return {
         id: spanId,
@@ -330,6 +432,7 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
         attributes: {
             ...attrs,
             ...resourceAttrs,
+            ...extraAttrs,
             otel_span_kind: span.kind,
         },
         service_name: serviceName,

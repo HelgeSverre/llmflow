@@ -28,6 +28,22 @@ const EXPORT_ENABLED = process.env.OTLP_EXPORT_ENABLED === 'true' || !!EXPORT_EN
 const BATCH_SIZE = parseInt(process.env.OTLP_EXPORT_BATCH_SIZE || '100', 10)
 const FLUSH_INTERVAL_MS = parseInt(process.env.OTLP_EXPORT_FLUSH_INTERVAL || '5000', 10)
 
+// When set, the OTLP export ALSO emits the deprecated v1.36.0 GenAI semconv
+// attribute names alongside the current spec names. Useful for collectors that
+// were built against the old spec and don't yet understand the new keys.
+const EMIT_LEGACY_GENAI_ATTRS = process.env.LLMFLOW_OTLP_LEGACY_ATTRS === '1'
+
+// Inverse of GENAI_OPERATION_TO_SPAN_TYPE in packages/otlp/src/traces.js
+// (lossy — multiple operations map to 'llm'; we pick the most common).
+const SPAN_TYPE_TO_GENAI_OPERATION = {
+    llm: 'chat',
+    embedding: 'embeddings',
+    tool: 'execute_tool',
+    agent: 'invoke_agent',
+    chain: 'invoke_workflow',
+    retrieval: 'retrieval',
+}
+
 let traceBatch = []
 let logBatch = []
 let metricBatch = []
@@ -57,21 +73,43 @@ function traceToOtlpSpan(trace) {
     const durationNano = BigInt(trace.duration_ms || 0) * BigInt(1000000)
     const endTimeNano = startTimeNano + durationNano
 
+    // Emit current OTel GenAI semconv attributes by default.
+    // See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+    const spanType = trace.span_type || 'llm'
+    const operationName = SPAN_TYPE_TO_GENAI_OPERATION[spanType] || 'chat'
+
     const attributes = [
-        { key: 'gen_ai.system', value: { stringValue: trace.provider || 'unknown' } },
+        { key: 'gen_ai.operation.name', value: { stringValue: operationName } },
+        { key: 'gen_ai.provider.name', value: { stringValue: trace.provider || 'unknown' } },
         { key: 'gen_ai.request.model', value: { stringValue: trace.model || 'unknown' } },
         {
-            key: 'gen_ai.usage.prompt_tokens',
+            key: 'gen_ai.usage.input_tokens',
             value: { intValue: String(trace.prompt_tokens || 0) },
         },
         {
-            key: 'gen_ai.usage.completion_tokens',
+            key: 'gen_ai.usage.output_tokens',
             value: { intValue: String(trace.completion_tokens || 0) },
         },
         { key: 'gen_ai.usage.total_tokens', value: { intValue: String(trace.total_tokens || 0) } },
         { key: 'llmflow.cost', value: { doubleValue: trace.estimated_cost || 0 } },
-        { key: 'llmflow.span_type', value: { stringValue: trace.span_type || 'llm' } },
+        { key: 'llmflow.span_type', value: { stringValue: spanType } },
     ]
+
+    // Optionally re-emit deprecated v1.36.0 names for downstream collectors
+    // built against the old spec.
+    if (EMIT_LEGACY_GENAI_ATTRS) {
+        attributes.push(
+            { key: 'gen_ai.system', value: { stringValue: trace.provider || 'unknown' } },
+            {
+                key: 'gen_ai.usage.prompt_tokens',
+                value: { intValue: String(trace.prompt_tokens || 0) },
+            },
+            {
+                key: 'gen_ai.usage.completion_tokens',
+                value: { intValue: String(trace.completion_tokens || 0) },
+            },
+        )
+    }
 
     if (trace.span_name) {
         attributes.push({ key: 'llmflow.span_name', value: { stringValue: trace.span_name } })
