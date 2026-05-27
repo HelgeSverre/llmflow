@@ -1,9 +1,10 @@
 ---
 id: TASK-2
 title: Make tag filter exact-match instead of substring LIKE
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-27 02:20'
+updated_date: '2026-05-27 03:09'
 labels:
   - bug
   - p1

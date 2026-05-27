@@ -1,9 +1,10 @@
 ---
 id: TASK-10
 title: Dockerfile healthcheck honors DASHBOARD_PORT
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-27 02:22'
+updated_date: '2026-05-27 03:09'
 labels:
   - bug
   - p2
