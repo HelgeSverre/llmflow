@@ -55,27 +55,22 @@ ticket size.
 
 ### P0 — correctness / robustness, ship before any structural work
 
-- [ ] **Wrap every `JSON.parse` on stored rows in a `safeJson` helper.**
-      Sites: `src/server.ts:511-517` (`/api/traces/:id`), `src/server.ts:537-544`
-      (`/api/traces/:id/tree`), `src/db.ts:666-667`, `src/db.ts:803-806`. One
-      malformed `request_body` from a passthrough that wasn't JSON crashes the whole
-      endpoint with a 500. Mechanical fix, ~5-line helper + replace.
-- [ ] **Enable SQLite WAL mode and busy_timeout at boot.** Add
-      `db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;')` immediately
-      after `new Database(...)` in `src/db.ts:16`. Concurrent OTLP ingest +
-      WebSocket fanout + dashboard polling will eventually `SQLITE_BUSY` without
-      this.
-- [ ] **Guard top-level `Bun.serve(...)` with `if (import.meta.main)`.**
-      `src/server.ts` starts both listeners at import time, so any test or tool
-      that imports `dashboardServer`/`proxyServer` for typing or wiring boots real
-      ports. Wrap the two `Bun.serve` calls in a `main()` function and call it
-      conditionally.
-- [ ] **Drop the misleading `provider TEXT DEFAULT 'openai'` on `traces`.**
-      Make the column NULLABLE, set OTLP-ingested rows to the resolved provider
-      (`otlp.js:246` already extracts `gen_ai.system` correctly), and render NULL
-      as `unknown` in the UI. Right now Anthropic spans ingested via OTel get
-      silently tagged as OpenAI when the upstream instrumentation forgot to set
-      `gen_ai.system`.
+All four landed in commit `dac0958` ("Correctness quick wins + docs refresh").
+
+- [x] **Wrap every `JSON.parse` on stored rows in a `safeJson` helper.**
+      Helper lives at `packages/db/src/index.ts:28`. Call sites converted in
+      `apps/server/src/server.ts:570-571` and `packages/db/src/index.ts:794-795`.
+      Only remaining `JSON.parse` is `server.ts:1329` on a fresh upstream response
+      (not a stored row).
+- [x] **Enable SQLite WAL mode and busy_timeout at boot.**
+      `packages/db/src/index.ts:22-24` sets `journal_mode=WAL`,
+      `busy_timeout=5000`, and `synchronous=NORMAL`.
+- [x] **Guard top-level `Bun.serve(...)` with `if (import.meta.main)`.**
+      `apps/server/src/server.ts:1646` now gates `startDashboardServer()` /
+      `startProxyServer()` behind `import.meta.main`.
+- [x] **Drop the misleading `provider TEXT DEFAULT 'openai'` on `traces`.**
+      Column is now `provider TEXT` (nullable) at
+      `packages/db/src/index.ts:52`.
 
 ### P1 — performance and correctness at >10k traces
 
