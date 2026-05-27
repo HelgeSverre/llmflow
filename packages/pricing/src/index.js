@@ -12,11 +12,15 @@ const fallbackPricingPath = path.join(__dirname, '..', 'pricing.fallback.json')
 
 let pricingData = {}
 let lastFetchTime = 0
+let pricingSource = 'unknown'
 
 function loadFallbackPricing() {
     try {
         if (fs.existsSync(fallbackPricingPath)) {
             pricingData = JSON.parse(fs.readFileSync(fallbackPricingPath, 'utf8'))
+            pricingSource = 'fallback'
+            // Use the bundled file's mtime so dashboards can warn on stale fallbacks.
+            lastFetchTime = fs.statSync(fallbackPricingPath).mtimeMs
         }
     } catch (err) {
         // Silent fail, will use empty pricing
@@ -55,6 +59,7 @@ async function loadPricing() {
         const json = await fetchJson(PRICING_URL)
         pricingData = json
         lastFetchTime = Date.now()
+        pricingSource = 'litellm'
         if (VERBOSE) {
             console.log(`\x1b[2m[pricing] Loaded ${Object.keys(pricingData).length} models\x1b[0m`)
         }
@@ -140,6 +145,15 @@ function getPricingStats() {
     }
 }
 
+function getPricingStatus() {
+    return {
+        source: pricingSource,
+        last_updated: lastFetchTime || null,
+        model_count: Object.keys(pricingData).length,
+        upstream_url: PRICING_URL,
+    }
+}
+
 // Initialize pricing
 loadFallbackPricing()
 loadPricing()
@@ -151,5 +165,6 @@ module.exports = {
     calculateCost,
     getPricingInfo,
     getPricingStats,
+    getPricingStatus,
     loadPricing,
 }

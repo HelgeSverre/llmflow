@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Header from '$lib/components/layout/Header.svelte'
+  import PricingFreshnessBanner from '$lib/components/layout/PricingFreshnessBanner.svelte'
   import Tabs from '$lib/components/layout/Tabs.svelte'
   import TimelineTab from '$lib/components/timeline/TimelineTab.svelte'
   import TracesTab from '$lib/components/traces/TracesTab.svelte'
@@ -129,6 +130,7 @@
 
 <div class="container">
   <Header />
+  <PricingFreshnessBanner />
 
   <main>
     <Tabs />

@@ -5,7 +5,7 @@ import fs from 'fs'
 import getPort from 'get-port'
 
 // CommonJS workspace packages
-const { calculateCost } = require('@llmflow/pricing')
+const { calculateCost, getPricingStatus } = require('@llmflow/pricing')
 const log = require('@llmflow/shared/logger')
 const { registry } = require('@llmflow/providers')
 const {
@@ -481,7 +481,11 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
     try {
         // Health check
         if (pathname === '/api/health' && method === 'GET') {
-            return Response.json({ status: 'ok', timestamp: Date.now() })
+            return Response.json({
+                status: 'ok',
+                timestamp: Date.now(),
+                pricing: getPricingStatus(),
+            })
         }
 
         // Provider health check
