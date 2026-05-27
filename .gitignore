@@ -15,3 +15,6 @@ playwright-report/
 # Workspace per-package build artifacts that should be regenerated locally
 apps/*/dist/
 packages/*/dist/
+
+# Local codedb MCP index
+codedb.snapshot
