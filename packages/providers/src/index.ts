@@ -1,34 +1,40 @@
-const BaseProvider = require('./base')
-const OpenAIProvider = require('./openai')
-const OllamaProvider = require('./ollama')
-const AnthropicProvider = require('./anthropic')
-const GeminiProvider = require('./gemini')
-const CohereProvider = require('./cohere')
-const AzureOpenAIProvider = require('./azure')
-const {
+import { BaseProvider } from './base'
+import { OpenAIProvider } from './openai'
+import { OllamaProvider } from './ollama'
+import { AnthropicProvider } from './anthropic'
+import { GeminiProvider } from './gemini'
+import { CohereProvider } from './cohere'
+import { AzureOpenAIProvider } from './azure'
+import {
     OpenAICompatibleProvider,
     GroqProvider,
     MistralProvider,
     TogetherProvider,
     PerplexityProvider,
     OpenRouterProvider,
-} = require('./openai-compatible')
+} from './openai-compatible'
+import type { ProviderListing } from './base'
+
+interface ProxyLikeRequest {
+    headers: Record<string, string | undefined>
+    path: string
+}
+
+export interface ResolvedProvider {
+    provider: BaseProvider
+    cleanPath: string
+}
 
 /**
  * Provider Registry
- * Maps path prefixes to provider instances
+ * Maps path prefixes to provider instances.
  */
-class ProviderRegistry {
+export class ProviderRegistry {
+    providers: Map<string, BaseProvider>
+    defaultProvider: BaseProvider
+
     constructor() {
         this.providers = new Map()
-        this.defaultProvider = null
-
-        // Register default providers
-        this.registerDefaults()
-    }
-
-    registerDefaults() {
-        // Default OpenAI provider (no prefix)
         this.defaultProvider = new OpenAIProvider()
 
         // Path-based providers
@@ -44,56 +50,43 @@ class ProviderRegistry {
         this.register('openrouter', OpenRouterProvider)
     }
 
-    /**
-     * Register a provider with a path prefix
-     * @param {string} prefix - URL path prefix (e.g., 'anthropic' for /anthropic/v1/...)
-     * @param {BaseProvider} provider - Provider instance
-     */
-    register(prefix, provider) {
+    /** Register a provider with a path prefix */
+    register(prefix: string, provider: BaseProvider): void {
         this.providers.set(prefix.toLowerCase(), provider)
     }
 
-    /**
-     * Get a provider based on request path or header
-     * @param {Object} req - Express request object
-     * @returns {{ provider: BaseProvider, cleanPath: string }}
-     */
-    resolve(req) {
-        // Check for X-LLMFlow-Provider header override
+    /** Get a provider based on request path or header */
+    resolve(req: ProxyLikeRequest): ResolvedProvider {
         const headerProvider = req.headers['x-llmflow-provider']
         if (headerProvider && this.providers.has(headerProvider.toLowerCase())) {
             return {
-                provider: this.providers.get(headerProvider.toLowerCase()),
+                provider: this.providers.get(headerProvider.toLowerCase()) as BaseProvider,
                 cleanPath: req.path,
             }
         }
 
-        // Check path prefix: /ollama/v1/... -> ollama provider
-        const pathMatch = req.path.match(/^\/([^\/]+)(\/.*)?$/)
+        // Path prefix: /ollama/v1/... -> ollama provider
+        const pathMatch = req.path.match(/^\/([^/]+)(\/.*)?$/)
         if (pathMatch) {
             const prefix = pathMatch[1].toLowerCase()
             if (this.providers.has(prefix)) {
                 const cleanPath = pathMatch[2] || '/'
                 return {
-                    provider: this.providers.get(prefix),
-                    cleanPath: cleanPath,
+                    provider: this.providers.get(prefix) as BaseProvider,
+                    cleanPath,
                 }
             }
         }
 
-        // Default to OpenAI
         return {
             provider: this.defaultProvider,
             cleanPath: req.path,
         }
     }
 
-    /**
-     * List all registered providers
-     * @returns {Array} List of { name, displayName, prefix }
-     */
-    list() {
-        const result = [
+    /** List all registered providers */
+    list(): ProviderListing[] {
+        const result: ProviderListing[] = [
             {
                 name: this.defaultProvider.name,
                 displayName: this.defaultProvider.displayName,
@@ -116,11 +109,9 @@ class ProviderRegistry {
 }
 
 // Singleton instance
-const registry = new ProviderRegistry()
+export const registry = new ProviderRegistry()
 
-module.exports = {
-    registry,
-    ProviderRegistry,
+export {
     BaseProvider,
     OpenAIProvider,
     OllamaProvider,
@@ -129,4 +120,9 @@ module.exports = {
     CohereProvider,
     AzureOpenAIProvider,
     OpenAICompatibleProvider,
+    GroqProvider,
+    MistralProvider,
+    TogetherProvider,
+    PerplexityProvider,
+    OpenRouterProvider,
 }

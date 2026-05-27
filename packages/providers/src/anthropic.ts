@@ -1,11 +1,34 @@
-const BaseProvider = require('./base')
+import {
+    BaseProvider,
+    type NormalizedResponse,
+    type ParsedStreamChunk,
+    type ProviderRequest,
+    type ProviderTarget,
+    type TokenUsage,
+} from './base'
+
+export interface AnthropicProviderConfig {
+    hostname?: string
+    apiVersion?: string
+}
+
+interface AnthropicUsage {
+    input_tokens?: number
+    output_tokens?: number
+    prompt_tokens?: number
+    completion_tokens?: number
+    [key: string]: unknown
+}
 
 /**
  * Anthropic Claude provider.
  * Handles request/response transformation and different streaming format.
  */
-class AnthropicProvider extends BaseProvider {
-    constructor(config = {}) {
+export class AnthropicProvider extends BaseProvider {
+    hostname: string
+    apiVersion: string
+
+    constructor(config: AnthropicProviderConfig = {}) {
         super()
         this.name = 'anthropic'
         this.displayName = 'Anthropic Claude'
@@ -13,7 +36,7 @@ class AnthropicProvider extends BaseProvider {
         this.apiVersion = config.apiVersion || '2023-06-01'
     }
 
-    getTarget(req) {
+    override getTarget(req: ProviderRequest): ProviderTarget {
         let path = req.path
 
         // Map OpenAI-style paths to Anthropic paths
@@ -24,12 +47,15 @@ class AnthropicProvider extends BaseProvider {
         return {
             hostname: this.hostname,
             port: 443,
-            path: path,
+            path,
             protocol: 'https',
         }
     }
 
-    transformRequestHeaders(headers, req) {
+    override transformRequestHeaders(
+        headers: Record<string, string | undefined>,
+        _req: ProviderRequest,
+    ): Record<string, string | undefined> {
         // Anthropic uses x-api-key instead of Authorization Bearer
         let apiKey = headers.authorization
         if (apiKey && apiKey.startsWith('Bearer ')) {
@@ -46,20 +72,32 @@ class AnthropicProvider extends BaseProvider {
         }
     }
 
-    transformRequestBody(body, req) {
-        if (!body || !body.messages) {
+    override transformRequestBody(body: unknown, _req: ProviderRequest): unknown {
+        const b = body as
+            | {
+                  messages?: Array<{ role: string; content: unknown }>
+                  model?: string
+                  max_tokens?: number
+                  stream?: boolean
+                  temperature?: number
+                  top_p?: number
+                  stop?: string | string[]
+              }
+            | null
+            | undefined
+        if (!b || !b.messages) {
             return body
         }
 
-        const transformed = {
-            model: body.model,
-            max_tokens: body.max_tokens || 4096, // Required field for Anthropic
-            stream: body.stream || false,
+        const transformed: Record<string, unknown> = {
+            model: b.model,
+            max_tokens: b.max_tokens || 4096, // Required field for Anthropic
+            stream: b.stream || false,
         }
 
         // Extract system message
-        const systemMessages = body.messages.filter((m) => m.role === 'system')
-        const otherMessages = body.messages.filter((m) => m.role !== 'system')
+        const systemMessages = b.messages.filter((m) => m.role === 'system')
+        const otherMessages = b.messages.filter((m) => m.role !== 'system')
 
         if (systemMessages.length > 0) {
             transformed.system = systemMessages.map((m) => m.content).join('\n')
@@ -72,39 +110,59 @@ class AnthropicProvider extends BaseProvider {
         }))
 
         // Copy over optional parameters
-        if (body.temperature !== undefined) transformed.temperature = body.temperature
-        if (body.top_p !== undefined) transformed.top_p = body.top_p
-        if (body.stop)
-            transformed.stop_sequences = Array.isArray(body.stop) ? body.stop : [body.stop]
+        if (b.temperature !== undefined) transformed.temperature = b.temperature
+        if (b.top_p !== undefined) transformed.top_p = b.top_p
+        if (b.stop) {
+            transformed.stop_sequences = Array.isArray(b.stop) ? b.stop : [b.stop]
+        }
 
         return transformed
     }
 
-    normalizeResponse(body, req) {
-        if (!body || body.error) {
-            return { data: body, usage: null, model: req.body?.model }
+    override normalizeResponse(body: unknown, req: ProviderRequest): NormalizedResponse {
+        const reqBody = (req.body || {}) as Record<string, unknown>
+        const b = body as
+            | {
+                  id?: string
+                  model?: string
+                  content?: Array<{ type?: string; text?: string }>
+                  stop_reason?: string
+                  usage?: AnthropicUsage
+                  error?: unknown
+              }
+            | null
+            | undefined
+
+        if (!b || b.error) {
+            return { data: body, usage: null, model: reqBody.model as string | undefined }
         }
 
         // Extract text content from content blocks
         let textContent = ''
-        if (Array.isArray(body.content)) {
-            textContent = body.content
+        if (Array.isArray(b.content)) {
+            textContent = b.content
                 .filter((block) => block.type === 'text')
-                .map((block) => block.text)
+                .map((block) => block.text || '')
                 .join('')
         }
 
         // Map stop_reason to finish_reason
-        const finishReasonMap = {
+        const finishReasonMap: Record<string, string> = {
             end_turn: 'stop',
             stop_sequence: 'stop',
             max_tokens: 'length',
         }
 
+        const normalizedUsage: TokenUsage = {
+            prompt_tokens: b.usage?.input_tokens || 0,
+            completion_tokens: b.usage?.output_tokens || 0,
+            total_tokens: (b.usage?.input_tokens || 0) + (b.usage?.output_tokens || 0),
+        }
+
         const normalized = {
-            id: body.id,
+            id: b.id,
             object: 'chat.completion',
-            model: body.model,
+            model: b.model,
             choices: [
                 {
                     index: 0,
@@ -112,27 +170,24 @@ class AnthropicProvider extends BaseProvider {
                         role: 'assistant',
                         content: textContent,
                     },
-                    finish_reason: finishReasonMap[body.stop_reason] || body.stop_reason,
+                    finish_reason:
+                        (b.stop_reason && finishReasonMap[b.stop_reason]) || b.stop_reason,
                 },
             ],
-            usage: {
-                prompt_tokens: body.usage?.input_tokens || 0,
-                completion_tokens: body.usage?.output_tokens || 0,
-                total_tokens: (body.usage?.input_tokens || 0) + (body.usage?.output_tokens || 0),
-            },
+            usage: normalizedUsage,
         }
 
         return {
             data: normalized,
-            usage: normalized.usage,
-            model: body.model,
+            usage: normalizedUsage,
+            model: b.model,
         }
     }
 
-    parseStreamChunk(chunk) {
+    override parseStreamChunk(chunk: string): ParsedStreamChunk {
         const lines = chunk.split('\n')
         let content = ''
-        let usage = null
+        let usage: TokenUsage | null = null
         let done = false
 
         for (const line of lines) {
@@ -155,7 +210,6 @@ class AnthropicProvider extends BaseProvider {
             try {
                 const json = JSON.parse(payload)
 
-                // Handle different event types
                 if (json.type === 'content_block_delta') {
                     if (json.delta?.type === 'text_delta') {
                         content += json.delta.text || ''
@@ -169,7 +223,6 @@ class AnthropicProvider extends BaseProvider {
                         }
                     }
                 } else if (json.type === 'message_start' && json.message?.usage) {
-                    // Initial usage from message_start
                     usage = {
                         prompt_tokens: json.message.usage.input_tokens || 0,
                         completion_tokens: 0,
@@ -184,16 +237,17 @@ class AnthropicProvider extends BaseProvider {
         return { content, usage, done }
     }
 
-    extractUsage(response) {
-        const usage = response.usage || {}
+    override extractUsage(response: unknown): TokenUsage {
+        const r = (response || {}) as { usage?: AnthropicUsage }
+        const usage = r.usage || {}
+        const input = usage.input_tokens || usage.prompt_tokens || 0
+        const output = usage.output_tokens || usage.completion_tokens || 0
         return {
-            prompt_tokens: usage.input_tokens || usage.prompt_tokens || 0,
-            completion_tokens: usage.output_tokens || usage.completion_tokens || 0,
-            total_tokens:
-                (usage.input_tokens || usage.prompt_tokens || 0) +
-                (usage.output_tokens || usage.completion_tokens || 0),
+            prompt_tokens: input,
+            completion_tokens: output,
+            total_tokens: input + output,
         }
     }
 }
 
-module.exports = AnthropicProvider
+export default AnthropicProvider

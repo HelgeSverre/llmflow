@@ -1,4 +1,18 @@
-const BaseProvider = require('./base')
+import {
+    BaseProvider,
+    type NormalizedResponse,
+    type ParsedStreamChunk,
+    type ProviderRequest,
+    type ProviderTarget,
+    type TokenUsage,
+    type UsageLike,
+} from './base'
+
+export interface AzureOpenAIProviderConfig {
+    resource?: string
+    apiVersion?: string
+    deploymentMap?: Record<string, string>
+}
 
 /**
  * Azure OpenAI provider.
@@ -10,34 +24,33 @@ const BaseProvider = require('./base')
  * - api-version query parameter is required
  * - Request/response format is same as OpenAI
  */
-class AzureOpenAIProvider extends BaseProvider {
-    constructor(config = {}) {
+export class AzureOpenAIProvider extends BaseProvider {
+    resource: string | undefined
+    apiVersion: string
+    deploymentMap: Record<string, string>
+
+    constructor(config: AzureOpenAIProviderConfig = {}) {
         super()
         this.name = 'azure'
         this.displayName = 'Azure OpenAI'
 
-        // Azure configuration from environment or config
         this.resource = config.resource || process.env.AZURE_OPENAI_RESOURCE
         this.apiVersion = config.apiVersion || process.env.AZURE_OPENAI_API_VERSION || '2024-02-01'
-
-        // Optional: deployment name mapping (model -> deployment)
         this.deploymentMap = config.deploymentMap || {}
     }
 
     /**
-     * Map OpenAI model name to Azure deployment name
-     * Azure deployments often have dots removed (gpt-3.5-turbo -> gpt-35-turbo)
+     * Map OpenAI model name to Azure deployment name.
+     * Azure deployments often have dots removed (gpt-3.5-turbo -> gpt-35-turbo).
      */
-    getDeploymentName(model) {
-        // Check explicit mapping first
+    getDeploymentName(model: string): string {
         if (this.deploymentMap[model]) {
             return this.deploymentMap[model]
         }
 
-        // Check environment variable for specific model
         const envKey = `AZURE_DEPLOYMENT_${model.replace(/[.-]/g, '_').toUpperCase()}`
         if (process.env[envKey]) {
-            return process.env[envKey]
+            return process.env[envKey] as string
         }
 
         // Default: use model name as deployment (common pattern)
@@ -46,51 +59,48 @@ class AzureOpenAIProvider extends BaseProvider {
     }
 
     /**
-     * Extract Azure resource name from headers or use configured default
+     * Extract Azure resource name from headers or use configured default.
      */
-    getResourceName(headers) {
-        // Allow override via header
+    getResourceName(headers: Record<string, string | undefined> | undefined): string {
         const headerResource =
             headers?.['x-azure-resource'] || headers?.['x-llmflow-azure-resource']
         if (headerResource) return headerResource
 
-        // Use configured resource
         if (this.resource) return this.resource
 
-        // Try environment variable
         return process.env.AZURE_OPENAI_RESOURCE || 'azure-openai'
     }
 
-    getTarget(req) {
-        const model = req.body?.model || 'gpt-4'
+    override getTarget(req: ProviderRequest): ProviderTarget {
+        const reqBody = (req.body || {}) as { model?: string }
+        const model = reqBody.model || 'gpt-4'
         const deployment = this.getDeploymentName(model)
         const resource = this.getResourceName(req.headers)
 
-        // Map OpenAI path to Azure path
         let endpoint = req.path
         if (endpoint.startsWith('/v1/')) {
             endpoint = endpoint.slice(3) // Remove /v1 prefix
         }
 
-        // Build Azure path: /openai/deployments/{deployment}/{endpoint}?api-version={version}
         const path = `/openai/deployments/${deployment}${endpoint}?api-version=${this.apiVersion}`
 
         return {
             hostname: `${resource}.openai.azure.com`,
             port: 443,
-            path: path,
+            path,
             protocol: 'https',
         }
     }
 
-    transformRequestHeaders(headers, req) {
-        // Azure uses api-key header instead of Authorization Bearer
+    override transformRequestHeaders(
+        headers: Record<string, string | undefined>,
+        _req: ProviderRequest,
+    ): Record<string, string | undefined> {
         let apiKey = headers?.authorization
         if (apiKey && apiKey.startsWith('Bearer ')) {
             apiKey = apiKey.slice(7)
         }
 
-        // Also check for direct api-key header
         apiKey = headers?.['api-key'] || apiKey
 
         return {
@@ -99,29 +109,36 @@ class AzureOpenAIProvider extends BaseProvider {
         }
     }
 
-    // Request body format is same as OpenAI, no transformation needed
-    transformRequestBody(body, req) {
+    override transformRequestBody(body: unknown, _req: ProviderRequest): unknown {
         return body
     }
 
-    // Response format is same as OpenAI, use base implementation
-    normalizeResponse(body, req) {
-        if (!body || body.error) {
-            return { data: body, usage: null, model: req.body?.model }
+    override normalizeResponse(body: unknown, req: ProviderRequest): NormalizedResponse {
+        const reqBody = (req.body || {}) as Record<string, unknown>
+        const b = body as
+            | {
+                  model?: string
+                  usage?: TokenUsage
+                  error?: unknown
+              }
+            | null
+            | undefined
+
+        if (!b || b.error) {
+            return { data: body, usage: null, model: reqBody.model as string | undefined }
         }
 
         return {
             data: body,
-            usage: body.usage || null,
-            model: body.model || req.body?.model || 'unknown',
+            usage: b.usage || null,
+            model: b.model || (reqBody.model as string | undefined) || 'unknown',
         }
     }
 
-    // Streaming format is same as OpenAI
-    parseStreamChunk(chunk) {
+    override parseStreamChunk(chunk: string): ParsedStreamChunk {
         const lines = chunk.split('\n')
         let content = ''
-        let usage = null
+        let usage: TokenUsage | null = null
         let done = false
 
         for (const line of lines) {
@@ -138,7 +155,7 @@ class AzureOpenAIProvider extends BaseProvider {
                 const json = JSON.parse(payload)
                 const delta = json.choices?.[0]?.delta?.content
                 if (delta) content += delta
-                if (json.usage) usage = json.usage
+                if (json.usage) usage = json.usage as TokenUsage
             } catch {
                 // Ignore parse errors
             }
@@ -147,8 +164,9 @@ class AzureOpenAIProvider extends BaseProvider {
         return { content, usage, done }
     }
 
-    extractUsage(response) {
-        const usage = response.usage || {}
+    override extractUsage(response: unknown): TokenUsage {
+        const r = (response || {}) as { usage?: UsageLike }
+        const usage = r.usage || {}
         return {
             prompt_tokens: usage.prompt_tokens || 0,
             completion_tokens: usage.completion_tokens || 0,
@@ -158,4 +176,4 @@ class AzureOpenAIProvider extends BaseProvider {
     }
 }
 
-module.exports = AzureOpenAIProvider
+export default AzureOpenAIProvider

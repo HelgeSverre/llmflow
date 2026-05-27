@@ -1,4 +1,22 @@
-const BaseProvider = require('./base')
+import {
+    BaseProvider,
+    type NormalizedResponse,
+    type ParsedStreamChunk,
+    type ProviderRequest,
+    type ProviderTarget,
+    type TokenUsage,
+} from './base'
+
+export interface GeminiProviderConfig {
+    hostname?: string
+    apiVersion?: string
+}
+
+interface GeminiUsageMetadata {
+    promptTokenCount?: number
+    candidatesTokenCount?: number
+    totalTokenCount?: number
+}
 
 /**
  * Google Gemini provider.
@@ -10,8 +28,11 @@ const BaseProvider = require('./base')
  * - Different request format (contents, systemInstruction, generationConfig)
  * - Different response format (candidates, usageMetadata)
  */
-class GeminiProvider extends BaseProvider {
-    constructor(config = {}) {
+export class GeminiProvider extends BaseProvider {
+    hostname: string
+    apiVersion: string
+
+    constructor(config: GeminiProviderConfig = {}) {
         super()
         this.name = 'gemini'
         this.displayName = 'Google Gemini'
@@ -19,18 +40,15 @@ class GeminiProvider extends BaseProvider {
         this.apiVersion = config.apiVersion || 'v1beta'
     }
 
-    getTarget(req) {
-        // Extract model from request body for endpoint construction
-        const model = req.body?.model || 'gemini-2.0-flash'
-        const isStreaming = req.body?.stream === true
+    override getTarget(req: ProviderRequest): ProviderTarget {
+        const reqBody = (req.body || {}) as { model?: string; stream?: boolean }
+        const model = reqBody.model || 'gemini-2.0-flash'
+        const isStreaming = reqBody.stream === true
 
-        // Gemini uses different endpoints for streaming
         const action = isStreaming ? 'streamGenerateContent' : 'generateContent'
 
-        // Build the path with model
         let path = `/${this.apiVersion}/models/${model}:${action}`
 
-        // Add API key as query param if provided in headers
         const apiKey = this.extractApiKey(req.headers)
         if (apiKey) {
             path += `?key=${apiKey}`
@@ -39,15 +57,14 @@ class GeminiProvider extends BaseProvider {
         return {
             hostname: this.hostname,
             port: 443,
-            path: path,
+            path,
             protocol: 'https',
         }
     }
 
-    extractApiKey(headers) {
+    extractApiKey(headers: Record<string, string | undefined> | undefined): string | null {
         if (!headers) return null
 
-        // Check for API key in various header formats
         let apiKey = headers['x-goog-api-key']
 
         if (!apiKey && headers.authorization) {
@@ -57,12 +74,14 @@ class GeminiProvider extends BaseProvider {
             }
         }
 
-        return apiKey
+        return apiKey || null
     }
 
-    transformRequestHeaders(headers, req) {
-        // Gemini prefers API key in URL, but we can also use header
-        const result = {
+    override transformRequestHeaders(
+        headers: Record<string, string | undefined>,
+        _req: ProviderRequest,
+    ): Record<string, string | undefined> {
+        const result: Record<string, string | undefined> = {
             'Content-Type': 'application/json',
         }
 
@@ -74,30 +93,36 @@ class GeminiProvider extends BaseProvider {
         return result
     }
 
-    transformRequestBody(body, req) {
-        if (!body) return body
+    override transformRequestBody(body: unknown, _req: ProviderRequest): unknown {
+        const b = body as
+            | {
+                  contents?: unknown
+                  messages?: Array<{ role: string; content: unknown }>
+                  max_tokens?: number
+                  temperature?: number
+                  top_p?: number
+                  stop?: string | string[]
+              }
+            | null
+            | undefined
+        if (!b) return body
 
-        // If already in Gemini format, pass through
-        if (body.contents) {
+        if (b.contents) {
             return body
         }
 
-        // Transform from OpenAI format to Gemini format
-        const transformed = {}
+        const transformed: Record<string, unknown> = {}
 
-        // Transform messages to contents
-        if (body.messages) {
-            const systemMessages = body.messages.filter((m) => m.role === 'system')
-            const otherMessages = body.messages.filter((m) => m.role !== 'system')
+        if (b.messages) {
+            const systemMessages = b.messages.filter((m) => m.role === 'system')
+            const otherMessages = b.messages.filter((m) => m.role !== 'system')
 
-            // System instruction
             if (systemMessages.length > 0) {
                 transformed.systemInstruction = {
                     parts: [{ text: systemMessages.map((m) => m.content).join('\n') }],
                 }
             }
 
-            // Contents (user/assistant messages)
             transformed.contents = otherMessages.map((msg) => ({
                 role: msg.role === 'assistant' ? 'model' : 'user',
                 parts: [
@@ -111,13 +136,12 @@ class GeminiProvider extends BaseProvider {
             }))
         }
 
-        // Generation config
-        const generationConfig = {}
-        if (body.max_tokens) generationConfig.maxOutputTokens = body.max_tokens
-        if (body.temperature !== undefined) generationConfig.temperature = body.temperature
-        if (body.top_p !== undefined) generationConfig.topP = body.top_p
-        if (body.stop) {
-            generationConfig.stopSequences = Array.isArray(body.stop) ? body.stop : [body.stop]
+        const generationConfig: Record<string, unknown> = {}
+        if (b.max_tokens) generationConfig.maxOutputTokens = b.max_tokens
+        if (b.temperature !== undefined) generationConfig.temperature = b.temperature
+        if (b.top_p !== undefined) generationConfig.topP = b.top_p
+        if (b.stop) {
+            generationConfig.stopSequences = Array.isArray(b.stop) ? b.stop : [b.stop]
         }
 
         if (Object.keys(generationConfig).length > 0) {
@@ -127,48 +151,60 @@ class GeminiProvider extends BaseProvider {
         return transformed
     }
 
-    normalizeResponse(body, req) {
-        if (!body || body.error) {
-            return { data: body, usage: null, model: req.body?.model }
+    override normalizeResponse(body: unknown, req: ProviderRequest): NormalizedResponse {
+        const reqBody = (req.body || {}) as Record<string, unknown>
+        const b = body as
+            | {
+                  candidates?: Array<{
+                      content?: { parts?: Array<{ text?: string }> }
+                      finishReason?: string
+                  }>
+                  usageMetadata?: GeminiUsageMetadata
+                  error?: unknown
+              }
+            | null
+            | undefined
+
+        if (!b || b.error) {
+            return { data: body, usage: null, model: reqBody.model as string | undefined }
         }
 
-        // Extract text content from candidates
         let textContent = ''
         let finishReason = 'stop'
 
-        if (Array.isArray(body.candidates) && body.candidates.length > 0) {
-            const candidate = body.candidates[0]
+        if (Array.isArray(b.candidates) && b.candidates.length > 0) {
+            const candidate = b.candidates[0]
             if (candidate.content?.parts) {
                 textContent = candidate.content.parts
                     .filter((p) => p.text)
-                    .map((p) => p.text)
+                    .map((p) => p.text || '')
                     .join('')
             }
 
-            // Map finish reason
-            const reasonMap = {
+            const reasonMap: Record<string, string> = {
                 STOP: 'stop',
                 MAX_TOKENS: 'length',
                 SAFETY: 'content_filter',
                 RECITATION: 'content_filter',
             }
             finishReason =
-                reasonMap[candidate.finishReason] || candidate.finishReason?.toLowerCase() || 'stop'
+                (candidate.finishReason && reasonMap[candidate.finishReason]) ||
+                candidate.finishReason?.toLowerCase() ||
+                'stop'
         }
 
-        // Extract usage
-        const usage = body.usageMetadata || {}
-        const normalizedUsage = {
+        const usage = b.usageMetadata || {}
+        const normalizedUsage: TokenUsage = {
             prompt_tokens: usage.promptTokenCount || 0,
             completion_tokens: usage.candidatesTokenCount || 0,
             total_tokens: usage.totalTokenCount || 0,
         }
 
-        // Build OpenAI-compatible response
+        const model = (reqBody.model as string | undefined) || 'gemini'
         const normalized = {
             id: `gemini-${Date.now()}`,
             object: 'chat.completion',
-            model: req.body?.model || 'gemini',
+            model,
             choices: [
                 {
                     index: 0,
@@ -185,25 +221,29 @@ class GeminiProvider extends BaseProvider {
         return {
             data: normalized,
             usage: normalizedUsage,
-            model: req.body?.model || 'gemini',
+            model,
         }
     }
 
-    parseStreamChunk(chunk) {
+    override parseStreamChunk(chunk: string): ParsedStreamChunk {
         const lines = chunk.split('\n')
         let content = ''
-        let usage = null
+        let usage: TokenUsage | null = null
         let done = false
 
         for (const line of lines) {
             const trimmed = line.trim()
             if (!trimmed) continue
 
-            // Gemini streaming returns JSON array items or objects
             try {
-                let json
+                let json: {
+                    candidates?: Array<{
+                        content?: { parts?: Array<{ text?: string }> }
+                        finishReason?: string
+                    }>
+                    usageMetadata?: GeminiUsageMetadata
+                }
 
-                // Handle data: prefix if present
                 if (trimmed.startsWith('data:')) {
                     const payload = trimmed.slice(5).trim()
                     if (payload === '[DONE]') {
@@ -212,23 +252,18 @@ class GeminiProvider extends BaseProvider {
                     }
                     json = JSON.parse(payload)
                 } else if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-                    // Direct JSON response (Gemini sometimes returns array)
-                    json = JSON.parse(trimmed)
-                    if (Array.isArray(json)) {
-                        json = json[0]
-                    }
+                    const parsed = JSON.parse(trimmed)
+                    json = Array.isArray(parsed) ? parsed[0] : parsed
                 } else {
                     continue
                 }
 
-                // Extract content from candidates
                 if (json.candidates?.[0]?.content?.parts) {
                     for (const part of json.candidates[0].content.parts) {
                         if (part.text) content += part.text
                     }
                 }
 
-                // Check for usage metadata
                 if (json.usageMetadata) {
                     usage = {
                         prompt_tokens: json.usageMetadata.promptTokenCount || 0,
@@ -237,7 +272,6 @@ class GeminiProvider extends BaseProvider {
                     }
                 }
 
-                // Check finish reason
                 if (json.candidates?.[0]?.finishReason) {
                     done = true
                 }
@@ -249,43 +283,51 @@ class GeminiProvider extends BaseProvider {
         return { content, usage, done }
     }
 
-    extractUsage(response) {
-        // Handle both normalized and raw Gemini response
-        if (response.usage) {
+    override extractUsage(response: unknown): TokenUsage {
+        const r = (response || {}) as {
+            usage?: Partial<TokenUsage> & GeminiUsageMetadata
+            usageMetadata?: GeminiUsageMetadata
+        }
+        if (r.usage) {
             return {
-                prompt_tokens: response.usage.prompt_tokens || response.usage.promptTokenCount || 0,
-                completion_tokens:
-                    response.usage.completion_tokens || response.usage.candidatesTokenCount || 0,
-                total_tokens: response.usage.total_tokens || response.usage.totalTokenCount || 0,
+                prompt_tokens: r.usage.prompt_tokens || r.usage.promptTokenCount || 0,
+                completion_tokens: r.usage.completion_tokens || r.usage.candidatesTokenCount || 0,
+                total_tokens: r.usage.total_tokens || r.usage.totalTokenCount || 0,
             }
         }
 
-        if (response.usageMetadata) {
+        if (r.usageMetadata) {
             return {
-                prompt_tokens: response.usageMetadata.promptTokenCount || 0,
-                completion_tokens: response.usageMetadata.candidatesTokenCount || 0,
-                total_tokens: response.usageMetadata.totalTokenCount || 0,
+                prompt_tokens: r.usageMetadata.promptTokenCount || 0,
+                completion_tokens: r.usageMetadata.candidatesTokenCount || 0,
+                total_tokens: r.usageMetadata.totalTokenCount || 0,
             }
         }
 
         return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
     }
 
-    assembleStreamingResponse(fullContent, usage, req, traceId) {
+    override assembleStreamingResponse(
+        fullContent: string,
+        usage: TokenUsage | null,
+        req: ProviderRequest,
+        traceId: string,
+    ): unknown {
+        const reqBody = (req.body || {}) as Record<string, unknown>
         return {
             id: traceId,
             object: 'chat.completion',
-            model: req.body?.model || 'gemini',
+            model: reqBody.model || 'gemini',
             choices: [
                 {
                     message: { role: 'assistant', content: fullContent },
                     finish_reason: 'stop',
                 },
             ],
-            usage: usage,
+            usage,
             _streaming: true,
         }
     }
 }
 
-module.exports = GeminiProvider
+export default GeminiProvider

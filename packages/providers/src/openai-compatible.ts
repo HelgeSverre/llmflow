@@ -1,11 +1,29 @@
-const BaseProvider = require('./base')
+import {
+    BaseProvider,
+    type ProviderRequest,
+    type ProviderTarget,
+} from './base'
+
+export interface OpenAICompatibleConfig {
+    name: string
+    displayName?: string
+    hostname: string
+    port?: number
+    basePath?: string
+    extraHeaders?: Record<string, string>
+}
 
 /**
  * Generic OpenAI-compatible provider.
  * Used for Groq, Mistral, Together, etc.
  */
-class OpenAICompatibleProvider extends BaseProvider {
-    constructor(config) {
+export class OpenAICompatibleProvider extends BaseProvider {
+    hostname: string
+    port: number
+    basePath: string
+    extraHeaders: Record<string, string>
+
+    constructor(config: OpenAICompatibleConfig) {
         super()
         this.name = config.name
         this.displayName = config.displayName || config.name
@@ -15,7 +33,7 @@ class OpenAICompatibleProvider extends BaseProvider {
         this.extraHeaders = config.extraHeaders || {}
     }
 
-    getTarget(req) {
+    override getTarget(req: ProviderRequest): ProviderTarget {
         return {
             hostname: this.hostname,
             port: this.port,
@@ -24,7 +42,10 @@ class OpenAICompatibleProvider extends BaseProvider {
         }
     }
 
-    transformRequestHeaders(headers, req) {
+    override transformRequestHeaders(
+        headers: Record<string, string | undefined>,
+        _req: ProviderRequest,
+    ): Record<string, string | undefined> {
         return {
             'Content-Type': 'application/json',
             Authorization: headers.authorization,
@@ -34,44 +55,37 @@ class OpenAICompatibleProvider extends BaseProvider {
 }
 
 // Pre-configured providers
-const GroqProvider = new OpenAICompatibleProvider({
+export const GroqProvider = new OpenAICompatibleProvider({
     name: 'groq',
     displayName: 'Groq',
     hostname: 'api.groq.com',
     basePath: '/openai',
 })
 
-const MistralProvider = new OpenAICompatibleProvider({
+export const MistralProvider = new OpenAICompatibleProvider({
     name: 'mistral',
     displayName: 'Mistral AI',
     hostname: 'api.mistral.ai',
 })
 
-const TogetherProvider = new OpenAICompatibleProvider({
+export const TogetherProvider = new OpenAICompatibleProvider({
     name: 'together',
     displayName: 'Together AI',
     hostname: 'api.together.xyz',
 })
 
-const PerplexityProvider = new OpenAICompatibleProvider({
+export const PerplexityProvider = new OpenAICompatibleProvider({
     name: 'perplexity',
     displayName: 'Perplexity',
     hostname: 'api.perplexity.ai',
     basePath: '', // No /v1 prefix for perplexity
 })
 
-const OpenRouterProvider = new OpenAICompatibleProvider({
+export const OpenRouterProvider = new OpenAICompatibleProvider({
     name: 'openrouter',
     displayName: 'OpenRouter',
     hostname: 'openrouter.ai',
     basePath: '/api',
 })
 
-module.exports = {
-    OpenAICompatibleProvider,
-    GroqProvider,
-    MistralProvider,
-    TogetherProvider,
-    PerplexityProvider,
-    OpenRouterProvider,
-}
+export default OpenAICompatibleProvider

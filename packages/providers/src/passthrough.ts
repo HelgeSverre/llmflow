@@ -1,5 +1,51 @@
-const https = require('https')
-const uuidv4 = () => crypto.randomUUID()
+import * as https from 'https'
+import * as http from 'http'
+
+export interface PassthroughTarget {
+    hostname: string
+    port: number
+    path: string
+    protocol: string
+}
+
+export interface PassthroughUsage {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+    [extra: string]: number | string | undefined
+}
+
+export interface PassthroughParsedChunk {
+    content: string
+    usage: PassthroughUsage | null
+    done: boolean
+}
+
+interface PassthroughRequest {
+    method?: string
+    path: string
+    headers: Record<string, string | undefined>
+    body?: Record<string, unknown> | unknown
+}
+
+type HeaderTransform = (headers: Record<string, string | undefined>) => Record<string, string | undefined>
+type ExtractUsageFn = (body: unknown) => PassthroughUsage
+type IdentifyModelFn = (reqBody: unknown, respBody: unknown) => string
+type ParseStreamChunkFn = (chunk: string) => PassthroughParsedChunk
+
+export interface PassthroughOptions {
+    name?: string
+    displayName?: string
+    targetHost?: string
+    targetPort?: number
+    protocol?: 'http' | 'https'
+    extractUsage?: ExtractUsageFn
+    identifyModel?: IdentifyModelFn
+    headerTransform?: HeaderTransform
+    parseStreamChunk?: ParseStreamChunkFn
+}
+
+type HttpLikeModule = typeof http | typeof https
 
 /**
  * Base passthrough handler for forwarding requests without body transformation.
@@ -10,25 +56,37 @@ const uuidv4 = () => crypto.randomUUID()
  * - Response body is NOT normalized - returned as-is to client
  * - Usage metrics ARE extracted for observability
  */
-class PassthroughHandler {
-    constructor(options = {}) {
+export class PassthroughHandler {
+    name: string
+    displayName: string
+    targetHost: string
+    targetPort: number
+    protocol: 'http' | 'https'
+
+    extractUsage: ExtractUsageFn
+    identifyModel: IdentifyModelFn
+    headerTransform: HeaderTransform
+    parseStreamChunk: ParseStreamChunkFn
+
+    constructor(options: PassthroughOptions = {}) {
         this.name = options.name || 'passthrough'
         this.displayName = options.displayName || 'Passthrough'
-        this.targetHost = options.targetHost
+        this.targetHost = options.targetHost || ''
         this.targetPort = options.targetPort || 443
         this.protocol = options.protocol || 'https'
 
         // Customizable hooks
-        this.extractUsage = options.extractUsage || this.defaultExtractUsage
-        this.identifyModel = options.identifyModel || this.defaultIdentifyModel
-        this.headerTransform = options.headerTransform || this.defaultHeaderTransform
-        this.parseStreamChunk = options.parseStreamChunk || this.defaultParseStreamChunk
+        this.extractUsage = options.extractUsage || ((b) => this.defaultExtractUsage(b))
+        this.identifyModel =
+            options.identifyModel || ((rq, rs) => this.defaultIdentifyModel(rq, rs))
+        this.headerTransform =
+            options.headerTransform || ((h) => this.defaultHeaderTransform(h))
+        this.parseStreamChunk =
+            options.parseStreamChunk || ((c) => this.defaultParseStreamChunk(c))
     }
 
-    /**
-     * Get target configuration - passthrough preserves the original path
-     */
-    getTarget(req) {
+    /** Get target configuration - passthrough preserves the original path */
+    getTarget(req: PassthroughRequest): PassthroughTarget {
         return {
             hostname: this.targetHost,
             port: this.targetPort,
@@ -37,45 +95,41 @@ class PassthroughHandler {
         }
     }
 
-    /**
-     * Transform headers for upstream - override in subclasses
-     */
-    defaultHeaderTransform(headers) {
+    /** Transform headers for upstream - override in subclasses */
+    defaultHeaderTransform(
+        headers: Record<string, string | undefined>,
+    ): Record<string, string | undefined> {
         return {
             'Content-Type': headers['content-type'] || 'application/json',
             Authorization: headers.authorization,
         }
     }
 
-    /**
-     * Extract usage from response - override in subclasses
-     */
-    defaultExtractUsage(body) {
-        const usage = body?.usage || {}
+    /** Extract usage from response - override in subclasses */
+    defaultExtractUsage(body: unknown): PassthroughUsage {
+        const b = (body || {}) as { usage?: Record<string, number | undefined> }
+        const usage = b.usage || {}
+        const promptTokens = usage.prompt_tokens || usage.input_tokens || 0
+        const completionTokens = usage.completion_tokens || usage.output_tokens || 0
         return {
-            prompt_tokens: usage.prompt_tokens || usage.input_tokens || 0,
-            completion_tokens: usage.completion_tokens || usage.output_tokens || 0,
-            total_tokens:
-                usage.total_tokens ||
-                (usage.prompt_tokens || usage.input_tokens || 0) +
-                    (usage.completion_tokens || usage.output_tokens || 0),
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: usage.total_tokens || promptTokens + completionTokens,
         }
     }
 
-    /**
-     * Identify model from request/response - override in subclasses
-     */
-    defaultIdentifyModel(reqBody, respBody) {
-        return reqBody?.model || respBody?.model || 'unknown'
+    /** Identify model from request/response - override in subclasses */
+    defaultIdentifyModel(reqBody: unknown, respBody: unknown): string {
+        const rq = (reqBody || {}) as { model?: string }
+        const rs = (respBody || {}) as { model?: string }
+        return rq.model || rs.model || 'unknown'
     }
 
-    /**
-     * Parse streaming chunk - override in subclasses
-     */
-    defaultParseStreamChunk(chunk) {
+    /** Parse streaming chunk - override in subclasses */
+    defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
         const lines = chunk.split('\n')
-        let content = ''
-        let usage = null
+        const content = ''
+        let usage: PassthroughUsage | null = null
         let done = false
 
         for (const line of lines) {
@@ -99,25 +153,22 @@ class PassthroughHandler {
         return { content, usage, done }
     }
 
-    /**
-     * Check if request is streaming
-     */
-    isStreamingRequest(req) {
-        return req.body?.stream === true
+    /** Check if request is streaming */
+    isStreamingRequest(req: PassthroughRequest): boolean {
+        const body = (req.body || {}) as { stream?: boolean }
+        return body.stream === true
     }
 
-    /**
-     * Get HTTP module based on protocol
-     */
-    getHttpModule() {
-        return this.protocol === 'https' ? https : require('http')
+    /** Get HTTP module based on protocol */
+    getHttpModule(): HttpLikeModule {
+        return this.protocol === 'https' ? https : http
     }
 
-    /**
-     * Strip sensitive headers for logging
-     */
-    sanitizeHeaders(headers) {
-        const safe = { ...headers }
+    /** Strip sensitive headers for logging */
+    sanitizeHeaders(
+        headers: Record<string, string | undefined>,
+    ): Record<string, string | undefined> {
+        const safe: Record<string, string | undefined> = { ...headers }
         delete safe['x-api-key']
         delete safe['authorization']
         delete safe['x-goog-api-key']
@@ -130,7 +181,7 @@ class PassthroughHandler {
  * Anthropic passthrough handler for native Claude API format.
  * Used by Claude Code and other tools using Anthropic's /v1/messages endpoint.
  */
-class AnthropicPassthrough extends PassthroughHandler {
+export class AnthropicPassthrough extends PassthroughHandler {
     constructor() {
         super({
             name: 'anthropic-passthrough',
@@ -141,60 +192,62 @@ class AnthropicPassthrough extends PassthroughHandler {
         })
     }
 
-    /**
-     * Transform headers for Anthropic API
-     */
-    defaultHeaderTransform(headers) {
+    override defaultHeaderTransform(
+        headers: Record<string, string | undefined>,
+    ): Record<string, string | undefined> {
         // Extract API key from various sources
         let apiKey = headers['x-api-key']
         if (!apiKey && headers.authorization) {
             apiKey = headers.authorization.replace(/^Bearer\s+/i, '')
         }
 
-        return {
+        const result: Record<string, string | undefined> = {
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
             'anthropic-version': headers['anthropic-version'] || '2023-06-01',
-            // Pass through beta headers if present
-            ...(headers['anthropic-beta'] && { 'anthropic-beta': headers['anthropic-beta'] }),
         }
+
+        if (headers['anthropic-beta']) {
+            result['anthropic-beta'] = headers['anthropic-beta']
+        }
+
+        return result
     }
 
-    /**
-     * Extract usage from Anthropic response format
-     */
-    defaultExtractUsage(body) {
-        const usage = body?.usage || {}
+    override defaultExtractUsage(body: unknown): PassthroughUsage {
+        const b = (body || {}) as {
+            usage?: {
+                input_tokens?: number
+                output_tokens?: number
+                cache_creation_input_tokens?: number
+                cache_read_input_tokens?: number
+            }
+        }
+        const usage = b.usage || {}
         return {
             prompt_tokens: usage.input_tokens || 0,
             completion_tokens: usage.output_tokens || 0,
             total_tokens: (usage.input_tokens || 0) + (usage.output_tokens || 0),
-            // Anthropic-specific: cache metrics
             cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,
             cache_read_input_tokens: usage.cache_read_input_tokens || 0,
         }
     }
 
-    /**
-     * Identify model from Anthropic request/response
-     */
-    defaultIdentifyModel(reqBody, respBody) {
-        return respBody?.model || reqBody?.model || 'claude-unknown'
+    override defaultIdentifyModel(reqBody: unknown, respBody: unknown): string {
+        const rq = (reqBody || {}) as { model?: string }
+        const rs = (respBody || {}) as { model?: string }
+        return rs.model || rq.model || 'claude-unknown'
     }
 
-    /**
-     * Parse Anthropic streaming chunks
-     */
-    defaultParseStreamChunk(chunk) {
+    override defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
         const lines = chunk.split('\n')
         let content = ''
-        let usage = null
+        let usage: PassthroughUsage | null = null
         let done = false
 
         for (const line of lines) {
             const trimmed = line.trim()
 
-            // Handle event: lines
             if (trimmed.startsWith('event:')) {
                 const eventType = trimmed.slice(6).trim()
                 if (eventType === 'message_stop') {
@@ -211,7 +264,6 @@ class AnthropicPassthrough extends PassthroughHandler {
             try {
                 const json = JSON.parse(payload)
 
-                // Handle different event types
                 if (json.type === 'content_block_delta') {
                     if (json.delta?.type === 'text_delta') {
                         content += json.delta.text || ''
@@ -243,7 +295,7 @@ class AnthropicPassthrough extends PassthroughHandler {
 /**
  * Google Gemini passthrough handler for native Gemini API format.
  */
-class GeminiPassthrough extends PassthroughHandler {
+export class GeminiPassthrough extends PassthroughHandler {
     constructor() {
         super({
             name: 'gemini-passthrough',
@@ -254,13 +306,9 @@ class GeminiPassthrough extends PassthroughHandler {
         })
     }
 
-    /**
-     * Get target - Gemini uses API key in query string
-     */
-    getTarget(req) {
+    override getTarget(req: PassthroughRequest): PassthroughTarget {
         let path = req.path
 
-        // Add API key to query string if provided
         const apiKey = this.extractApiKey(req.headers)
         if (apiKey) {
             const separator = path.includes('?') ? '&' : '?'
@@ -270,17 +318,14 @@ class GeminiPassthrough extends PassthroughHandler {
         return {
             hostname: this.targetHost,
             port: this.targetPort,
-            path: path,
+            path,
             protocol: this.protocol,
         }
     }
 
-    /**
-     * Extract API key from headers
-     */
-    extractApiKey(headers) {
+    extractApiKey(headers: Record<string, string | undefined>): string | null {
         if (headers['x-goog-api-key']) {
-            return headers['x-goog-api-key']
+            return headers['x-goog-api-key'] || null
         }
         if (headers.authorization) {
             return headers.authorization.replace(/^Bearer\s+/i, '')
@@ -288,21 +333,24 @@ class GeminiPassthrough extends PassthroughHandler {
         return null
     }
 
-    /**
-     * Transform headers for Gemini API
-     */
-    defaultHeaderTransform(headers) {
+    override defaultHeaderTransform(
+        _headers: Record<string, string | undefined>,
+    ): Record<string, string | undefined> {
         return {
             'Content-Type': 'application/json',
             // API key is passed via query string, not header
         }
     }
 
-    /**
-     * Extract usage from Gemini response format
-     */
-    defaultExtractUsage(body) {
-        const usage = body?.usageMetadata || {}
+    override defaultExtractUsage(body: unknown): PassthroughUsage {
+        const b = (body || {}) as {
+            usageMetadata?: {
+                promptTokenCount?: number
+                candidatesTokenCount?: number
+                totalTokenCount?: number
+            }
+        }
+        const usage = b.usageMetadata || {}
         return {
             prompt_tokens: usage.promptTokenCount || 0,
             completion_tokens: usage.candidatesTokenCount || 0,
@@ -312,30 +360,24 @@ class GeminiPassthrough extends PassthroughHandler {
         }
     }
 
-    /**
-     * Identify model from Gemini request/response
-     */
-    defaultIdentifyModel(reqBody, respBody) {
-        // Model is often in response or can be extracted from path
-        return respBody?.modelVersion || reqBody?.model || 'gemini-unknown'
+    override defaultIdentifyModel(reqBody: unknown, respBody: unknown): string {
+        const rq = (reqBody || {}) as { model?: string }
+        const rs = (respBody || {}) as { model?: string; modelVersion?: string }
+        return rs.modelVersion || rq.model || 'gemini-unknown'
     }
 
-    /**
-     * Parse Gemini streaming chunks
-     */
-    defaultParseStreamChunk(chunk) {
+    override defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
         let content = ''
-        let usage = null
+        let usage: PassthroughUsage | null = null
         let done = false
 
         try {
-            // Gemini streams as JSON arrays or objects
             const json = JSON.parse(chunk)
 
             if (json.candidates?.[0]?.content?.parts) {
                 content = json.candidates[0].content.parts
-                    .filter((p) => p.text)
-                    .map((p) => p.text)
+                    .filter((p: { text?: string }) => p.text)
+                    .map((p: { text?: string }) => p.text || '')
                     .join('')
             }
 
@@ -376,9 +418,9 @@ class GeminiPassthrough extends PassthroughHandler {
 
 /**
  * OpenAI passthrough handler for native OpenAI API format.
- * Used by tools that already use OpenAI format but need passthrough for some reason.
+ * Used by tools that already use OpenAI format but need passthrough.
  */
-class OpenAIPassthrough extends PassthroughHandler {
+export class OpenAIPassthrough extends PassthroughHandler {
     constructor() {
         super({
             name: 'openai-passthrough',
@@ -389,38 +431,39 @@ class OpenAIPassthrough extends PassthroughHandler {
         })
     }
 
-    /**
-     * Transform headers for OpenAI API
-     */
-    defaultHeaderTransform(headers) {
+    override defaultHeaderTransform(
+        headers: Record<string, string | undefined>,
+    ): Record<string, string | undefined> {
         return {
             'Content-Type': 'application/json',
             Authorization: headers.authorization,
         }
     }
 
-    /**
-     * Extract usage from OpenAI response format
-     */
-    defaultExtractUsage(body) {
-        const usage = body?.usage || {}
+    override defaultExtractUsage(body: unknown): PassthroughUsage {
+        const b = (body || {}) as {
+            usage?: {
+                prompt_tokens?: number
+                completion_tokens?: number
+                total_tokens?: number
+                input_tokens?: number
+                output_tokens?: number
+            }
+        }
+        const usage = b.usage || {}
+        const promptTokens = usage.prompt_tokens || usage.input_tokens || 0
+        const completionTokens = usage.completion_tokens || usage.output_tokens || 0
         return {
-            prompt_tokens: usage.prompt_tokens || usage.input_tokens || 0,
-            completion_tokens: usage.completion_tokens || usage.output_tokens || 0,
-            total_tokens:
-                usage.total_tokens ||
-                (usage.prompt_tokens || usage.input_tokens || 0) +
-                    (usage.completion_tokens || usage.output_tokens || 0),
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: usage.total_tokens || promptTokens + completionTokens,
         }
     }
 
-    /**
-     * Parse OpenAI streaming chunks
-     */
-    defaultParseStreamChunk(chunk) {
+    override defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
         const lines = chunk.split('\n')
         let content = ''
-        let usage = null
+        let usage: PassthroughUsage | null = null
         let done = false
 
         for (const line of lines) {
@@ -450,10 +493,8 @@ class OpenAIPassthrough extends PassthroughHandler {
 /**
  * Helicone passthrough handler for LLM cost tracking.
  * Routes requests through Helicone's gateway while preserving OpenAI format.
- *
- * Helicone adds cost tracking, caching, and analytics on top of LLM requests.
  */
-class HeliconePassthrough extends PassthroughHandler {
+export class HeliconePassthrough extends PassthroughHandler {
     constructor() {
         super({
             name: 'helicone-passthrough',
@@ -464,12 +505,9 @@ class HeliconePassthrough extends PassthroughHandler {
         })
     }
 
-    /**
-     * Get target - can be self-hosted or cloud Helicone
-     */
-    getTarget(req) {
+    override getTarget(req: PassthroughRequest): PassthroughTarget {
         const host = process.env.HELICONE_HOST || 'oai.helicone.ai'
-        const port = process.env.HELICONE_PORT || 443
+        const port = process.env.HELICONE_PORT || '443'
 
         return {
             hostname: host,
@@ -479,17 +517,14 @@ class HeliconePassthrough extends PassthroughHandler {
         }
     }
 
-    /**
-     * Transform headers for Helicone API
-     * Passes through OpenAI auth and adds Helicone-specific headers
-     */
-    defaultHeaderTransform(headers) {
-        const heliconeHeaders = {
+    override defaultHeaderTransform(
+        headers: Record<string, string | undefined>,
+    ): Record<string, string | undefined> {
+        const heliconeHeaders: Record<string, string | undefined> = {
             'Content-Type': 'application/json',
             Authorization: headers.authorization,
         }
 
-        // Add Helicone API key if provided
         const heliconeApiKey = headers['helicone-auth'] || process.env.HELICONE_API_KEY
         if (heliconeApiKey) {
             heliconeHeaders['Helicone-Auth'] = heliconeApiKey.startsWith('Bearer ')
@@ -497,7 +532,6 @@ class HeliconePassthrough extends PassthroughHandler {
                 : `Bearer ${heliconeApiKey}`
         }
 
-        // Pass through Helicone feature headers
         const heliconeFeatures = [
             'helicone-property-',
             'helicone-user-id',
@@ -511,21 +545,21 @@ class HeliconePassthrough extends PassthroughHandler {
             'helicone-fallbacks',
         ]
 
-        Object.entries(headers).forEach(([key, value]) => {
+        for (const [key, value] of Object.entries(headers)) {
             const lowerKey = key.toLowerCase()
             if (heliconeFeatures.some((prefix) => lowerKey.startsWith(prefix))) {
                 heliconeHeaders[key] = value
             }
-        })
+        }
 
         return heliconeHeaders
     }
 
-    /**
-     * Extract usage from OpenAI response format (Helicone proxies OpenAI)
-     */
-    defaultExtractUsage(body) {
-        const usage = body?.usage || {}
+    override defaultExtractUsage(body: unknown): PassthroughUsage {
+        const b = (body || {}) as {
+            usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+        }
+        const usage = b.usage || {}
         return {
             prompt_tokens: usage.prompt_tokens || 0,
             completion_tokens: usage.completion_tokens || 0,
@@ -534,13 +568,10 @@ class HeliconePassthrough extends PassthroughHandler {
         }
     }
 
-    /**
-     * Parse OpenAI streaming chunks (same as OpenAI passthrough)
-     */
-    defaultParseStreamChunk(chunk) {
+    override defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
         const lines = chunk.split('\n')
         let content = ''
-        let usage = null
+        let usage: PassthroughUsage | null = null
         let done = false
 
         for (const line of lines) {
@@ -565,12 +596,4 @@ class HeliconePassthrough extends PassthroughHandler {
 
         return { content, usage, done }
     }
-}
-
-module.exports = {
-    PassthroughHandler,
-    AnthropicPassthrough,
-    GeminiPassthrough,
-    OpenAIPassthrough,
-    HeliconePassthrough,
 }

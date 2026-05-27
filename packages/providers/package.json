@@ -2,10 +2,11 @@
   "name": "@llmflow/providers",
   "version": "0.0.0",
   "private": true,
-  "main": "./src/index.js",
+  "type": "module",
+  "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.js",
-    "./passthrough": "./src/passthrough.js",
-    "./base": "./src/base.js"
+    ".": "./src/index.ts",
+    "./passthrough": "./src/passthrough.ts",
+    "./base": "./src/base.ts"
   }
 }
