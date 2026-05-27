@@ -1,9 +1,10 @@
 ---
 id: TASK-16
 title: 'Reconcile dashboard port across code, docker, and docs'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-27 02:23'
+updated_date: '2026-05-27 03:38'
 labels:
   - docs
   - p3

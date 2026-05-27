@@ -1,9 +1,10 @@
 ---
 id: TASK-11
 title: Document pricing data freshness and fallback
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-27 02:22'
+updated_date: '2026-05-27 03:38'
 labels:
   - docs
   - p2

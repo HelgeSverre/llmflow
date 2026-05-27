@@ -1,9 +1,10 @@
 ---
 id: TASK-6
 title: Optional bearer auth + safe default listening surface
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-27 02:22'
+updated_date: '2026-05-27 03:38'
 labels:
   - security
   - p1
