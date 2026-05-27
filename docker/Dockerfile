@@ -31,14 +31,14 @@ RUN mkdir -p /root/.llmflow
 
 ENV NODE_ENV=production
 ENV PROXY_PORT=8080
-ENV DASHBOARD_PORT=3000
+ENV DASHBOARD_PORT=1337
 ENV DATA_DIR=/root/.llmflow
 
 VOLUME ["/root/.llmflow"]
 
-EXPOSE 8080 3000
+EXPOSE 8080 1337
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-    CMD bun -e "fetch('http://localhost:3000/api/health').then(r => process.exit(r.ok ? 0 : 1))" || exit 1
+    CMD bun -e "fetch('http://localhost:${DASHBOARD_PORT:-1337}/api/health').then(r => process.exit(r.ok ? 0 : 1))" || exit 1
 
 CMD ["bun", "run", "apps/server/src/server.ts"]

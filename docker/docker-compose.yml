@@ -2,14 +2,18 @@ services:
   llmflow:
     build: .
     container_name: llmflow
+    # Safe default: only publish ports on the host's loopback. Anything else on
+    # the network can't reach LLMFlow — there's no auth on these endpoints.
+    # To expose on the LAN (e.g. on a trusted internal network), drop the
+    # '127.0.0.1:' prefix below. See README.md "Security".
     ports:
-      - '${PROXY_PORT:-8080}:8080'
-      - '${DASHBOARD_PORT:-3000}:3000'
+      - '127.0.0.1:${PROXY_PORT:-8080}:8080'
+      - '127.0.0.1:${DASHBOARD_PORT:-1337}:1337'
     volumes:
       - llmflow-data:/root/.llmflow
     environment:
       - PROXY_PORT=8080
-      - DASHBOARD_PORT=3000
+      - DASHBOARD_PORT=1337
       - DATA_DIR=/root/.llmflow
       - MAX_TRACES=${MAX_TRACES:-10000}
     restart: unless-stopped
