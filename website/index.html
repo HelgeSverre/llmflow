@@ -326,7 +326,7 @@
 npx llmflow
 
 <span class="c"># Or with Docker</span>
-docker run -p 3000:3000 -p 8080:8080 helgesverre/llmflow</code></pre>
+docker run -p 1337:1337 -p 8080:8080 helgesverre/llmflow</code></pre>
                             </div>
                         </div>
                     </div>
@@ -349,7 +349,7 @@ client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>)
                         <div class="step-content">
                             <h3>View your traces</h3>
                             <p>
-                                Open <a href="http://localhost:3000">localhost:3000</a> to see
+                                Open <a href="http://localhost:1337">localhost:1337</a> to see
                                 costs, tokens, latency, and full request/response details.
                             </p>
                         </div>
@@ -428,7 +428,7 @@ client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>)
                                 <pre><code><span class="k">from</span> traceloop.sdk <span class="k">import</span> Traceloop
 
 Traceloop.init(
-    api_endpoint=<span class="s">"http://localhost:3000/v1/traces"</span>,
+    api_endpoint=<span class="s">"http://localhost:1337/v1/traces"</span>,
     disable_batch=<span class="k">True</span>
 )</code></pre>
                             </div>
@@ -442,7 +442,7 @@ Traceloop.init(
 <span class="k">from</span> opentelemetry.sdk.trace.export <span class="k">import</span> SimpleSpanProcessor
 
 provider = TracerProvider()
-exporter = OTLPSpanExporter(endpoint=<span class="s">"http://localhost:3000/v1/traces"</span>)
+exporter = OTLPSpanExporter(endpoint=<span class="s">"http://localhost:1337/v1/traces"</span>)
 provider.add_span_processor(SimpleSpanProcessor(exporter))</code></pre>
                             </div>
                         </div>
@@ -454,7 +454,7 @@ provider.add_span_processor(SimpleSpanProcessor(exporter))</code></pre>
 <span class="k">import</span> { SimpleSpanProcessor } <span class="k">from</span> <span class="s">'@opentelemetry/sdk-trace-base'</span>;
 
 <span class="k">const</span> exporter = <span class="k">new</span> OTLPTraceExporter({
-    url: <span class="s">'http://localhost:3000/v1/traces'</span>
+    url: <span class="s">'http://localhost:1337/v1/traces'</span>
 });
 provider.addSpanProcessor(<span class="k">new</span> SimpleSpanProcessor(exporter));</code></pre>
                             </div>
@@ -466,7 +466,7 @@ provider.addSpanProcessor(<span class="k">new</span> SimpleSpanProcessor(exporte
                                 <pre><code><span class="k">import</span> <span class="s">"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"</span>
 
 exporter, _ := otlptracehttp.New(ctx,
-    otlptracehttp.WithEndpoint(<span class="s">"localhost:3000"</span>),
+    otlptracehttp.WithEndpoint(<span class="s">"localhost:1337"</span>),
     otlptracehttp.WithURLPath(<span class="s">"/v1/traces"</span>),
     otlptracehttp.WithInsecure(),
 )</code></pre>
@@ -482,7 +482,7 @@ OpenTelemetry::SDK.configure <span class="k">do</span> |c|
   c.add_span_processor(
     OpenTelemetry::SDK::Trace::Export::SimpleSpanProcessor.new(
       OpenTelemetry::Exporter::OTLP::Exporter.new(
-        endpoint: <span class="s">'http://localhost:3000/v1/traces'</span>
+        endpoint: <span class="s">'http://localhost:1337/v1/traces'</span>
       )
     )
   )
@@ -492,7 +492,7 @@ OpenTelemetry::SDK.configure <span class="k">do</span> |c|
                     </div>
 
                     <p class="note">
-                        LLMFlow accepts OTLP/HTTP JSON for traces, logs, and metrics on port 3000.
+                        LLMFlow accepts OTLP/HTTP JSON for traces, logs, and metrics on port 1337.
                     </p>
                 </div>
 
@@ -528,7 +528,7 @@ aider --anthropic-api-base http://localhost:8080/passthrough/anthropic</code></p
                             <div class="code-block">
                                 <pre><code><span class="c"># In ~/.codex/config.toml:</span>
 [otel.exporter.<span class="s">"otlp-http"</span>]
-endpoint = <span class="s">"http://localhost:3000/v1/logs"</span></code></pre>
+endpoint = <span class="s">"http://localhost:1337/v1/logs"</span></code></pre>
                             </div>
                         </div>
 

@@ -37,9 +37,9 @@ graph LR
         OPIK[Opik]
     end
 
-    DEV -->|"opens dashboard :3000 (or :1337)"| LF
+    DEV -->|"opens dashboard :1337"| LF
     SDK_USER -->|"HTTP :8080<br/>OpenAI-compatible"| LF
-    OTEL_USER -->|"OTLP/HTTP :3000/v1/traces·logs·metrics"| LF
+    OTEL_USER -->|"OTLP/HTTP :1337/v1/traces·logs·metrics"| LF
     LLMFLOW_SDK -->|"POST /api/spans"| LF
     LF -->|"forwarded request"| OAI
     LF -->|"forwarded request"| ANT
@@ -58,8 +58,8 @@ graph LR
 |---|---|---|---|
 | Proxy mode | `:8080` | `/v1/*`, `/anthropic/v1/*`, `/gemini/v1/*`, … | Full request + normalized response, usage, cost, latency |
 | Passthrough mode | `:8080` | `/passthrough/<provider>/*` | Raw upstream bytes; logging is side-channel via stream tee |
-| OTLP receiver | `:3000` (dashboard port) | `/v1/traces`, `/v1/logs`, `/v1/metrics` | Transformed OTLP spans / log records / metric points |
-| SDK direct | `:3000` | `POST /api/spans` | One synthetic span per call |
+| OTLP receiver | `:1337` (dashboard port) | `/v1/traces`, `/v1/logs`, `/v1/metrics` | Transformed OTLP spans / log records / metric points |
+| SDK direct | `:1337` | `POST /api/spans` | One synthetic span per call |
 
 **Optional egress:** if `OTLP_EXPORT_ENDPOINT` is set, every inserted row is also re-emitted as OTLP to one upstream backend. See `packages/otlp/src/export.js`.
 
@@ -70,7 +70,7 @@ graph TB
     subgraph host["User's machine (single process by default)"]
         subgraph bun["Bun runtime — apps/server/src/server.ts"]
             PROXY["Proxy listener<br/><b>:8080</b><br/>Bun.serve"]
-            DASH["Dashboard + API + OTLP listener<br/><b>:3000 / :1337</b><br/>Bun.serve"]
+            DASH["Dashboard + API + OTLP listener<br/><b>:1337</b><br/>Bun.serve"]
             WS["WebSocket hub<br/>/ws fanout"]
             STATIC["Static file server<br/>/public/* (built Svelte SPA)"]
         end
@@ -99,7 +99,7 @@ graph TB
 **Two listeners, one process.** `bin/llmflow.js` spawns `apps/server/src/server.ts`, which boots two `Bun.serve(...)` calls (gated behind `if (import.meta.main)` since `dac0958`):
 
 - **Proxy listener** (`PROXY_PORT`, default `8080`) — only LLM provider traffic.
-- **Dashboard listener** (`DASHBOARD_PORT`, default `3000`; `npx llmflow` falls back to `1337` via `get-port`) — serves the SPA, the REST API, the OTLP receiver, and the `/ws` WebSocket on the same port.
+- **Dashboard listener** (`DASHBOARD_PORT`, default `1337`; `get-port` picks the next free port if `1337` is taken) — serves the SPA, the REST API, the OTLP receiver, and the `/ws` WebSocket on the same port.
 
 **Storage is one SQLite file** (`bun:sqlite`, WAL + `busy_timeout=5000` + `synchronous=NORMAL`, configured in `packages/db/src/index.ts:22-24`). Three tables — `traces`, `logs`, `metrics` — with retention via per-insert overflow delete (capped at `MAX_TRACES`, default 10k). The dashboard never talks to SQLite directly; every read goes through `/api/*`.
 
@@ -259,7 +259,7 @@ graph TB
     S_TRACES & S_TIMELINE & S_SESSIONS & S_LOGS & S_METRICS & S_MODELS & S_ANALYTICS & S_STATS --> CLIENT
     S_WS -.->|"push new_span · new_trace · stats"| S_TRACES & S_TIMELINE & S_STATS
 
-    SERVER["server :3000<br/>/api/* · /ws"]
+    SERVER["server :1337<br/>/api/* · /ws"]
     CLIENT -->|"GET /api/*"| SERVER
     S_WS <-->|"WebSocket /ws"| SERVER
 ```
@@ -315,9 +315,9 @@ WS   /ws                               new_trace · new_span · stats messages
 ### Ingest endpoints
 
 ```
-POST /v1/traces      OTLP traces      (port :3000)
-POST /v1/logs        OTLP logs        (port :3000)
-POST /v1/metrics     OTLP metrics     (port :3000)
+POST /v1/traces      OTLP traces      (port :1337)
+POST /v1/logs        OTLP logs        (port :1337)
+POST /v1/metrics     OTLP metrics     (port :1337)
 
 /v1/*                OpenAI proxy             (port :8080, default)
 /anthropic/v1/*      Anthropic proxy
@@ -479,7 +479,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Framework as LangChain / Vercel AI / …
-    participant Recv as :3000 handleOtlpRoute
+    participant Recv as :1337 handleOtlpRoute
     participant Transform as packages/otlp/src/traces.js
     participant Pricing
     participant DB
@@ -504,9 +504,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant Static as :3000 (serveStaticFile)
-    participant API as :3000 (handleApiRoute)
-    participant WS as :3000 (/ws)
+    participant Static as :1337 (serveStaticFile)
+    participant API as :1337 (handleApiRoute)
+    participant WS as :1337 (/ws)
     participant DB
 
     Browser->>Static: GET / → index.html + /assets/*

@@ -7,16 +7,16 @@ Track costs, tokens, and latency for OpenAI, Anthropic, Gemini, Ollama, and more
 ## Quick Start
 
 ```bash
-docker run -p 3000:3000 -p 8080:8080 helgesverre/llmflow
+docker run -p 1337:1337 -p 8080:8080 helgesverre/llmflow
 ```
 
-Then point your SDK at `http://localhost:8080/v1` and open `http://localhost:3000` to view traces.
+Then point your SDK at `http://localhost:8080/v1` and open `http://localhost:1337` to view traces.
 
 ## Ports
 
 | Port | Description                   |
 | ---- | ----------------------------- |
-| 3000 | Web dashboard & OTLP receiver |
+| 1337 | Web dashboard & OTLP receiver |
 | 8080 | LLM proxy server              |
 
 ## Persistent Storage
@@ -24,7 +24,7 @@ Then point your SDK at `http://localhost:8080/v1` and open `http://localhost:300
 Mount a volume to persist your data (the container's data dir is `/root/.llmflow`):
 
 ```bash
-docker run -p 3000:3000 -p 8080:8080 \
+docker run -p 1337:1337 -p 8080:8080 \
   -v llmflow-data:/root/.llmflow \
   helgesverre/llmflow
 ```
@@ -33,7 +33,7 @@ docker run -p 3000:3000 -p 8080:8080 \
 
 | Variable         | Default             | Description                               |
 | ---------------- | ------------------- | ----------------------------------------- |
-| `DASHBOARD_PORT` | `3000`              | Dashboard + OTLP receiver port            |
+| `DASHBOARD_PORT` | `1337`              | Dashboard + OTLP receiver port            |
 | `PROXY_PORT`     | `8080`              | Proxy server port                         |
 | `DATA_DIR`       | `/root/.llmflow`    | SQLite + WAL directory                    |
 | `DB_PATH`        | `$DATA_DIR/data.db` | Override the SQLite file path             |
@@ -57,9 +57,9 @@ Route your LLM requests through LLMFlow:
 
 LLMFlow accepts OTLP/HTTP traces, logs, and metrics:
 
-- Traces: `http://localhost:3000/v1/traces`
-- Logs: `http://localhost:3000/v1/logs`
-- Metrics: `http://localhost:3000/v1/metrics`
+- Traces: `http://localhost:1337/v1/traces`
+- Logs: `http://localhost:1337/v1/logs`
+- Metrics: `http://localhost:1337/v1/metrics`
 
 ## Links
 

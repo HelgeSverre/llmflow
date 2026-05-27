@@ -14,7 +14,7 @@
 
 ```
 apps/
-  server/       Bun server (TS): proxy on 8080, dashboard on 3000/1337, OTLP ingest, websocket fanout
+  server/       Bun server (TS): proxy on 8080, dashboard on 1337, OTLP ingest, websocket fanout
   dashboard/    Svelte 5 + Vite SPA; build output → /public/ at repo root for npm + Docker shipping
 packages/
   db/           bun:sqlite schema + queries (TS, ESM). The safeJson helper lives here.
