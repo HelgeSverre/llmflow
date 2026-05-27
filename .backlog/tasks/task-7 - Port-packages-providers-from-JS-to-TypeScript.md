@@ -1,10 +1,10 @@
 ---
 id: TASK-7
 title: Port packages/providers from JS to TypeScript
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-27 02:22'
-updated_date: '2026-05-27 03:38'
+updated_date: '2026-05-27 04:08'
 labels:
   - refactor
   - p2
