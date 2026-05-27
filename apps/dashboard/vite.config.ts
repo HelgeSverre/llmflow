@@ -16,9 +16,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': `http://localhost:${process.env.DASHBOARD_PORT || 1337}`,
       '/ws': {
-        target: 'ws://localhost:3000',
+        target: `ws://localhost:${process.env.DASHBOARD_PORT || 1337}`,
         ws: true,
       },
     },

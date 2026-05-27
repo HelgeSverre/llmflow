@@ -214,11 +214,13 @@ six packages under `packages/`). Bun is required.
 git clone https://github.com/HelgeSverre/llmflow.git
 cd llmflow && bun install
 
-# Server (dashboard on :1337, proxy on :8080)
+# Start server (dashboard on :1337, proxy on :8080) and Vite HMR dashboard
+# together. Vite proxies /api and /ws back to the server.
 bun run dev
 
-# Dashboard dev server with HMR (separate terminal, proxies /api + /ws)
-bun run dev:dashboard
+# Or restart just one of them:
+bun run dev:server      # backend only
+bun run dev:dashboard   # Vite HMR only
 
 # Build dashboard for production (outputs to /public/)
 bun run build

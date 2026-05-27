@@ -4,8 +4,9 @@
 
 - Runtime: **Bun** (required). Workspaces are wired via `apps/*` + `packages/*`.
 - Install: `bun install` at repo root (hoists per-package symlinks).
-- Server: `bun run dev` (root) or `bun run --filter @llmflow/server dev`.
-- Dashboard: `bun run dev:dashboard` (root) or `bun run --filter @llmflow/dashboard dev`.
+- Both at once: `bun run dev` (root) — runs server with `--hot` and the dashboard's Vite HMR in parallel; Vite proxies `/api` and `/ws` back to the server.
+- Server only: `bun run dev:server` (root) or `bun run --filter @llmflow/server dev`.
+- Dashboard only: `bun run dev:dashboard` (root) or `bun run --filter @llmflow/dashboard dev`.
 - Tests (server): `bun run test` (root) or `bun run --filter @llmflow/server test`.
 - E2E (Playwright): `bunx playwright test`.
 - Typecheck: `bunx tsc --noEmit -p apps/server/tsconfig.json` (server) or `bun run --filter '*' typecheck` (all).

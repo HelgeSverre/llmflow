@@ -15,7 +15,7 @@
   "scripts": {
     "start": "bun run --filter @llmflow/server start",
     "start:verbose": "VERBOSE=1 bun run --filter @llmflow/server start",
-    "dev": "bun run --filter @llmflow/server dev",
+    "dev": "bun run --filter @llmflow/server --filter @llmflow/dashboard dev",
     "dev:server": "bun run --filter @llmflow/server dev",
     "dev:dashboard": "bun run --filter @llmflow/dashboard dev",
     "build": "bun run --filter @llmflow/dashboard build",

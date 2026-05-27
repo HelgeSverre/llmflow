@@ -5,13 +5,18 @@ COMPOSE := "docker compose -f docker/docker-compose.yml"
 default:
     @just --list
 
-# Install deps and start the server
+# Install deps and start server + dashboard together (Vite HMR + bun --hot)
 [group('dev')]
 dev:
     bun install
     bun run dev
 
-# Start the dashboard dev server
+# Start only the server (when you want to restart the backend by itself)
+[group('dev')]
+dev-server:
+    bun run dev:server
+
+# Start only the dashboard dev server (when you want to restart Vite by itself)
 [group('dev')]
 dev-dashboard:
     bun run dev:dashboard
