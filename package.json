@@ -46,13 +46,7 @@
     "llm",
     "observability",
     "tracing",
-    "openai",
-    "anthropic",
-    "langchain",
-    "opentelemetry",
-    "cost-tracking",
-    "ai",
-    "bun"
+    "opentelemetry"
   ],
   "author": "Helge Sverre",
   "license": "MIT",
