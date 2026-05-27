@@ -535,8 +535,8 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
     }
 
     if (filters.tag) {
-        where.push('tags LIKE $tag')
-        params.$tag = `%${filters.tag}%`
+        where.push('EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value = $tag)')
+        params.$tag = filters.tag
     }
 
     if (filters.service_name) {
