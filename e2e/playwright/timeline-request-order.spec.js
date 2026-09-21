@@ -42,3 +42,24 @@ test('Timeline filters fetch once and Clear cancels pending search', async ({ pa
     await expect(page.getByTestId('timeline-search')).toHaveValue('')
     expect(queries.map((query) => query.toString())).toEqual(['limit=100'])
 })
+
+for (const tab of ['traces', 'logs']) {
+    test(`${tab} Clear cancels pending search before it can reapply`, async ({ page }) => {
+        await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+        const queries = []
+        await page.route(`**/api/${tab}?*`, async (route) => {
+            queries.push(new URL(route.request().url()).searchParams)
+            await route.fulfill({ json: tab === 'logs' ? { logs: [] } : [] })
+        })
+        await page.goto(`/#${tab}`)
+        await expect.poll(() => queries.length).toBeGreaterThan(0)
+        await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'))
+        queries.length = 0
+        await page.getByTestId(`${tab}-search`).fill('obsolete pending query')
+        await page.getByTestId(`${tab}-clear-filters`).click()
+        await page.clock.runFor(400)
+        await expect(page.getByTestId(`${tab}-search`)).toHaveValue('')
+        expect(queries.length).toBeGreaterThan(0)
+        expect(queries.every((query) => !query.has('q'))).toBe(true)
+    })
+}

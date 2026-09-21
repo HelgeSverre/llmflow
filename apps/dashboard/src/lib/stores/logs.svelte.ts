@@ -42,7 +42,9 @@ export const filterOptions = $state<FilterOptions>({
   event_names: [],
 })
 
+let listRequest = 0
 export async function loadLogs() {
+  const request = ++listRequest
   try {
     const params = new URLSearchParams({ limit: '100' })
     if (logFilters.q) params.set('q', logFilters.q)
@@ -51,10 +53,11 @@ export async function loadLogs() {
     if (logFilters.severity_min != null) params.set('severity_min', String(logFilters.severity_min))
 
     const data = await api.get<{ logs: Log[] }>(`/api/logs?${params}`)
+    if (request !== listRequest) return
     logs.length = 0
     logs.push(...(data.logs || []))
   } catch (e) {
-    console.error('Failed to load logs:', e)
+    if (request === listRequest) console.error('Failed to load logs:', e)
   }
 }
 
@@ -68,18 +71,24 @@ export async function loadFilterOptions() {
   }
 }
 
+let selectionRequest = 0
 export async function selectLog(id: string) {
+  const request = ++selectionRequest
   selectedLogId.value = id
+  selectedLog.value = null
   try {
-    const log = await api.get<Log>(`/api/logs/${id}`)
+    const log = await api.get<Log>(`/api/logs/${encodeURIComponent(id)}`)
+    if (request !== selectionRequest) return
     selectedLog.value = log
   } catch (e) {
+    if (request !== selectionRequest) return
     console.error('Failed to load log:', e)
     selectedLog.value = null
   }
 }
 
 export function clearSelection() {
+  selectionRequest++
   selectedLogId.value = null
   selectedLog.value = null
 }
@@ -100,7 +109,7 @@ function logMatchesFilters(log: Log): boolean {
 }
 
 export function initLogsSync() {
-  onMessage((msg) => {
+  const unsubscribe = onMessage((msg) => {
     if (msg.type === 'new_log' && tabState.current === 'logs') {
       const log = msg.payload as Log
       if (!logMatchesFilters(log)) return
@@ -110,4 +119,9 @@ export function initLogsSync() {
       }
     }
   })
+  return () => {
+    unsubscribe()
+    listRequest++
+    selectionRequest++
+  }
 }

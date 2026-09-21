@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { createDebounce } from '$lib/utils/debounce'
   import LogsTable from './LogsTable.svelte'
   import LogDetail from './LogDetail.svelte'
   import {
@@ -13,16 +14,15 @@
   import { tabState } from '$lib/stores/tabs.svelte'
 
   let searchInput = $state('')
-  let debounceTimer: ReturnType<typeof setTimeout>
+  const searchDebounce = createDebounce(300)
 
   function handleSearchInput(e: Event) {
     const value = (e.target as HTMLInputElement).value
     searchInput = value
-    clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => {
+    searchDebounce.schedule(() => {
       logFilters.q = value
       loadLogs()
-    }, 300)
+    })
   }
 
   function handleServiceChange(e: Event) {
@@ -42,13 +42,18 @@
   }
 
   function handleClear() {
+    searchDebounce.cancel()
     searchInput = ''
     clearFilters()
   }
 
   onMount(() => {
     loadFilterOptions()
-    initLogsSync()
+    const unsubscribe = initLogsSync()
+    return () => {
+      searchDebounce.cancel()
+      unsubscribe()
+    }
   })
 
   $effect(() => {

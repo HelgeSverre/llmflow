@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { createDebounce } from '$lib/utils/debounce'
   import TimelineList from './TimelineList.svelte'
   import TimelineDetail from './TimelineDetail.svelte'
   import {
@@ -11,15 +12,14 @@
   import { tabState } from '$lib/stores/tabs.svelte'
 
   let searchInput = $state('')
-  let debounceTimer: ReturnType<typeof setTimeout>
+  const searchDebounce = createDebounce(300)
 
   function handleSearchInput(e: Event) {
     const value = (e.target as HTMLInputElement).value
     searchInput = value
-    clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => {
+    searchDebounce.schedule(() => {
       timelineFilters.q = value
-    }, 300)
+    })
   }
 
   function handleToolChange(e: Event) {
@@ -35,7 +35,7 @@
   }
 
   function handleClear() {
-    clearTimeout(debounceTimer)
+    searchDebounce.cancel()
     searchInput = ''
     clearFilters()
   }
@@ -44,7 +44,7 @@
     const unsubscribe = initTimelineSync()
     return () => {
       unsubscribe()
-      clearTimeout(debounceTimer)
+      searchDebounce.cancel()
     }
   })
 

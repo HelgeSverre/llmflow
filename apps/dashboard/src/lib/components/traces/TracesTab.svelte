@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { createDebounce } from '$lib/utils/debounce'
   import TracesTable from './TracesTable.svelte'
   import TraceDetail from './TraceDetail.svelte'
   import {
@@ -13,16 +14,15 @@
   import { tabState } from '$lib/stores/tabs.svelte'
 
   let searchInput = $state('')
-  let debounceTimer: ReturnType<typeof setTimeout>
+  const searchDebounce = createDebounce(300)
 
   function handleSearchInput(e: Event) {
     const value = (e.target as HTMLInputElement).value
     searchInput = value
-    clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => {
+    searchDebounce.schedule(() => {
       traceFilters.q = value
       loadTraces()
-    }, 300)
+    })
   }
 
   function handleModelChange(e: Event) {
@@ -41,6 +41,7 @@
   }
 
   function handleClear() {
+    searchDebounce.cancel()
     searchInput = ''
     clearFilters()
   }
@@ -49,7 +50,7 @@
     loadFilterOptions()
     const unsubscribe = initTracesSync()
     return () => {
-      clearTimeout(debounceTimer)
+      searchDebounce.cancel()
       unsubscribe()
     }
   })
