@@ -31,6 +31,7 @@ export interface TimelineFilters {
 export const timelineItems = $state<TimelineItem[]>([])
 export const selectedItem = $state<{ value: TimelineItem | null }>({ value: null })
 export const selectedItemData = $state<{ value: TraceDetail | Log | null }>({ value: null })
+export const selectedItemError = $state({ value: '' })
 export const relatedLogs = $state<Log[]>([])
 export const timelineFilters = $state<TimelineFilters>({
   q: '',
@@ -85,6 +86,7 @@ export async function selectTimelineItem(item: TimelineItem) {
   const request = ++selectionRequest
   selectedItem.value = item
   selectedItemData.value = null
+  selectedItemError.value = ''
   relatedLogs.length = 0
   try {
     if (item.type === 'trace') {
@@ -102,6 +104,10 @@ export async function selectTimelineItem(item: TimelineItem) {
       if (request === selectionRequest) selectedItemData.value = detail
     }
   } catch (e) {
+    if (request !== selectionRequest) return
+    selectedItemError.value = selectedItemData.value
+      ? 'Could not load related logs.'
+      : 'Could not load details.'
     console.error('Failed to load timeline item:', e)
   }
 }
@@ -110,6 +116,7 @@ export function clearSelection() {
   selectionRequest++
   selectedItem.value = null
   selectedItemData.value = null
+  selectedItemError.value = ''
   relatedLogs.length = 0
 }
 

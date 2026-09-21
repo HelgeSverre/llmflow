@@ -22,6 +22,7 @@ export class StreamSession {
     private activeTool: { block: number; index: number } | null = null
     private nextToolIndex = 0
     private toolCaptureSize = 0
+    private sentDone = false
 
     constructor(
         readonly format: StreamFormat,
@@ -62,10 +63,16 @@ export class StreamSession {
         if (text.length > remaining) this.truncated = true
     }
 
+    private end(): string[] {
+        this.done = true
+        if (this.sentDone) return []
+        this.sentDone = true
+        return ['data: [DONE]\n\n']
+    }
+
     private accept(data: string): string[] {
         if (!data || data === '[DONE]') {
-            if (data === '[DONE]') this.done = true
-            return data ? ['data: [DONE]\n\n'] : []
+            return data ? this.end() : []
         }
         let event: any
         try {
@@ -137,8 +144,7 @@ export class StreamSession {
                     this.finishReason
                 return [this.chunk({}, this.finishReason, true)]
             } else if (event.type === 'message_stop') {
-                this.done = true
-                return ['data: [DONE]\n\n']
+                return this.end()
             } else return []
         } else if (this.format === 'gemini') {
             this.model = event.modelVersion || this.model
@@ -172,12 +178,67 @@ export class StreamSession {
         } else {
             this.model = event.model || this.model
             this.mergeUsage(event.usage || event.response?.usage)
-            if (event.type === 'response.output_text.delta') this.append(event.delta || '')
-            if (['response.completed', 'response.done'].includes(event.type)) {
+            delta = event.choices?.[0]?.delta || {}
+            if (event.type === 'response.output_text.delta') delta = { content: event.delta || '' }
+            const responseTool = (item: any, index: number, complete: boolean) => ({
+                index,
+                id: item.call_id,
+                function: { name: item.name, arguments: complete ? item.arguments : '' },
+                replaceArguments: complete,
+            })
+            if (
+                ['response.output_item.added', 'response.output_item.done'].includes(event.type) &&
+                event.item?.type === 'function_call'
+            ) {
+                delta = {
+                    tool_calls: [
+                        responseTool(event.item, event.output_index, event.type.endsWith('.done')),
+                    ],
+                }
+            } else if (event.type === 'response.function_call_arguments.delta') {
+                delta = {
+                    tool_calls: [
+                        { index: event.output_index, function: { arguments: event.delta } },
+                    ],
+                }
+            } else if (event.type === 'response.function_call_arguments.done') {
+                delta = {
+                    tool_calls: [
+                        {
+                            index: event.output_index,
+                            function: { arguments: event.arguments },
+                            replaceArguments: true,
+                        },
+                    ],
+                }
+            }
+            if (
+                [
+                    'response.completed',
+                    'response.done',
+                    'response.incomplete',
+                    'response.failed',
+                ].includes(event.type)
+            ) {
                 this.done = true
                 this.model = event.response?.model || this.model
+                const calls = (event.response?.output || [])
+                    .map((item: any, index: number) =>
+                        item.type === 'function_call' ? responseTool(item, index, true) : null,
+                    )
+                    .filter(Boolean)
+                if (calls.length) delta = { tool_calls: calls }
+                this.finishReason =
+                    event.response?.incomplete_details?.reason === 'max_output_tokens'
+                        ? 'length'
+                        : calls.length || this.tools.size
+                          ? 'tool_calls'
+                          : 'stop'
+                if (event.type === 'response.failed' || event.response?.error) {
+                    this.error = event.response?.error?.message || 'Upstream response failed'
+                    this.finishReason = null
+                }
             }
-            delta = event.choices?.[0]?.delta || {}
             this.finishReason = event.choices?.[0]?.finish_reason || this.finishReason
         }
         if (typeof delta.content === 'string') this.append(delta.content)
@@ -206,8 +267,18 @@ export class StreamSession {
                 if (text.length > kept.length) this.truncated = true
                 return kept
             }
-            if (part.id) tool.id = capture(part.id)
-            if (part.function?.name) tool.function.name = capture(part.function.name)
+            if (part.id) {
+                this.toolCaptureSize -= tool.id?.length || 0
+                tool.id = capture(part.id)
+            }
+            if (part.function?.name) {
+                this.toolCaptureSize -= tool.function.name.length
+                tool.function.name = capture(part.function.name)
+            }
+            if (part.replaceArguments && typeof part.function?.arguments === 'string') {
+                this.toolCaptureSize -= tool.function.arguments.length
+                tool.function.arguments = ''
+            }
             if (part.function?.arguments) {
                 tool.function.arguments += capture(
                     part.function.arguments,
@@ -218,7 +289,7 @@ export class StreamSession {
         if (this.format === 'openai') return [`data: ${data}\n\n`]
         return [
             this.chunk(delta, this.finishReason, !!this.finishReason),
-            ...(this.done ? ['data: [DONE]\n\n'] : []),
+            ...(this.done ? this.end() : []),
         ]
     }
 

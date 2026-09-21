@@ -22,6 +22,7 @@
  */
 
 const http = require('http')
+const { models, shouldTest } = require('./lib/live-providers')
 
 const PROXY_URL = process.env.PROXY_URL || 'http://localhost:8080'
 const DASHBOARD_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
@@ -144,15 +145,11 @@ async function main() {
     console.log(`\n${c.cyan}Provider E2E Tests${c.reset}`)
     console.log(`${c.dim}Proxy: ${PROXY_URL}${c.reset}\n`)
 
-    const selectedProviders = process.env.PROVIDERS?.split(',').map((p) => p.trim().toLowerCase())
-    const shouldTest = (name) => !selectedProviders || selectedProviders.includes(name)
-
     // ============ OpenAI ============
     console.log(`\n${c.cyan}OpenAI${c.reset}\n`)
 
     if (!process.env.OPENAI_API_KEY) {
         skip('OpenAI Chat Completions', 'OPENAI_API_KEY not set')
-        skip('OpenAI Responses API', 'OPENAI_API_KEY not set')
     } else if (!shouldTest('openai')) {
         skip('OpenAI', 'Not in PROVIDERS list')
     } else {
@@ -163,7 +160,7 @@ async function main() {
                 Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
             },
             body: {
-                model: 'gpt-4o-mini',
+                model: models.openai,
                 messages: [{ role: 'user', content: 'Say "test successful" in 3 words or less' }],
                 max_tokens: 20,
             },
@@ -193,7 +190,7 @@ async function main() {
                 'anthropic-version': '2023-06-01',
             },
             body: {
-                model: 'claude-3-haiku-20240307',
+                model: models.anthropic,
                 max_tokens: 20,
                 messages: [{ role: 'user', content: 'Say "test successful" in 3 words or less' }],
             },
@@ -212,7 +209,7 @@ async function main() {
                 Authorization: `Bearer ${process.env.ANTHROPIC_API_KEY}`,
             },
             body: {
-                model: 'claude-3-haiku-20240307',
+                model: models.anthropic,
                 messages: [
                     { role: 'system', content: 'You are brief.' },
                     { role: 'user', content: 'Say hi' },
@@ -245,9 +242,9 @@ async function main() {
                 Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
             },
             body: {
-                model: 'llama-3.1-8b-instant',
+                model: models.groq,
                 messages: [{ role: 'user', content: 'Say "test successful" in 3 words or less' }],
-                max_tokens: 20,
+                max_tokens: 1024,
             },
             validate: (res) => {
                 if (!res.data.choices?.[0]?.message?.content) {
@@ -274,7 +271,7 @@ async function main() {
                 Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
             },
             body: {
-                model: 'mistral-small-latest',
+                model: models.mistral,
                 messages: [{ role: 'user', content: 'Say "test successful" in 3 words or less' }],
                 max_tokens: 20,
             },
@@ -303,7 +300,7 @@ async function main() {
                 Authorization: `Bearer ${process.env.TOGETHER_API_KEY}`,
             },
             body: {
-                model: 'meta-llama/Llama-3-8b-chat-hf',
+                model: models.together,
                 messages: [{ role: 'user', content: 'Say "test successful" in 3 words or less' }],
                 max_tokens: 20,
             },
@@ -344,7 +341,7 @@ async function main() {
                 path: '/ollama/v1/chat/completions',
                 headers: { 'Content-Type': 'application/json' },
                 body: {
-                    model: 'llama3.2:1b',
+                    model: models.ollama,
                     messages: [{ role: 'user', content: 'Say hi' }],
                     max_tokens: 20,
                 },
@@ -376,7 +373,7 @@ async function main() {
                 Authorization: `Bearer ${process.env.COHERE_API_KEY}`,
             },
             body: {
-                model: 'command',
+                model: models.cohere,
                 messages: [{ role: 'user', content: 'Say "test successful" in 3 words or less' }],
                 max_tokens: 20,
             },
@@ -393,8 +390,15 @@ async function main() {
     // ============ Azure OpenAI ============
     console.log(`\n${c.cyan}Azure OpenAI${c.reset}\n`)
 
-    if (!process.env.AZURE_OPENAI_API_KEY || !process.env.AZURE_OPENAI_RESOURCE) {
-        skip('Azure OpenAI', 'AZURE_OPENAI_API_KEY or AZURE_OPENAI_RESOURCE not set')
+    if (
+        !process.env.AZURE_OPENAI_API_KEY ||
+        !process.env.AZURE_OPENAI_RESOURCE ||
+        !process.env.AZURE_OPENAI_DEPLOYMENT
+    ) {
+        skip(
+            'Azure OpenAI',
+            'AZURE_OPENAI_API_KEY, AZURE_OPENAI_RESOURCE or AZURE_OPENAI_DEPLOYMENT not set',
+        )
     } else if (!shouldTest('azure')) {
         skip('Azure OpenAI', 'Not in PROVIDERS list')
     } else {
@@ -406,7 +410,7 @@ async function main() {
                 'x-azure-resource': process.env.AZURE_OPENAI_RESOURCE,
             },
             body: {
-                model: process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4',
+                model: process.env.AZURE_OPENAI_DEPLOYMENT,
                 messages: [{ role: 'user', content: 'Say "test successful" in 3 words or less' }],
                 max_tokens: 20,
             },
@@ -437,7 +441,7 @@ async function main() {
                 Authorization: `Bearer ${geminiKey}`,
             },
             body: {
-                model: 'gemini-2.0-flash',
+                model: models.gemini,
                 contents: [{ role: 'user', parts: [{ text: 'Say "test ok" in 3 words' }] }],
             },
             validate: (res) => {
@@ -454,7 +458,7 @@ async function main() {
                 Authorization: `Bearer ${geminiKey}`,
             },
             body: {
-                model: 'gemini-2.0-flash',
+                model: models.gemini,
                 messages: [
                     { role: 'system', content: 'Be brief.' },
                     { role: 'user', content: 'Say hi' },
@@ -483,9 +487,9 @@ async function main() {
                 'X-LLMFlow-Provider': 'groq',
             },
             body: {
-                model: 'llama-3.1-8b-instant',
+                model: models.groq,
                 messages: [{ role: 'user', content: 'Say "header test ok"' }],
-                max_tokens: 20,
+                max_tokens: 1024,
             },
             validate: (res) => {
                 if (!res.data.choices?.[0]?.message?.content) {

@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 
 vi.mock('$lib/api/client', () => ({ api: { get: vi.fn() } }))
 import { api } from '$lib/api/client'
-import { loadSession, sessionsState } from './sessions.svelte'
+import { loadSession, loadSessions, sessionsState } from './sessions.svelte'
 
 function pending() {
   let resolve!: (value: unknown) => void
@@ -64,4 +64,19 @@ it('retains the current failure when an obsolete request later succeeds', async 
   expect(sessionsState.selected).toBeNull()
   expect(sessionsState.error).toBe('current failure')
   expect(sessionsState.loading).toBe(false)
+})
+
+it('live refresh retains the requested page while pagination is pending', async () => {
+  sessionsState.offset = 0
+  const old = pending()
+  const first = loadSessions(50, 50)
+  const current = pending()
+  const second = loadSessions()
+  expect(api.get).toHaveBeenLastCalledWith('/api/sessions?limit=50&offset=50')
+  current.resolve({ sessions: [{ session_id: 'page-two' }], total: 100 })
+  await second
+  old.resolve({ sessions: [{ session_id: 'obsolete' }], total: 100 })
+  await first
+  expect(sessionsState.offset).toBe(50)
+  expect(sessionsState.list[0].session_id).toBe('page-two')
 })

@@ -48,7 +48,6 @@
   }
 
   onMount(() => {
-    loadFilterOptions()
     const unsubscribe = initLogsSync()
     return () => {
       searchDebounce.cancel()
@@ -58,6 +57,7 @@
 
   $effect(() => {
     if (tabState.current === 'logs') {
+      loadFilterOptions()
       loadLogs()
     }
   })
@@ -97,7 +97,7 @@
   <select
     id="logSeverityFilter"
     data-testid="logs-severity-filter"
-    value={logFilters.severity_min ?? ''}
+    value={logFilters.severity_min == null ? '' : String(logFilters.severity_min)}
     onchange={handleSeverityChange}
   >
     <option value="">All Severity</option>

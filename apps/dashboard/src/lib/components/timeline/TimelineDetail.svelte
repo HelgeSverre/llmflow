@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { selectedItem, selectedItemData, relatedLogs } from '$lib/stores/timeline.svelte'
+  import {
+    selectedItem,
+    selectedItemData,
+    selectedItemError,
+    selectTimelineItem,
+    relatedLogs,
+  } from '$lib/stores/timeline.svelte'
   import type { TraceDetail, Trace } from '$lib/stores/traces.svelte'
   import type { Log } from '$lib/stores/logs.svelte'
   import { selectTrace } from '$lib/stores/traces.svelte'
@@ -58,6 +64,15 @@
     >
   </div>
   <div class="detail-body">
+    {#if selectedItemError.value}
+      <section>
+        <p role="alert">{selectedItemError.value}</p>
+        <button
+          class="btn-secondary"
+          onclick={() => selectedItem.value && selectTimelineItem(selectedItem.value)}>Retry</button
+        >
+      </section>
+    {/if}
     {#if span}
       <div class="span-detail"><SpanDetailPanel {span} /></div>
     {:else if log}
@@ -74,7 +89,7 @@
         <h3>Resource</h3>
         <pre>{JSON.stringify(log.resource_attributes || {}, null, 2)}</pre>
       </section>
-    {:else if selectedItem.value}
+    {:else if selectedItem.value && !selectedItemError.value}
       <p>Loading details…</p>
     {/if}
     {#if relatedLogs.length}

@@ -1,4 +1,6 @@
 import { api } from '$lib/api/client'
+import { onMessage } from './websocket.svelte'
+import { tabState } from './tabs.svelte'
 
 export interface SessionSummary {
   session_id: string
@@ -32,12 +34,18 @@ export const sessionsState = $state({
   limit: 50,
   offset: 0,
   selected: null as SessionDetail | null,
+  selectedId: null as string | null,
   loading: false,
   error: null as string | null,
 })
 
 let listRequest = 0
-export async function loadSessions(limit = sessionsState.limit, offset = sessionsState.offset) {
+let pendingPage: { limit: number; offset: number } | null = null
+export async function loadSessions(
+  limit = pendingPage?.limit ?? sessionsState.limit,
+  offset = pendingPage?.offset ?? sessionsState.offset,
+) {
+  pendingPage = { limit, offset }
   const request = ++listRequest
   sessionsState.loading = true
   try {
@@ -53,13 +61,18 @@ export async function loadSessions(limit = sessionsState.limit, offset = session
   } catch (e) {
     if (request === listRequest) sessionsState.error = (e as Error).message
   } finally {
-    if (request === listRequest) sessionsState.loading = false
+    if (request === listRequest) {
+      pendingPage = null
+      sessionsState.loading = false
+    }
   }
 }
 
 let detailRequest = 0
 export async function loadSession(id: string) {
   const request = ++detailRequest
+  if (sessionsState.selectedId !== id) sessionsState.selected = null
+  sessionsState.selectedId = id
   sessionsState.loading = true
   try {
     const detail = await api.get<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`)
@@ -70,5 +83,24 @@ export async function loadSession(id: string) {
     if (request === detailRequest) sessionsState.error = (e as Error).message
   } finally {
     if (request === detailRequest) sessionsState.loading = false
+  }
+}
+
+export function initSessionsSync(refresh: () => void) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const unsubscribe = onMessage((msg) => {
+    if (tabState.current !== 'sessions' || timer) return
+    if (msg.type !== 'new_trace' && msg.type !== 'new_span') return
+    timer = setTimeout(() => {
+      timer = undefined
+      if (tabState.current === 'sessions') refresh()
+    }, 50)
+  })
+  return () => {
+    unsubscribe()
+    clearTimeout(timer)
+    listRequest++
+    pendingPage = null
+    detailRequest++
   }
 }

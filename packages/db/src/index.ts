@@ -557,7 +557,7 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
 
     if (filters.q) {
         where.push(
-            '(request_body LIKE $q OR response_body LIKE $q OR input LIKE $q OR output LIKE $q)',
+            '(span_name LIKE $q OR model LIKE $q OR service_name LIKE $q OR request_body LIKE $q OR response_body LIKE $q OR input LIKE $q OR output LIKE $q)',
         )
         params.$q = `%${filters.q}%`
     }

@@ -1,14 +1,28 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { sessionsState, loadSessions } from '$lib/stores/sessions.svelte'
+  import { onMount, untrack } from 'svelte'
+  import {
+    sessionsState,
+    loadSessions,
+    loadSession,
+    initSessionsSync,
+  } from '$lib/stores/sessions.svelte'
   import { selectTrace } from '$lib/stores/traces.svelte'
-  import { setTab } from '$lib/stores/tabs.svelte'
+  import { setTab, tabState } from '$lib/stores/tabs.svelte'
   import SessionList from './SessionList.svelte'
   import SessionDetail from './SessionDetail.svelte'
 
   let view = $state<'list' | 'detail'>('list')
 
-  onMount(() => loadSessions())
+  function refresh() {
+    if (view === 'detail' && sessionsState.selectedId) void loadSession(sessionsState.selectedId)
+    else void loadSessions()
+  }
+
+  onMount(() => initSessionsSync(refresh))
+
+  $effect(() => {
+    if (tabState.current === 'sessions') untrack(refresh)
+  })
 
   function openSession(_id: string) {
     view = 'detail'
@@ -24,7 +38,13 @@
   {#if view === 'list'}
     <SessionList onSelect={openSession} />
   {:else}
-    <button class="back" onclick={() => (view = 'list')}>← back to sessions</button>
+    <button
+      class="back"
+      onclick={() => {
+        view = 'list'
+        void loadSessions()
+      }}>← back to sessions</button
+    >
     <SessionDetail onOpenTrace={openTrace} />
   {/if}
 </div>

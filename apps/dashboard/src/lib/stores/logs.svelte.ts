@@ -101,26 +101,22 @@ export function clearFilters() {
   loadLogs()
 }
 
-function logMatchesFilters(log: Log): boolean {
-  if (logFilters.service_name && log.service_name !== logFilters.service_name) return false
-  if (logFilters.event_name && log.event_name !== logFilters.event_name) return false
-  if (logFilters.q) return false // Text search requires server
-  return true
-}
-
 export function initLogsSync() {
+  let timer: ReturnType<typeof setTimeout> | undefined
   const unsubscribe = onMessage((msg) => {
-    if (msg.type === 'new_log' && tabState.current === 'logs') {
-      const log = msg.payload as Log
-      if (!logMatchesFilters(log)) return
-      if (!logs.find((l) => l.id === log.id)) {
-        logs.unshift(log)
-        if (logs.length > 100) logs.length = 100
-      }
+    if (msg.type === 'new_log' && tabState.current === 'logs' && !timer) {
+      // WebSocket summaries omit searchable fields and may truncate the body.
+      timer = setTimeout(() => {
+        timer = undefined
+        if (tabState.current !== 'logs') return
+        void loadLogs()
+        void loadFilterOptions()
+      }, 50)
     }
   })
   return () => {
     unsubscribe()
+    clearTimeout(timer)
     listRequest++
     selectionRequest++
   }

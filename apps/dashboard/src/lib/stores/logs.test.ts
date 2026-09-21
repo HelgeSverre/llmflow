@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 vi.mock('$lib/api/client', () => ({ api: { get: vi.fn() } }))
 vi.mock('./websocket.svelte', () => ({ onMessage: vi.fn() }))
 import { api } from '$lib/api/client'
@@ -14,6 +14,8 @@ import {
   selectedLog,
   selectedLogId,
 } from './logs.svelte'
+
+afterEach(() => vi.useRealTimers())
 
 function pending() {
   let resolve!: (value: unknown) => void
@@ -75,6 +77,7 @@ it('deselection invalidates pending detail', async () => {
 })
 
 it('teardown removes the live listener and invalidates pending list and detail', async () => {
+  vi.useFakeTimers()
   let listener: Parameters<typeof onMessage>[0] | undefined
   const unsubscribe = vi.fn(() => {
     listener = undefined
@@ -85,7 +88,12 @@ it('teardown removes the live listener and invalidates pending list and detail',
   })
   const stop = initLogsSync()
   listener?.({ type: 'new_log', payload: { id: 'live', service_name: 'app' } })
-  expect(logs.map((row) => row.id)).toEqual(['live'])
+  vi.mocked(api.get)
+    .mockResolvedValueOnce({ logs: [{ id: 'filtered' }] })
+    .mockResolvedValueOnce({})
+  await vi.advanceTimersByTimeAsync(50)
+  expect(logs.map((row) => row.id)).toEqual(['filtered'])
+  listener?.({ type: 'new_log', payload: { id: 'queued' } })
   const oldList = pending(),
     first = loadLogs()
   const oldDetail = pending(),
@@ -96,6 +104,9 @@ it('teardown removes the live listener and invalidates pending list and detail',
   oldList.resolve({ logs: [{ id: 'obsolete' }] })
   oldDetail.resolve({ id: 'obsolete' })
   await Promise.all([first, second])
-  expect(logs.map((row) => row.id)).toEqual(['live'])
+  const calls = vi.mocked(api.get).mock.calls.length
+  await vi.advanceTimersByTimeAsync(50)
+  expect(api.get).toHaveBeenCalledTimes(calls)
+  expect(logs.map((row) => row.id)).toEqual(['filtered'])
   expect(selectedLog.value).toBeNull()
 })

@@ -16,6 +16,7 @@
  */
 
 const http = require('http')
+const { models, shouldTest } = require('./lib/live-providers')
 
 const PROXY_URL = process.env.PROXY_URL || 'http://localhost:8080'
 const DASHBOARD_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
@@ -142,9 +143,15 @@ async function main() {
     // ============ Anthropic Passthrough ============
     console.log(`\n${c.cyan}Anthropic Passthrough${c.reset}\n`)
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-        skip('Anthropic Passthrough (native format)', 'ANTHROPIC_API_KEY not set')
-        skip('Anthropic Passthrough (with system)', 'ANTHROPIC_API_KEY not set')
+    if (!process.env.ANTHROPIC_API_KEY || !shouldTest('anthropic')) {
+        skip(
+            'Anthropic Passthrough (native format)',
+            'ANTHROPIC_API_KEY not set or excluded by PROVIDERS',
+        )
+        skip(
+            'Anthropic Passthrough (with system)',
+            'ANTHROPIC_API_KEY not set or excluded by PROVIDERS',
+        )
     } else {
         // Test native Anthropic format (as Claude Code would send)
         await testPassthrough('Anthropic Passthrough (native format)', {
@@ -155,7 +162,7 @@ async function main() {
                 'anthropic-version': '2023-06-01',
             },
             body: {
-                model: 'claude-3-haiku-20240307',
+                model: models.anthropic,
                 max_tokens: 50,
                 messages: [
                     {
@@ -193,7 +200,7 @@ async function main() {
                 'anthropic-version': '2023-06-01',
             },
             body: {
-                model: 'claude-3-haiku-20240307',
+                model: models.anthropic,
                 max_tokens: 50,
                 system: 'You always respond with exactly 3 words.',
                 messages: [{ role: 'user', content: 'Say hello' }],
@@ -214,7 +221,7 @@ async function main() {
                 'anthropic-version': '2023-06-01',
             },
             body: {
-                model: 'claude-3-haiku-20240307',
+                model: models.anthropic,
                 max_tokens: 20,
                 messages: [{ role: 'user', content: 'Hi' }],
             },
@@ -229,7 +236,7 @@ async function main() {
     // ============ Compare Passthrough vs Transform ============
     console.log(`\n${c.cyan}Passthrough vs Transform Comparison${c.reset}\n`)
 
-    if (process.env.ANTHROPIC_API_KEY) {
+    if (process.env.ANTHROPIC_API_KEY && shouldTest('anthropic')) {
         // Same request via passthrough should return native format
         const passthroughResult = await request(
             `${PROXY_URL}/passthrough/anthropic/v1/messages`,
@@ -241,7 +248,7 @@ async function main() {
                 },
             },
             {
-                model: 'claude-3-haiku-20240307',
+                model: models.anthropic,
                 max_tokens: 20,
                 messages: [{ role: 'user', content: 'Hi' }],
             },
@@ -258,7 +265,7 @@ async function main() {
                 },
             },
             {
-                model: 'claude-3-haiku-20240307',
+                model: models.anthropic,
                 max_tokens: 20,
                 messages: [{ role: 'user', content: 'Hi' }],
             },
@@ -293,11 +300,14 @@ async function main() {
 
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
 
-    if (!geminiKey) {
-        skip('Gemini Passthrough (native format)', 'GEMINI_API_KEY not set')
+    if (!geminiKey || !shouldTest('gemini')) {
+        skip(
+            'Gemini Passthrough (native format)',
+            'GEMINI_API_KEY not set or excluded by PROVIDERS',
+        )
     } else {
         await testPassthrough('Gemini Passthrough (native format)', {
-            path: '/passthrough/gemini/v1beta/models/gemini-2.0-flash:generateContent',
+            path: `/passthrough/gemini/v1beta/models/${encodeURIComponent(models.gemini)}:generateContent`,
             headers: {
                 'Content-Type': 'application/json',
                 'x-goog-api-key': geminiKey,
@@ -334,8 +344,8 @@ async function main() {
     // ============ OpenAI Passthrough ============
     console.log(`\n${c.cyan}OpenAI Passthrough${c.reset}\n`)
 
-    if (!process.env.OPENAI_API_KEY) {
-        skip('OpenAI Passthrough', 'OPENAI_API_KEY not set')
+    if (!process.env.OPENAI_API_KEY || !shouldTest('openai')) {
+        skip('OpenAI Passthrough', 'OPENAI_API_KEY not set or excluded by PROVIDERS')
     } else {
         await testPassthrough('OpenAI Passthrough (chat completions)', {
             path: '/passthrough/openai/v1/chat/completions',
@@ -344,7 +354,7 @@ async function main() {
                 Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
             },
             body: {
-                model: 'gpt-4o-mini',
+                model: models.openai,
                 max_tokens: 20,
                 messages: [{ role: 'user', content: 'Say "passthrough ok"' }],
             },

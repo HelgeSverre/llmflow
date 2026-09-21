@@ -296,3 +296,23 @@ server environment (for example, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) and
 restart. Stored credentials are redacted and are never reused. Telemetry-only
 spans, native passthrough requests, incomplete bodies and URLs containing
 redacted parameters cannot be replayed from the dashboard.
+
+### Live provider checks
+
+The default test suite uses local fixtures. Optional live checks make billable requests and
+require working provider credentials and account credit:
+
+```bash
+PROVIDERS=openai,anthropic,cohere,mistral bun run test:providers-e2e
+PROVIDERS=openai,anthropic bun run apps/server/test/run-tests.js passthrough-e2e.js
+```
+
+Both suites honor `PROVIDERS`. Override a model with
+`LLMFLOW_TEST_<PROVIDER>_MODEL`, for example
+`LLMFLOW_TEST_ANTHROPIC_MODEL=claude-haiku-4-5`. Defaults live in
+[`live-providers.js`](apps/server/test/lib/live-providers.js); choose an available model
+for your account when a provider changes availability. Azure additionally requires
+`AZURE_OPENAI_DEPLOYMENT`; Ollama requires a running server and an installed model.
+Missing credentials or excluded providers are reported as skipped. Upstream authentication,
+model-access, quota and billing errors remain failures with their HTTP status and message;
+they are not silently counted as passes.

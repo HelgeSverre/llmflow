@@ -2,7 +2,7 @@ import { test, expect, afterAll } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { AnthropicProvider, BaseProvider, registry } from '@llmflow/providers'
+import { AnthropicProvider, CohereProvider, BaseProvider, registry } from '@llmflow/providers'
 import { AnthropicPassthrough, GeminiPassthrough } from '@llmflow/providers/passthrough'
 const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-proxy-'))
 Object.assign(process.env, {
@@ -57,6 +57,33 @@ const upstream = Bun.serve({
             disconnected = true
         })
         if (mode === 'text') return new Response('not JSON: upstream unavailable', { status: 503 })
+        if (mode === 'cohere-error')
+            return Response.json(
+                { id: 'cohere-error', message: 'Model not found' },
+                { status: 404 },
+            )
+        if (mode === 'responses-tool')
+            return new Response(
+                'event: response.completed\ndata: ' +
+                    JSON.stringify({
+                        type: 'response.completed',
+                        response: {
+                            model: 'fixture',
+                            output: [
+                                {
+                                    type: 'function_call',
+                                    id: 'fc_1',
+                                    call_id: 'call_1',
+                                    name: 'read',
+                                    arguments: '{"path":"fixture.txt"}',
+                                },
+                            ],
+                            usage: { input_tokens: 8, output_tokens: 4, total_tokens: 12 },
+                        },
+                    }) +
+                    '\n\n',
+                { headers: { 'content-type': 'text/event-stream' } },
+            )
         if (mode === 'slow') {
             await Bun.sleep(11000)
             return Response.json({
@@ -111,6 +138,12 @@ class MockOpenAI extends BaseProvider {
 }
 registry.register('fixture', new MockAnthropic())
 registry.register('plain', new MockOpenAI())
+class MockCohere extends CohereProvider {
+    override getTarget(req: any) {
+        return { hostname: '127.0.0.1', port: upstream.port!, protocol: 'http', path: req.path }
+    }
+}
+registry.register('cohere-fixture', new MockCohere())
 const native = new AnthropicPassthrough()
 native.targetHost = '127.0.0.1'
 native.targetPort = upstream.port!
@@ -216,6 +249,37 @@ test('non-JSON upstream errors keep status and body without rereading consumed s
         expect(response.status).toBe(503)
         expect(await response.text()).toContain('upstream unavailable')
     }
+})
+test('Cohere HTTP errors preserve actionable payloads for clients and stored traces', async () => {
+    mode = 'cohere-error'
+    const response = await send('/cohere-fixture/v1/chat/completions', false, {
+        'x-trace-id': 'cohere-error-trace',
+    })
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ id: 'cohere-error', message: 'Model not found' })
+    const row: any = db.getSpansByTraceId('cohere-error-trace')[0]
+    expect(row.status).toBe(404)
+    expect(JSON.parse(row.response_body)).toEqual({
+        id: 'cohere-error',
+        message: 'Model not found',
+    })
+})
+test('Responses stream is forwarded intact while tool calls and usage are persisted', async () => {
+    mode = 'responses-tool'
+    const response = await send('/plain/v1/responses', true, {
+        'x-trace-id': 'responses-tool-trace',
+    })
+    expect(await response.text()).toContain('response.completed')
+    const row: any = db.getSpansByTraceId('responses-tool-trace')[0]
+    expect(row.total_tokens).toBe(12)
+    expect(JSON.parse(row.response_body).choices[0]).toMatchObject({
+        finish_reason: 'tool_calls',
+        message: {
+            tool_calls: [
+                { id: 'call_1', function: { name: 'read', arguments: '{"path":"fixture.txt"}' } },
+            ],
+        },
+    })
 })
 test('configured deadline terminates stalled upstream and persists one failure', async () => {
     mode = 'stall'

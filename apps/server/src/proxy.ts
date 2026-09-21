@@ -181,13 +181,15 @@ export async function forwardProxyRequest(
             } catch {
                 parsed = { error: 'Non-JSON upstream response', body: text }
             }
-            const normalized = native
-                ? {
-                      data: parsed,
-                      usage: native.handler.extractUsage(parsed),
-                      model: native.handler.identifyModel(body, parsed),
-                  }
-                : provider!.normalizeResponse(parsed, request)
+            const normalized = !upstream.ok
+                ? { data: parsed, usage: {}, model: fallbackModel }
+                : native
+                  ? {
+                        data: parsed,
+                        usage: native.handler.extractUsage(parsed),
+                        model: native.handler.identifyModel(body, parsed),
+                    }
+                  : provider!.normalizeResponse(parsed, request)
             const usage = native ? normalized.usage || {} : provider!.extractUsage(normalized.data)
             const model =
                 normalized.model && !normalized.model.endsWith('-unknown')
