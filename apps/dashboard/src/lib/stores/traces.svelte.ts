@@ -1,11 +1,16 @@
 import { api } from '$lib/api/client'
 import { onMessage } from './websocket.svelte'
 import { tabState } from './tabs.svelte'
+import type { TraceTree, TraceTreeSpan } from '$lib/trace/tree'
 
 export interface Trace {
+  trace_id?: string
+  input?: unknown
+  output?: unknown
+  attributes?: Record<string, unknown>
   id: string
   timestamp: number
-  duration_ms: number
+  duration_ms: number | null
   provider?: string
   model?: string
   prompt_tokens?: number
@@ -17,20 +22,6 @@ export interface Trace {
   span_type?: string
   span_name?: string
   service_name?: string
-}
-
-export interface Span {
-  id: string
-  trace_id: string
-  parent_id?: string
-  name: string
-  span_type?: string
-  start_time: number
-  end_time?: number
-  duration_ms?: number
-  status?: string
-  attributes?: Record<string, unknown>
-  children?: Span[]
 }
 
 export interface TraceDetail {
@@ -46,7 +37,8 @@ export interface TraceDetail {
     headers: Record<string, string>
     body: unknown
   }
-  spans?: Span[]
+  spans?: TraceTreeSpan[]
+  partial?: boolean
 }
 
 export interface TraceFilters {
@@ -54,8 +46,6 @@ export interface TraceFilters {
   model: string
   status: string
   dateRange: string
-  date_from: number | null
-  date_to: number | null
 }
 
 export interface TraceFilterOptions {
@@ -70,32 +60,33 @@ export const traceFilters = $state<TraceFilters>({
   model: '',
   status: '',
   dateRange: '',
-  date_from: null,
-  date_to: null,
 })
 export const filterOptions = $state<TraceFilterOptions>({
   models: [],
 })
 
-function getDateRange(range: string): { from: number | null; to: number | null } {
-  if (!range) return { from: null, to: null }
+function getDateRange(range: string): number | null {
+  if (!range) return null
   const now = Date.now()
   const hour = 60 * 60 * 1000
   const day = 24 * hour
 
   switch (range) {
     case '1h':
-      return { from: now - hour, to: null }
+      return now - hour
     case '24h':
-      return { from: now - day, to: null }
+      return now - day
     case '7d':
-      return { from: now - 7 * day, to: null }
+      return now - 7 * day
     default:
-      return { from: null, to: null }
+      return null
   }
 }
 
+let listGeneration = 0
+
 export async function loadTraces() {
+  const generation = ++listGeneration
   if (tabState.current !== 'traces') return
 
   try {
@@ -104,11 +95,11 @@ export async function loadTraces() {
     if (traceFilters.model) params.set('model', traceFilters.model)
     if (traceFilters.status) params.set('status', traceFilters.status)
 
-    const { from, to } = getDateRange(traceFilters.dateRange)
+    const from = getDateRange(traceFilters.dateRange)
     if (from) params.set('date_from', String(from))
-    if (to) params.set('date_to', String(to))
 
     const data = await api.get<Trace[]>(`/api/traces?${params}`)
+    if (generation !== listGeneration || tabState.current !== 'traces') return
     traces.length = 0
     traces.push(...(data || []))
   } catch (e) {
@@ -125,21 +116,27 @@ export async function loadFilterOptions() {
   }
 }
 
+let selectionGeneration = 0
+
 export async function selectTrace(id: string) {
+  const generation = ++selectionGeneration
   selectedTraceId.value = id
+  selectedTrace.value = null
   try {
     const [detail, tree] = await Promise.all([
       api.get<TraceDetail>(`/api/traces/${id}`),
-      api.get<{ spans: Span[] }>(`/api/traces/${id}/tree`).catch(() => ({ spans: [] })),
+      api.get<TraceTree>(`/api/traces/${id}/tree`),
     ])
-    selectedTrace.value = { ...detail, spans: tree.spans }
+    if (selectionGeneration !== generation) return
+    selectedTrace.value = { ...detail, spans: tree.spans, partial: tree.trace?.partial }
   } catch (e) {
     console.error('Failed to load trace:', e)
-    selectedTrace.value = null
+    if (selectionGeneration === generation) selectedTrace.value = null
   }
 }
 
 export function clearSelection() {
+  selectionGeneration++
   selectedTraceId.value = null
   selectedTrace.value = null
 }
@@ -149,19 +146,24 @@ export function clearFilters() {
   traceFilters.model = ''
   traceFilters.status = ''
   traceFilters.dateRange = ''
-  traceFilters.date_from = null
-  traceFilters.date_to = null
   loadTraces()
 }
 
 export function initTracesSync() {
-  onMessage((msg) => {
-    if (msg.type === 'new_trace' && tabState.current === 'traces') {
-      const trace = msg.payload as Trace
-      if (!traces.find((t) => t.id === trace.id)) {
-        traces.unshift(trace)
-        if (traces.length > 50) traces.length = 50
-      }
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const unsubscribe = onMessage((msg) => {
+    if ((msg.type === 'new_trace' || msg.type === 'new_span') && tabState.current === 'traces') {
+      // Summaries lack searchable bodies. Reload the authoritative filtered query.
+      if (timer) return
+      timer = setTimeout(() => {
+        timer = undefined
+        void loadTraces()
+      }, 100)
     }
   })
+  return () => {
+    unsubscribe()
+    clearTimeout(timer)
+    listGeneration++
+  }
 }

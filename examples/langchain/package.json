@@ -5,7 +5,7 @@
   "description": "LangChain.js integration with LLMFlow tracing via proxy",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "bun --env-file=../../.env index.js"
   },
   "dependencies": {
     "@langchain/core": "^0.3.0",

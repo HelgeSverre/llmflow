@@ -16,14 +16,14 @@ LangChain is configured to send OpenAI API calls through the LLMFlow proxy at `h
 1. Start LLMFlow from the project root:
 
    ```bash
-   npm install
-   npm start
+   bun install
+   bun run start
    ```
 
 2. Install example dependencies:
 
    ```bash
-   npm install
+   bun install
    ```
 
 3. Set your OpenAI API key in `.env` at the project root:
@@ -35,10 +35,10 @@ LangChain is configured to send OpenAI API calls through the LLMFlow proxy at `h
 4. Run the example:
 
    ```bash
-   npm start
+   bun run start
    ```
 
-5. View traces at [http://localhost:3000](http://localhost:3000)
+5. View traces at [http://localhost:1337](http://localhost:1337)
 
 ## Key Code
 
@@ -71,5 +71,5 @@ LLMFlow automatically captures:
 | Variable            | Default                    | Description                      |
 | ------------------- | -------------------------- | -------------------------------- |
 | `LLMFLOW_PROXY`     | `http://localhost:8080/v1` | LLMFlow proxy URL                |
-| `LLMFLOW_DASHBOARD` | `http://localhost:3000`    | Dashboard URL for viewing traces |
+| `LLMFLOW_DASHBOARD` | `http://localhost:1337`    | Dashboard URL for viewing traces |
 | `OPENAI_API_KEY`    | (required)                 | Your OpenAI API key              |

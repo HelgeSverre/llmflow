@@ -22,10 +22,17 @@
   style="height: {ROW_HEIGHT_PX}px"
   onclick={() => onClick(row.id)}
   onkeydown={(e) => {
-    if (e.key === 'Enter' || e.key === ' ') onClick(row.id)
+    if (e.target !== e.currentTarget) return
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClick(row.id)
+    }
   }}
   role="treeitem"
   aria-selected={selected}
+  aria-label={row.name}
+  aria-level={row.depth + 1}
+  aria-expanded={row.hasChildren ? row.expanded : undefined}
   tabindex="0"
 >
   <div class="label-col" style="padding-left: {row.depth * INDENT_PX + 4}px">
@@ -36,9 +43,9 @@
           e.stopPropagation()
           onToggle(row.id)
         }}
-        aria-label="Toggle"
+        aria-label={row.expanded ? 'Collapse span' : 'Expand span'}
       >
-        ▸
+        {row.expanded ? '▾' : '▸'}
       </button>
     {:else}
       <span class="caret-spacer"></span>
@@ -60,17 +67,18 @@
 <style>
   .span-row {
     display: grid;
-    grid-template-columns: minmax(220px, 35%) 1fr 80px;
+    grid-template-columns: var(--waterfall-columns);
+    column-gap: var(--waterfall-gap);
     align-items: center;
     cursor: pointer;
-    border-bottom: 1px solid var(--row-border, rgba(0, 0, 0, 0.05));
+    border-bottom: 1px solid var(--border-light);
     font-size: 13px;
   }
   .span-row:hover {
-    background: var(--row-hover, rgba(0, 0, 0, 0.03));
+    background: var(--bg-hover);
   }
   .span-row.selected {
-    background: var(--row-selected, rgba(0, 120, 215, 0.12));
+    background: var(--bg-selected);
   }
 
   .label-col {
@@ -84,7 +92,7 @@
     border: 0;
     cursor: pointer;
     padding: 0 4px;
-    color: var(--muted);
+    color: var(--text-tertiary);
   }
   .caret-spacer {
     display: inline-block;
@@ -115,8 +123,8 @@
   .duration-col {
     text-align: right;
     padding-right: 8px;
-    font-family: var(--font-mono);
+    font-family: ui-monospace, monospace;
     font-size: 12px;
-    color: var(--muted);
+    color: var(--text-tertiary);
   }
 </style>

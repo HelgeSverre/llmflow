@@ -1,7 +1,6 @@
 import {
     BaseProvider,
     type NormalizedResponse,
-    type ParsedStreamChunk,
     type ProviderRequest,
     type ProviderTarget,
     type TokenUsage,
@@ -133,35 +132,6 @@ export class AzureOpenAIProvider extends BaseProvider {
             usage: b.usage || null,
             model: b.model || (reqBody.model as string | undefined) || 'unknown',
         }
-    }
-
-    override parseStreamChunk(chunk: string): ParsedStreamChunk {
-        const lines = chunk.split('\n')
-        let content = ''
-        let usage: TokenUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed.startsWith('data:')) continue
-
-            const payload = trimmed.slice(5).trim()
-            if (payload === '[DONE]') {
-                done = true
-                continue
-            }
-
-            try {
-                const json = JSON.parse(payload)
-                const delta = json.choices?.[0]?.delta?.content
-                if (delta) content += delta
-                if (json.usage) usage = json.usage as TokenUsage
-            } catch {
-                // Ignore parse errors
-            }
-        }
-
-        return { content, usage, done }
     }
 
     override extractUsage(response: unknown): TokenUsage {

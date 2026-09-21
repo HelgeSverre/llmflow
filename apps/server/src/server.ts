@@ -2,22 +2,26 @@ import * as db from '@llmflow/db'
 import { safeJson } from '@llmflow/db'
 import path from 'path'
 import fs from 'fs'
-import getPort from 'get-port'
+import { forwardProxyRequest } from './proxy'
+import { replayTrace } from './replay'
+import { trustedWebSocketOrigin } from './websocket-origin'
 
-// CommonJS workspace packages
-const { calculateCost, getPricingStatus } = require('@llmflow/pricing')
-const log = require('@llmflow/shared/logger')
-const { registry } = require('@llmflow/providers')
-const {
+import { registry } from '@llmflow/providers'
+import {
+    type PassthroughHandler,
     AnthropicPassthrough,
     GeminiPassthrough,
     OpenAIPassthrough,
     HeliconePassthrough,
-} = require('@llmflow/providers/passthrough')
+} from '@llmflow/providers/passthrough'
+// CommonJS workspace packages
+const { getPricingStatus } = require('@llmflow/pricing')
+const log = require('@llmflow/shared/logger')
 const { processOtlpTraces } = require('@llmflow/otlp/traces')
+const { decodeOtlpRequest } = require('@llmflow/otlp/transport')
 const { processOtlpLogs } = require('@llmflow/otlp/logs')
 const { processOtlpMetrics } = require('@llmflow/otlp/metrics')
-const { initExportHooks, EXPORT_ENABLED } = require('@llmflow/otlp/export')
+const { initExportHooks, flushAll, EXPORT_ENABLED } = require('@llmflow/otlp/export')
 
 // Passthrough handlers for native API formats
 const passthroughHandlers: Record<string, PassthroughHandler> = {
@@ -27,147 +31,16 @@ const passthroughHandlers: Record<string, PassthroughHandler> = {
     helicone: new HeliconePassthrough(),
 }
 
-// Provider interface for TypeScript
-interface Provider {
-    name: string
-    displayName: string
-    getTarget(req: ProxyRequest): { hostname: string; port: number; path: string; protocol: string }
-    transformRequestHeaders(
-        headers: Record<string, string>,
-        req: ProxyRequest,
-    ): Record<string, string>
-    transformRequestBody(body: unknown, req: ProxyRequest): unknown
-    normalizeResponse(
-        body: unknown,
-        req: ProxyRequest,
-    ): { data: unknown; usage: TokenUsage | null; model: string }
-    parseStreamChunk(chunk: string): { content: string; usage: TokenUsage | null; done: boolean }
-    assembleStreamingResponse(
-        content: string,
-        usage: TokenUsage | null,
-        req: ProxyRequest,
-        traceId: string,
-    ): unknown
-    extractUsage(response: unknown): TokenUsage
-    isStreamingRequest(req: ProxyRequest): boolean
-    getHttpModule(): unknown
+const PROXY_HOST = process.env.PROXY_HOST || '127.0.0.1'
+const DASHBOARD_HOST = process.env.DASHBOARD_HOST || '127.0.0.1'
+function configuredPort(name: string, fallback: number) {
+    const value = Number(process.env[name] ?? fallback)
+    if (!Number.isInteger(value) || value < 0 || value > 65535)
+        throw new Error(`${name} must be a port from 0 to 65535`)
+    return value
 }
-
-interface PassthroughHandler {
-    name: string
-    displayName: string
-    getTarget(req: ProxyRequest): { hostname: string; port: number; path: string; protocol: string }
-    defaultHeaderTransform(headers: Record<string, string>): Record<string, string>
-    defaultExtractUsage(body: unknown): TokenUsage
-    defaultIdentifyModel(reqBody: unknown, respBody: unknown): string
-    defaultParseStreamChunk(chunk: string): {
-        content: string
-        usage: TokenUsage | null
-        done: boolean
-    }
-    isStreamingRequest(req: ProxyRequest): boolean
-    sanitizeHeaders(headers: Record<string, string>): Record<string, string>
-}
-
-interface ProxyRequest {
-    method: string
-    path: string
-    headers: Record<string, string>
-    body: unknown
-}
-
-interface TokenUsage {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-}
-
-const PROXY_PORT = await getPort({ port: Number(process.env.PROXY_PORT || 8080) })
-const DASHBOARD_PORT = await getPort({ port: Number(process.env.DASHBOARD_PORT || 1337) })
-
-// Types
-interface TraceData {
-    model?: string
-    usage?: {
-        prompt_tokens?: number
-        completion_tokens?: number
-        total_tokens?: number
-    }
-    status?: number
-    headers?: Record<string, string>
-    data?: unknown
-}
-
-// Helper functions
-function extractTagsFromHeaders(headers: Headers): string[] {
-    const tags: string[] = []
-    const tagHeader = headers.get('x-llmflow-tag') || headers.get('x-llmflow-tags')
-
-    if (!tagHeader) return tags
-
-    const parts = tagHeader
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean)
-    tags.push(...parts)
-
-    return tags
-}
-
-function logInteraction(
-    traceId: string,
-    method: string,
-    urlPath: string,
-    headers: Headers,
-    requestBody: unknown,
-    responseData: TraceData,
-    duration: number,
-    error: string | null = null,
-    providerName = 'openai',
-) {
-    try {
-        const timestamp = Date.now()
-        const usage = responseData?.usage || {}
-        const model =
-            responseData?.model ||
-            ((requestBody as Record<string, unknown>)?.model as string) ||
-            'unknown'
-
-        const promptTokens = usage.prompt_tokens || 0
-        const completionTokens = usage.completion_tokens || 0
-        const totalTokens = usage.total_tokens || promptTokens + completionTokens
-        const estimatedCost = calculateCost(model, promptTokens, completionTokens)
-        const status = responseData?.status || (error ? 500 : 200)
-
-        const customTags = extractTagsFromHeaders(headers)
-
-        db.insertTrace({
-            id: traceId,
-            timestamp,
-            duration_ms: duration,
-            provider: providerName,
-            model,
-            prompt_tokens: promptTokens,
-            completion_tokens: completionTokens,
-            total_tokens: totalTokens,
-            estimated_cost: estimatedCost,
-            status,
-            error: error || undefined,
-            request_method: method,
-            request_path: urlPath,
-            request_headers: Object.fromEntries(headers.entries()),
-            request_body: requestBody,
-            response_status: status,
-            response_headers: responseData?.headers || {},
-            response_body: responseData?.data || { error },
-            tags: customTags,
-            trace_id: headers.get('x-trace-id') || traceId,
-            parent_id: headers.get('x-parent-id') || undefined,
-        })
-    } catch (err) {
-        log.error(`Failed to log: ${(err as Error).message}`)
-    }
-}
+const PROXY_PORT = configuredPort('PROXY_PORT', 8080)
+const DASHBOARD_PORT = configuredPort('DASHBOARD_PORT', 1337)
 
 // WebSocket clients for real-time updates
 const wsClients = new Set<{ send: (data: string) => void }>()
@@ -188,7 +61,8 @@ let lastStatsUpdate = 0
 const STATS_THROTTLE_MS = 1000
 
 // Set up real-time hooks
-db.setInsertTraceHook((trace: db.TraceSummary) => {
+db.subscribeTraces((record) => {
+    const trace = db.traceSummary(record)
     // Broadcast new span (for all spans)
     broadcast({ type: 'new_span', payload: trace })
 
@@ -206,7 +80,8 @@ db.setInsertTraceHook((trace: db.TraceSummary) => {
     }
 })
 
-db.setInsertLogHook((log: db.LogSummary) => {
+db.subscribeLogs((record) => {
+    const log = db.logSummary(record)
     broadcast({ type: 'new_log', payload: log })
 
     // If log has trace_id, notify trace subscribers
@@ -218,7 +93,8 @@ db.setInsertLogHook((log: db.LogSummary) => {
     }
 })
 
-db.setInsertMetricHook((metric: db.MetricSummary) => {
+db.subscribeMetrics((record) => {
+    const metric = db.metricSummary(record)
     broadcast({ type: 'new_metric', payload: metric })
 })
 
@@ -226,7 +102,10 @@ db.setInsertMetricHook((metric: db.MetricSummary) => {
 // Dashboard build output lives at the monorepo root /public/ so it can be
 // included in the npm package via root `files` and served unchanged in
 // production/dev. apps/server/src → repo root is three levels up.
-const publicDir = path.join(import.meta.dir, '..', '..', '..', 'public')
+const publicDir = path.join(
+    process.env.LLMFLOW_ROOT || path.resolve(import.meta.dir, '../../..'),
+    'public',
+)
 
 function serveStaticFile(filePath: string): Response {
     const fullPath = path.join(publicDir, filePath)
@@ -259,8 +138,9 @@ function getMimeType(filePath: string): string {
 }
 
 // Dashboard server
-function startDashboardServer() {
+export function startDashboardServer() {
     return Bun.serve({
+        hostname: DASHBOARD_HOST,
         port: DASHBOARD_PORT,
 
         websocket: {
@@ -282,6 +162,9 @@ function startDashboardServer() {
 
             // WebSocket upgrade
             if (pathname === '/ws') {
+                if (!trustedWebSocketOrigin(req, DASHBOARD_HOST, server.port!)) {
+                    return new Response('Untrusted WebSocket origin', { status: 403 })
+                }
                 if (server.upgrade(req)) return new Response(null)
                 return new Response('WebSocket upgrade failed', { status: 400 })
             }
@@ -507,16 +390,19 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
                     model: string
                     count: number
                     tokens: number
+                    prompt_tokens: number
+                    completion_tokens: number
+                    avg_latency: number
                     cost: number
                 }>
             ).map((m) => ({
                 model: m.model,
                 request_count: m.count || 0,
                 total_tokens: m.tokens || 0,
-                prompt_tokens: Math.round((m.tokens || 0) * 0.7),
-                completion_tokens: Math.round((m.tokens || 0) * 0.3),
+                prompt_tokens: m.prompt_tokens ?? 0,
+                completion_tokens: m.completion_tokens ?? 0,
                 total_cost: m.cost || 0,
-                avg_latency: 0,
+                avg_latency: m.avg_latency ?? null,
             }))
             return Response.json(models)
         }
@@ -536,6 +422,8 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
                 filters.date_to = Number(url.searchParams.get('date_to'))
             if (url.searchParams.get('provider'))
                 filters.provider = url.searchParams.get('provider')!
+            if (url.searchParams.get('trace_id'))
+                filters.trace_id = url.searchParams.get('trace_id')!
             if (url.searchParams.get('session_id'))
                 filters.session_id = url.searchParams.get('session_id')!
             if (url.searchParams.get('conversation_id'))
@@ -543,6 +431,18 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
 
             const traces = db.getTraces({ limit, offset, filters })
             return Response.json(traces)
+        }
+
+        if (pathname.match(/^\/api\/traces\/[^/]+\/replay$/) && method === 'POST') {
+            try {
+                return await replayTrace(decodeURIComponent(pathname.split('/')[3]), req.signal)
+            } catch (error) {
+                log.error('Replay failed', error)
+                return Response.json(
+                    { error: 'Replay failed. Check the server log and provider configuration.' },
+                    { status: 502 },
+                )
+            }
         }
 
         // Single trace
@@ -558,6 +458,13 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             return Response.json({
                 trace: {
                     id: t.id,
+                    trace_id: t.trace_id,
+                    span_name: t.span_name,
+                    span_type: t.span_type,
+                    service_name: t.service_name,
+                    input: safeJson(t.input, null),
+                    output: safeJson(t.output, null),
+                    attributes: safeJson(t.attributes, {}),
                     timestamp: t.timestamp,
                     duration_ms: t.duration_ms,
                     model: t.model,
@@ -622,22 +529,28 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
                 }
             }
 
+            const missingParents = spans
+                .filter((span) => span.parent_id && !byId.has(span.parent_id as string))
+                .map((span) => span.parent_id)
+            const partial = missingParents.length > 0 || db.wasTraceEvicted(traceId)
+
             // Aggregate stats
             const totalCost = spans.reduce((acc, s) => acc + ((s.estimated_cost as number) || 0), 0)
             const totalTokens = spans.reduce((acc, s) => acc + ((s.total_tokens as number) || 0), 0)
-            const startTs = Math.min(...spans.map((s) => (s.timestamp as number) || Infinity))
-            const endTs = Math.max(
-                ...spans.map(
-                    (s) => ((s.timestamp as number) || 0) + ((s.duration_ms as number) || 0),
-                ),
-            )
+            const startTs = Math.min(...spans.map((s) => s.timestamp as number))
+            const timingComplete = spans.every((s) => s.duration_ms != null)
+            const endTs = timingComplete
+                ? Math.max(...spans.map((s) => (s.timestamp as number) + (s.duration_ms as number)))
+                : null
 
             return Response.json({
                 trace: {
                     trace_id: traceId,
+                    partial,
+                    missing_parent_ids: missingParents,
                     start_time: startTs,
                     end_time: endTs,
-                    duration_ms: endTs - startTs,
+                    duration_ms: endTs == null ? null : endTs - startTs,
                     total_cost: totalCost,
                     total_tokens: totalTokens,
                     span_count: spans.length,
@@ -792,21 +705,18 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
 
         // Metrics list (or summary with aggregation param)
         if (pathname === '/api/metrics' && method === 'GET') {
-            // Handle aggregation=summary query param
-            if (url.searchParams.get('aggregation') === 'summary') {
-                const summary = db.getMetricsSummary({})
-                return Response.json({ summary })
-            }
-
-            const limit = Number(url.searchParams.get('limit') || '50')
-            const offset = Number(url.searchParams.get('offset') || '0')
-
             const filters: db.MetricFilters = {}
             if (url.searchParams.get('name')) filters.name = url.searchParams.get('name')!
             if (url.searchParams.get('service_name'))
                 filters.service_name = url.searchParams.get('service_name')!
             if (url.searchParams.get('metric_type'))
                 filters.metric_type = url.searchParams.get('metric_type')!
+
+            if (url.searchParams.get('aggregation') === 'summary') {
+                return Response.json({ summary: db.getMetricsSummary(filters) })
+            }
+            const limit = Number(url.searchParams.get('limit') || '50')
+            const offset = Number(url.searchParams.get('offset') || '0')
 
             const metrics = db.getMetrics({ limit, offset, filters })
             const total = db.getMetricCount(filters)
@@ -905,13 +815,13 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             const spanId = (body.id as string) || crypto.randomUUID()
             const startTime = (body.start_time as number) || Date.now()
             const duration =
-                (body.duration_ms as number) ||
+                (body.duration_ms as number | undefined) ??
                 (body.end_time ? (body.end_time as number) - startTime : null)
 
             db.insertTrace({
                 id: spanId,
                 timestamp: startTime,
-                duration_ms: duration || undefined,
+                duration_ms: duration ?? undefined,
                 provider: (body.provider as string) || undefined,
                 model: (body.model as string) || undefined,
                 prompt_tokens: (body.prompt_tokens as number) || 0,
@@ -936,6 +846,9 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
                 output: body.output,
                 attributes: (body.attributes as Record<string, unknown>) || {},
                 service_name: (body.service_name as string) || 'app',
+                session_id: (body.session_id as string) || undefined,
+                conversation_id: (body.conversation_id as string) || undefined,
+                agent_name: (body.agent_name as string) || undefined,
             })
 
             return Response.json(
@@ -953,584 +866,44 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
 
 // OTLP route handler - processes OpenTelemetry data
 async function handleOtlpRoute(req: Request, url: URL): Promise<Response> {
-    const pathname = url.pathname
-
+    const signals = {
+        '/v1/traces': { signal: 'trace', process: processOtlpTraces, rejected: 'rejectedSpans' },
+        '/v1/logs': { signal: 'logs', process: processOtlpLogs, rejected: 'rejectedLogRecords' },
+        '/v1/metrics': {
+            signal: 'metrics',
+            process: processOtlpMetrics,
+            rejected: 'rejectedDataPoints',
+        },
+    }
+    const route = signals[url.pathname as keyof typeof signals]
+    if (!route) return Response.json({ error: 'Not Found' }, { status: 404 })
+    if (req.method !== 'POST')
+        return new Response(null, { status: 405, headers: { Allow: 'POST' } })
     try {
-        const body = await req.json()
-
-        if (pathname === '/v1/traces' && req.method === 'POST') {
-            const results = processOtlpTraces(body)
-            return Response.json({
-                partialSuccess:
-                    results.rejected > 0
-                        ? {
-                              rejectedSpans: results.rejected,
-                              errorMessage: results.errors.slice(0, 5).join('; '),
-                          }
-                        : undefined,
-            })
-        }
-
-        if (pathname === '/v1/logs' && req.method === 'POST') {
-            const results = processOtlpLogs(body)
-            return Response.json({
-                partialSuccess:
-                    results.rejected > 0
-                        ? {
-                              rejectedLogRecords: results.rejected,
-                              errorMessage: results.errors.slice(0, 5).join('; '),
-                          }
-                        : undefined,
-            })
-        }
-
-        if (pathname === '/v1/metrics' && req.method === 'POST') {
-            const results = processOtlpMetrics(body)
-            return Response.json({
-                partialSuccess:
-                    results.rejected > 0
-                        ? {
-                              rejectedDataPoints: results.rejected,
-                              errorMessage: results.errors.slice(0, 5).join('; '),
-                          }
-                        : undefined,
-            })
-        }
-
-        return Response.json({ error: 'Not Found' }, { status: 404 })
+        const { body, respond } = await decodeOtlpRequest(req, route.signal)
+        const results = route.process(body)
+        return respond(
+            results.rejected
+                ? {
+                      partialSuccess: {
+                          [route.rejected]: String(results.rejected),
+                          errorMessage: results.errors.slice(0, 5).join('; '),
+                      },
+                  }
+                : {},
+        )
     } catch (error) {
-        log.error(`OTLP error: ${(error as Error).message}`)
-        return Response.json({ error: (error as Error).message }, { status: 500 })
+        const failure = error as Error & { status?: number }
+        if (!failure.status) log.error(`OTLP error: ${failure.message}`)
+        return Response.json({ error: failure.message }, { status: failure.status || 500 })
     }
 }
 
-// Proxy handler using fetch()
-async function handleProxyRequest(req: Request, url: URL): Promise<Response> {
-    const startTime = Date.now()
-    const traceId = req.headers.get('x-trace-id') || crypto.randomUUID()
-
-    // Parse request body if present
-    let body: unknown = null
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-        try {
-            body = await req.json()
-        } catch {
-            body = null
-        }
-    }
-
-    // Build proxy request object for provider compatibility
-    const headers: Record<string, string> = {}
-    req.headers.forEach((value, key) => {
-        headers[key] = value
-    })
-
-    const proxyReq: ProxyRequest = {
-        method: req.method,
-        path: url.pathname,
-        headers,
-        body,
-    }
-
-    // Resolve provider based on path or header
-    const { provider, cleanPath } = registry.resolve(proxyReq) as {
-        provider: Provider
-        cleanPath: string
-    }
-    proxyReq.path = cleanPath
-
-    const isStreaming = provider.isStreamingRequest(proxyReq)
-
-    log.request(req.method, url.pathname, traceId)
-    log.debug(
-        `Provider: ${provider.name}, Model: ${(body as Record<string, unknown>)?.model || 'N/A'}, Stream: ${isStreaming}`,
-    )
-
-    try {
-        // Transform request for this provider
-        const transformedBody = provider.transformRequestBody(body, proxyReq)
-        const transformedHeaders = provider.transformRequestHeaders(headers, proxyReq)
-        const target = provider.getTarget(proxyReq)
-
-        // Build upstream URL
-        const protocol = target.protocol || 'https'
-        const upstreamUrl = `${protocol}://${target.hostname}${target.port !== 443 && target.port !== 80 ? ':' + target.port : ''}${target.path}`
-
-        // Make fetch request
-        const fetchOptions: RequestInit = {
-            method: req.method,
-            headers: transformedHeaders,
-        }
-
-        if (req.method !== 'GET' && req.method !== 'HEAD' && transformedBody) {
-            fetchOptions.body = JSON.stringify(transformedBody)
-        }
-
-        const upstreamRes = await fetch(upstreamUrl, fetchOptions)
-
-        if (!isStreaming) {
-            // Non-streaming: buffer entire response
-            const duration = Date.now() - startTime
-            let rawResponse: unknown
-
-            try {
-                rawResponse = await upstreamRes.json()
-            } catch {
-                const text = await upstreamRes.text()
-                rawResponse = { error: 'Invalid JSON response', body: text }
-            }
-
-            // Normalize response through provider
-            const normalized = provider.normalizeResponse(rawResponse, proxyReq)
-            const usage = provider.extractUsage(normalized.data)
-            const cost = calculateCost(
-                normalized.model,
-                usage.prompt_tokens,
-                usage.completion_tokens,
-            )
-
-            log.proxy({
-                provider: provider.name,
-                model: normalized.model,
-                tokens: usage.total_tokens,
-                cost,
-                duration,
-                streaming: false,
-            })
-
-            // Log to database
-            const respHeaders: Record<string, string> = {}
-            upstreamRes.headers.forEach((value, key) => {
-                respHeaders[key] = value
-            })
-
-            logInteraction(
-                traceId,
-                req.method,
-                url.pathname,
-                req.headers,
-                body,
-                {
-                    status: upstreamRes.status,
-                    headers: respHeaders,
-                    data: normalized.data,
-                    usage,
-                    model: normalized.model,
-                },
-                duration,
-                null,
-                provider.name,
-            )
-
-            return Response.json(normalized.data, { status: upstreamRes.status })
-        } else {
-            // Streaming: use tee() to split stream for client and logging
-            if (!upstreamRes.body) {
-                return new Response('No response body', { status: 502 })
-            }
-
-            const [clientStream, logStream] = upstreamRes.body.tee()
-
-            // Process log stream asynchronously for usage extraction
-            processStreamForLogging(
-                logStream,
-                provider,
-                proxyReq,
-                traceId,
-                startTime,
-                upstreamRes,
-                body,
-                req.method,
-                url.pathname,
-            )
-
-            // Forward response headers
-            const responseHeaders = new Headers()
-            upstreamRes.headers.forEach((value, key) => {
-                responseHeaders.set(key, value)
-            })
-
-            return new Response(clientStream, {
-                status: upstreamRes.status,
-                headers: responseHeaders,
-            })
-        }
-    } catch (error) {
-        const duration = Date.now() - startTime
-        const errMessage = (error as Error).message
-        log.proxy({ provider: provider.name, error: errMessage, duration })
-        logInteraction(
-            traceId,
-            req.method,
-            url.pathname,
-            req.headers,
-            body,
-            { status: 500 },
-            duration,
-            errMessage,
-            provider.name,
-        )
-        return Response.json(
-            { error: 'Proxy request failed', message: errMessage, provider: provider.name },
-            { status: 500 },
-        )
-    }
-}
-
-// Process stream for logging without blocking client response
-async function processStreamForLogging(
-    stream: ReadableStream<Uint8Array>,
-    provider: Provider,
-    proxyReq: ProxyRequest,
-    traceId: string,
-    startTime: number,
-    upstreamRes: Response,
-    body: unknown,
-    method: string,
-    pathname: string,
-) {
-    try {
-        const reader = stream.getReader()
-        const decoder = new TextDecoder()
-        let streamBuffer = ''
-        let chunkCount = 0
-
-        while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            chunkCount++
-            streamBuffer += decoder.decode(value, { stream: true })
-        }
-
-        const duration = Date.now() - startTime
-
-        // Parse complete stream for usage extraction
-        const parsed = provider.parseStreamChunk(streamBuffer)
-        const fullContent = parsed.content || ''
-        const finalUsage = parsed.usage
-
-        const usage = finalUsage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
-        const model = ((body as Record<string, unknown>)?.model as string) || 'unknown'
-        const cost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens)
-
-        log.proxy({
-            provider: provider.name,
-            model,
-            tokens: usage.total_tokens,
-            cost,
-            duration,
-            streaming: true,
-        })
-
-        log.debug(`Chunks: ${chunkCount}, Content: ${fullContent.length} chars`)
-
-        const assembledResponse = provider.assembleStreamingResponse(
-            fullContent,
-            finalUsage,
-            proxyReq,
-            traceId,
-        ) as Record<string, unknown>
-        assembledResponse._chunks = chunkCount
-
-        const respHeaders: Record<string, string> = {}
-        upstreamRes.headers.forEach((value, key) => {
-            respHeaders[key] = value
-        })
-
-        logInteraction(
-            traceId,
-            method,
-            pathname,
-            new Headers(),
-            body,
-            {
-                status: upstreamRes.status,
-                headers: respHeaders,
-                data: assembledResponse,
-                usage,
-                model,
-            },
-            duration,
-            null,
-            provider.name,
-        )
-    } catch (err) {
-        log.error(`Stream logging error: ${(err as Error).message}`)
-    }
-}
-
-// Passthrough handler - forwards requests without body transformation
-async function handlePassthroughRequest(
-    req: Request,
-    url: URL,
-    handler: PassthroughHandler,
-    basePath: string,
-): Promise<Response> {
-    const startTime = Date.now()
-    const traceId = req.headers.get('x-trace-id') || crypto.randomUUID()
-
-    // Parse request body if present
-    let body: unknown = null
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-        try {
-            body = await req.json()
-        } catch {
-            body = null
-        }
-    }
-
-    // Build proxy request object
-    const headers: Record<string, string> = {}
-    req.headers.forEach((value, key) => {
-        headers[key] = value
-    })
-
-    // Remove base path for passthrough
-    const cleanPath = url.pathname.replace(basePath, '')
-
-    const proxyReq: ProxyRequest = {
-        method: req.method,
-        path: cleanPath,
-        headers,
-        body,
-    }
-
-    const isStreaming = handler.isStreamingRequest(proxyReq)
-
-    log.request(req.method, url.pathname, traceId)
-    log.debug(
-        `Passthrough: ${handler.name}, Model: ${(body as Record<string, unknown>)?.model || 'N/A'}, Stream: ${isStreaming}`,
-    )
-
-    try {
-        // Transform only headers, NOT body (passthrough mode)
-        const transformedHeaders = handler.defaultHeaderTransform(headers)
-        const target = handler.getTarget(proxyReq)
-
-        // Build upstream URL
-        const protocol = target.protocol || 'https'
-        const upstreamUrl = `${protocol}://${target.hostname}${target.port !== 443 && target.port !== 80 ? ':' + target.port : ''}${target.path}`
-
-        // Make fetch request with original body
-        const fetchOptions: RequestInit = {
-            method: req.method,
-            headers: transformedHeaders,
-        }
-
-        if (req.method !== 'GET' && req.method !== 'HEAD' && body) {
-            fetchOptions.body = JSON.stringify(body)
-        }
-
-        const upstreamRes = await fetch(upstreamUrl, fetchOptions)
-
-        if (!isStreaming) {
-            // Non-streaming: forward response while extracting usage
-            const responseText = await upstreamRes.text()
-            const duration = Date.now() - startTime
-
-            let parsedResponse: unknown = null
-            try {
-                parsedResponse = JSON.parse(responseText)
-            } catch {
-                parsedResponse = null
-            }
-
-            // Extract usage from native response format (for logging only)
-            const usage = parsedResponse
-                ? handler.defaultExtractUsage(parsedResponse)
-                : { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
-            const model = handler.defaultIdentifyModel(body, parsedResponse)
-            const cost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens)
-
-            log.proxy({
-                provider: handler.name,
-                model,
-                tokens: usage.total_tokens,
-                cost,
-                duration,
-                streaming: false,
-                passthrough: true,
-            })
-
-            const respHeaders: Record<string, string> = {}
-            upstreamRes.headers.forEach((value, key) => {
-                respHeaders[key] = value
-            })
-
-            logInteraction(
-                traceId,
-                req.method,
-                url.pathname,
-                req.headers,
-                body,
-                {
-                    status: upstreamRes.status,
-                    headers: respHeaders,
-                    data: parsedResponse || { _raw: responseText.substring(0, 10000) },
-                    usage,
-                    model,
-                },
-                duration,
-                null,
-                handler.name,
-            )
-
-            // Forward response with original headers (passthrough)
-            const responseHeaders = new Headers()
-            upstreamRes.headers.forEach((value, key) => {
-                if (
-                    key.toLowerCase() !== 'content-length' &&
-                    key.toLowerCase() !== 'transfer-encoding'
-                ) {
-                    responseHeaders.set(key, value)
-                }
-            })
-
-            return new Response(responseText, {
-                status: upstreamRes.status,
-                headers: responseHeaders,
-            })
-        } else {
-            // Streaming passthrough: use tee() for logging
-            if (!upstreamRes.body) {
-                return new Response('No response body', { status: 502 })
-            }
-
-            const [clientStream, logStream] = upstreamRes.body.tee()
-
-            // Process log stream asynchronously
-            processPassthroughStreamForLogging(
-                logStream,
-                handler,
-                traceId,
-                startTime,
-                upstreamRes,
-                body,
-                req.method,
-                url.pathname,
-            )
-
-            // Forward response headers
-            const responseHeaders = new Headers()
-            upstreamRes.headers.forEach((value, key) => {
-                responseHeaders.set(key, value)
-            })
-
-            return new Response(clientStream, {
-                status: upstreamRes.status,
-                headers: responseHeaders,
-            })
-        }
-    } catch (error) {
-        const duration = Date.now() - startTime
-        const errMessage = (error as Error).message
-        log.proxy({ provider: handler.name, error: errMessage, duration, passthrough: true })
-        logInteraction(
-            traceId,
-            req.method,
-            url.pathname,
-            req.headers,
-            body,
-            { status: 502 },
-            duration,
-            errMessage,
-            handler.name,
-        )
-        return Response.json(
-            { error: 'Passthrough failed', message: errMessage, provider: handler.name },
-            { status: 502 },
-        )
-    }
-}
-
-// Process passthrough stream for logging
-async function processPassthroughStreamForLogging(
-    stream: ReadableStream<Uint8Array>,
-    handler: PassthroughHandler,
-    traceId: string,
-    startTime: number,
-    upstreamRes: Response,
-    body: unknown,
-    method: string,
-    pathname: string,
-) {
-    try {
-        const reader = stream.getReader()
-        const decoder = new TextDecoder()
-        let streamBuffer = ''
-        let chunkCount = 0
-
-        while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            chunkCount++
-            streamBuffer += decoder.decode(value, { stream: true })
-        }
-
-        const duration = Date.now() - startTime
-        const model = handler.defaultIdentifyModel(body, {})
-
-        // Parse complete stream for usage extraction
-        const parsed = handler.defaultParseStreamChunk(streamBuffer)
-        const fullContent = parsed.content || ''
-        const finalUsage = parsed.usage
-
-        const usage = finalUsage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
-        const cost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens)
-
-        log.proxy({
-            provider: handler.name,
-            model,
-            tokens: usage.total_tokens,
-            cost,
-            duration,
-            streaming: true,
-            passthrough: true,
-        })
-
-        log.debug(`Passthrough chunks: ${chunkCount}, Content: ${fullContent.length} chars`)
-
-        const assembledResponse = {
-            id: traceId,
-            model,
-            content: fullContent,
-            usage,
-            _streaming: true,
-            _chunks: chunkCount,
-            _passthrough: true,
-        }
-
-        const respHeaders: Record<string, string> = {}
-        upstreamRes.headers.forEach((value, key) => {
-            respHeaders[key] = value
-        })
-
-        logInteraction(
-            traceId,
-            method,
-            pathname,
-            new Headers(),
-            body,
-            {
-                status: upstreamRes.status,
-                headers: respHeaders,
-                data: assembledResponse,
-                usage,
-                model,
-            },
-            duration,
-            null,
-            handler.name,
-        )
-    } catch (err) {
-        log.error(`Passthrough stream logging error: ${(err as Error).message}`)
-    }
-}
-
-// Proxy server
-function startProxyServer() {
+export function startProxyServer() {
     return Bun.serve({
+        hostname: PROXY_HOST,
         port: PROXY_PORT,
+        idleTimeout: 0,
 
         async fetch(req) {
             const url = new URL(req.url)
@@ -1541,6 +914,7 @@ function startProxyServer() {
                     status: 'ok',
                     service: 'proxy',
                     port: PROXY_PORT,
+                    idleTimeout: 0,
                     traces: db.getTraceCount(),
                     uptime: process.uptime(),
                     providers: registry.list().map((p: { name: string }) => p.name),
@@ -1580,43 +954,35 @@ function startProxyServer() {
 
             // Passthrough routes
             if (url.pathname.startsWith('/passthrough/anthropic/')) {
-                return handlePassthroughRequest(
-                    req,
-                    url,
-                    passthroughHandlers.anthropic,
-                    '/passthrough/anthropic',
-                )
+                return forwardProxyRequest(req, url, {
+                    handler: passthroughHandlers.anthropic,
+                    prefix: '/passthrough/anthropic',
+                })
             }
 
             if (url.pathname.startsWith('/passthrough/gemini/')) {
-                return handlePassthroughRequest(
-                    req,
-                    url,
-                    passthroughHandlers.gemini,
-                    '/passthrough/gemini',
-                )
+                return forwardProxyRequest(req, url, {
+                    handler: passthroughHandlers.gemini,
+                    prefix: '/passthrough/gemini',
+                })
             }
 
             if (url.pathname.startsWith('/passthrough/openai/')) {
-                return handlePassthroughRequest(
-                    req,
-                    url,
-                    passthroughHandlers.openai,
-                    '/passthrough/openai',
-                )
+                return forwardProxyRequest(req, url, {
+                    handler: passthroughHandlers.openai,
+                    prefix: '/passthrough/openai',
+                })
             }
 
             if (url.pathname.startsWith('/passthrough/helicone/')) {
-                return handlePassthroughRequest(
-                    req,
-                    url,
-                    passthroughHandlers.helicone,
-                    '/passthrough/helicone',
-                )
+                return forwardProxyRequest(req, url, {
+                    handler: passthroughHandlers.helicone,
+                    prefix: '/passthrough/helicone',
+                })
             }
 
             // All other routes go to the proxy handler
-            const response = await handleProxyRequest(req, url)
+            const response = await forwardProxyRequest(req, url)
 
             // Add CORS headers to response
             const corsHeaders = new Headers(response.headers)
@@ -1635,16 +1001,34 @@ function startProxyServer() {
 // Entry point. Imports of this module from tests or tooling will NOT start
 // listeners — only direct execution (`bun run src/server.ts`) does.
 function main() {
+    const stopExport = EXPORT_ENABLED ? initExportHooks(db) : () => {}
     if (EXPORT_ENABLED) {
-        initExportHooks(db)
         log.info('OTLP export enabled')
     }
 
-    startDashboardServer()
-    startProxyServer()
+    const dashboard = startDashboardServer()
+    const proxy = startProxyServer()
 
-    console.log(`[llmflow] Dashboard: http://localhost:${DASHBOARD_PORT}`)
-    console.log(`[llmflow] Proxy:     http://localhost:${PROXY_PORT}`)
+    let stopping = false
+    const shutdown = async () => {
+        if (stopping) process.exit(0)
+        stopping = true
+        const deadline = setTimeout(() => process.exit(0), 5000)
+        try {
+            await Promise.all([dashboard.stop(), proxy.stop(), flushAll()])
+            await stopExport()
+        } catch (error) {
+            log.error('Shutdown flush failed', error)
+        } finally {
+            clearTimeout(deadline)
+            process.exit(0)
+        }
+    }
+    process.on('SIGINT', shutdown)
+    process.on('SIGTERM', shutdown)
+
+    console.log(`[llmflow] Dashboard: ${dashboard.url}`)
+    console.log(`[llmflow] Proxy:     ${proxy.url}`)
 }
 
 if (import.meta.main) {

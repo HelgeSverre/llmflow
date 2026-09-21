@@ -1,95 +1,66 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
+import { spawn } from 'node:child_process'
+import { readFileSync, existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 
-/**
- * LLMFlow CLI
- *
- * Usage:
- *   npx llmflow          # Start the server
- *   npx llmflow --help   # Show help
- *
- * Requires Bun runtime: https://bun.sh
- */
-
-const { spawn } = require('child_process')
-const path = require('path')
-const fs = require('fs')
-
+const root = fileURLToPath(new URL('../', import.meta.url))
+const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
 const args = process.argv.slice(2)
-
-// Help text
 if (args.includes('--help') || args.includes('-h')) {
-    console.log(`
-LLMFlow - Local LLM Observability
+    console.log(`LLMFlow - Local LLM observability
+Usage: llmflow [--help | --version | --verbose]
 
-Usage:
-  llmflow [options]
+Requires Bun: https://bun.sh/docs/installation
 
-Options:
-  --help, -h      Show this help message
-  --version, -v   Show version number
+Environment:
+  PROXY_PORT       Proxy port (default 8080)
+  DASHBOARD_PORT   Dashboard port (default 1337)
+  PROXY_HOST       Proxy bind address (default 127.0.0.1)
+  DASHBOARD_HOST   Dashboard bind address (default 127.0.0.1)
+  DATA_DIR         Data directory (default ~/.llmflow)
+  DB_PATH          Explicit database file
+  MAX_TRACES       Maximum retained spans (default 10000)
+  PROXY_TIMEOUT_MS Upstream deadline (default 300000)
+  VERBOSE          Verbose logging (1)
 
-Environment Variables:
-  PROXY_PORT      Proxy port (default: 8080)
-  DASHBOARD_PORT  Dashboard port (default: 1337)
-  DATA_DIR        Data directory (default: ~/.llmflow)
-  MAX_TRACES      Max traces to retain (default: 10000)
-  VERBOSE         Enable verbose logging (0 or 1)
-
-Examples:
-  npx llmflow                           # Start with defaults
-  PROXY_PORT=9000 npx llmflow           # Custom proxy port
-  VERBOSE=1 npx llmflow                 # Verbose logging
-
-Dashboard: http://localhost:1337
-Proxy:     http://localhost:8080
-
-Point your OpenAI SDK at the proxy:
-  client = OpenAI(base_url="http://localhost:8080/v1")
-
-Requires Bun runtime: https://bun.sh
-`)
+Dashboard: http://127.0.0.1:1337
+OpenAI base URL: http://127.0.0.1:8080/v1`)
     process.exit(0)
 }
-
-// Version
 if (args.includes('--version') || args.includes('-v')) {
-    const pkg = require('../package.json')
-    console.log(`llmflow v${pkg.version}`)
+    console.log(`llmflow v${version}`)
     process.exit(0)
 }
-
-const serverFile = path.join(__dirname, '..', 'apps', 'server', 'src', 'server.ts')
-
-// Verify server file exists
-if (!fs.existsSync(serverFile)) {
-    console.error('Error: apps/server/src/server.ts not found at', serverFile)
+if (args.some((arg) => arg !== '--verbose')) {
+    console.error('Unknown argument. Run llmflow --help for supported options.')
+    process.exit(2)
+}
+const bundled = path.join(root, 'dist/server.js')
+const source = path.join(root, 'apps/server/src/server.ts')
+const serverFile = existsSync(bundled) ? bundled : source
+if (!existsSync(serverFile)) {
+    console.error(
+        'LLMFlow server artifact is missing. Reinstall llmflow or run bun run build in a checkout.',
+    )
     process.exit(1)
 }
-
-// Print startup banner
-const pkg = require('../package.json')
-console.log(`\n\x1b[34mLLMFlow\x1b[0m - Local LLM observability v${pkg.version}\n`)
-
-// Start the server with Bun
-const server = spawn('bun', ['run', serverFile, ...args], {
+const server = spawn('bun', ['--no-install', serverFile, ...args], {
     stdio: 'inherit',
-    env: process.env,
+    env: { ...process.env, LLMFLOW_ROOT: root },
 })
-
-server.on('error', (err) => {
-    if (err.code === 'ENOENT') {
-        console.error('Error: Bun is required but not found.')
-        console.error('Install Bun: curl -fsSL https://bun.sh/install | bash')
-        process.exit(1)
-    }
-    console.error('Failed to start server:', err.message)
-    process.exit(1)
+server.on('error', (error) => {
+    console.error(
+        error.code === 'ENOENT'
+            ? 'Bun is required to run LLMFlow. Install it from https://bun.sh/docs/installation, then rerun this command.'
+            : `Failed to start LLMFlow: ${error.message}`,
+    )
+    process.exitCode = 1
 })
-
-server.on('close', (code) => {
-    process.exit(code || 0)
+server.on('close', (code, signal) => {
+    if (!process.exitCode)
+        process.exitCode =
+            code === 0 ? 0 : signal === 'SIGINT' ? 130 : signal === 'SIGTERM' ? 143 : 1
 })
-
-// Forward signals
 process.on('SIGINT', () => server.kill('SIGINT'))
 process.on('SIGTERM', () => server.kill('SIGTERM'))

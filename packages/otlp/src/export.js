@@ -24,7 +24,8 @@ const EXPORT_ENDPOINTS = {
 }
 
 const EXPORT_HEADERS = parseHeaders(process.env.OTLP_EXPORT_HEADERS || '')
-const EXPORT_ENABLED = process.env.OTLP_EXPORT_ENABLED === 'true' || !!EXPORT_ENDPOINTS.traces
+const EXPORT_ENABLED =
+    process.env.OTLP_EXPORT_ENABLED === 'true' || Object.values(EXPORT_ENDPOINTS).some(Boolean)
 const BATCH_SIZE = parseInt(process.env.OTLP_EXPORT_BATCH_SIZE || '100', 10)
 const FLUSH_INTERVAL_MS = parseInt(process.env.OTLP_EXPORT_FLUSH_INTERVAL || '5000', 10)
 
@@ -48,6 +49,16 @@ let traceBatch = []
 let logBatch = []
 let metricBatch = []
 let flushTimer = null
+const pendingExports = new Set()
+
+function trackExport(promise) {
+    pendingExports.add(promise)
+    promise.then(
+        () => pendingExports.delete(promise),
+        () => pendingExports.delete(promise),
+    )
+    return promise
+}
 
 /**
  * Parse headers from comma-separated key=value format
@@ -70,7 +81,7 @@ function parseHeaders(headerStr) {
  */
 function traceToOtlpSpan(trace) {
     const startTimeNano = BigInt(trace.timestamp) * BigInt(1000000)
-    const durationNano = BigInt(trace.duration_ms || 0) * BigInt(1000000)
+    const durationNano = BigInt(Math.round((trace.duration_ms || 0) * 1000000))
     const endTimeNano = startTimeNano + durationNano
 
     // Emit current OTel GenAI semconv attributes by default.
@@ -168,26 +179,21 @@ function logToOtlpRecord(logEntry) {
         attributes.push({ key: 'event.name', value: { stringValue: logEntry.event_name } })
     }
 
-    if (logEntry.attributes && typeof logEntry.attributes === 'object') {
-        Object.entries(logEntry.attributes).forEach(([key, value]) => {
-            if (typeof value === 'string') {
-                attributes.push({ key, value: { stringValue: value } })
-            } else if (typeof value === 'number') {
-                attributes.push({ key, value: { doubleValue: value } })
-            } else if (typeof value === 'boolean') {
-                attributes.push({ key, value: { boolValue: value } })
-            }
-        })
-    }
+    attributes.push(
+        ...Object.entries(logEntry.attributes || {}).map(([key, value]) => ({
+            key,
+            value: anyValue(value),
+        })),
+    )
 
     return {
         timeUnixNano: timeNano.toString(),
         observedTimeUnixNano: logEntry.observed_timestamp
             ? (BigInt(logEntry.observed_timestamp) * BigInt(1000000)).toString()
             : timeNano.toString(),
-        severityNumber: logEntry.severity_number || 9, // INFO
+        severityNumber: logEntry.severity_number ?? 0, // INFO
         severityText: logEntry.severity_text || 'INFO',
-        body: logEntry.body ? { stringValue: logEntry.body } : undefined,
+        body: logEntry.body === null ? undefined : anyValue(logEntry.body),
         attributes,
         traceId: logEntry.trace_id ? normalizeTraceId(logEntry.trace_id) : undefined,
         spanId: logEntry.span_id ? normalizeSpanId(logEntry.span_id) : undefined,
@@ -201,15 +207,12 @@ function metricToOtlpMetric(metric) {
     const timeNano = BigInt(metric.timestamp) * BigInt(1000000)
 
     const attributes = []
-    if (metric.attributes && typeof metric.attributes === 'object') {
-        Object.entries(metric.attributes).forEach(([key, value]) => {
-            if (typeof value === 'string') {
-                attributes.push({ key, value: { stringValue: value } })
-            } else if (typeof value === 'number') {
-                attributes.push({ key, value: { doubleValue: value } })
-            }
-        })
-    }
+    attributes.push(
+        ...Object.entries(metric.attributes || {}).map(([key, value]) => ({
+            key,
+            value: anyValue(value),
+        })),
+    )
 
     const dataPoint = {
         attributes,
@@ -245,6 +248,8 @@ function metricToOtlpMetric(metric) {
                         sum: metric.histogram_data?.sum || 0,
                         bucketCounts: metric.histogram_data?.bucketCounts || [],
                         explicitBounds: metric.histogram_data?.explicitBounds || [],
+                        min: metric.histogram_data?.min,
+                        max: metric.histogram_data?.max,
                     },
                 ],
                 aggregationTemporality: 2,
@@ -263,84 +268,64 @@ function metricToOtlpMetric(metric) {
 /**
  * Build OTLP export payload for traces
  */
-function buildTracesPayload(traces, serviceName = 'llmflow') {
-    const spans = traces.map(traceToOtlpSpan)
-
-    return {
-        resourceSpans: [
-            {
-                resource: {
-                    attributes: [
-                        { key: 'service.name', value: { stringValue: serviceName } },
-                        {
-                            key: 'service.version',
-                            value: { stringValue: process.env.npm_package_version || '0.3.0' },
-                        },
-                        { key: 'telemetry.sdk.name', value: { stringValue: 'llmflow' } },
-                    ],
-                },
-                scopeSpans: [
-                    {
-                        scope: {
-                            name: 'llmflow',
-                            version: process.env.npm_package_version || '0.3.0',
-                        },
-                        spans,
-                    },
-                ],
-            },
-        ],
-    }
+function anyValue(value) {
+    if (typeof value === 'string') return { stringValue: value }
+    if (typeof value === 'boolean') return { boolValue: value }
+    if (typeof value === 'number') return { doubleValue: value }
+    if (Array.isArray(value)) return { arrayValue: { values: value.map(anyValue) } }
+    if (value && typeof value === 'object') return { kvlistValue: { values: attributes(value) } }
+    return { stringValue: String(value ?? '') }
 }
-
-/**
- * Build OTLP export payload for logs
- */
-function buildLogsPayload(logs, serviceName = 'llmflow') {
-    const logRecords = logs.map(logToOtlpRecord)
-
-    return {
-        resourceLogs: [
-            {
-                resource: {
-                    attributes: [{ key: 'service.name', value: { stringValue: serviceName } }],
-                },
-                scopeLogs: [
-                    {
-                        scope: {
-                            name: 'llmflow',
-                        },
-                        logRecords,
-                    },
-                ],
-            },
-        ],
-    }
+function attributes(values) {
+    return Object.entries(values || {}).map(([key, value]) => ({ key, value: anyValue(value) }))
 }
-
-/**
- * Build OTLP export payload for metrics
- */
-function buildMetricsPayload(metrics, serviceName = 'llmflow') {
-    const otlpMetrics = metrics.map(metricToOtlpMetric)
-
-    return {
-        resourceMetrics: [
-            {
-                resource: {
-                    attributes: [{ key: 'service.name', value: { stringValue: serviceName } }],
-                },
-                scopeMetrics: [
-                    {
-                        scope: {
-                            name: 'llmflow',
-                        },
-                        metrics: otlpMetrics,
-                    },
-                ],
-            },
-        ],
+function buildPayload(records, resourceKey, scopeKey, recordKey, convert, serviceName) {
+    const groups = new Map()
+    for (const record of records) {
+        const resource = {
+            ...record.resource_attributes,
+            'service.name': record.service_name || serviceName,
+        }
+        const scope = { name: record.scope_name || 'llmflow' }
+        const key = JSON.stringify([resource, scope])
+        if (!groups.has(key))
+            groups.set(key, {
+                resource: { attributes: attributes(resource) },
+                [scopeKey]: [{ scope, [recordKey]: [] }],
+            })
+        groups.get(key)[scopeKey][0][recordKey].push(convert(record))
     }
+    return { [resourceKey]: [...groups.values()] }
+}
+function buildTracesPayload(records, serviceName = 'llmflow') {
+    return buildPayload(
+        records,
+        'resourceSpans',
+        'scopeSpans',
+        'spans',
+        traceToOtlpSpan,
+        serviceName,
+    )
+}
+function buildLogsPayload(records, serviceName = 'llmflow') {
+    return buildPayload(
+        records,
+        'resourceLogs',
+        'scopeLogs',
+        'logRecords',
+        logToOtlpRecord,
+        serviceName,
+    )
+}
+function buildMetricsPayload(records, serviceName = 'llmflow') {
+    return buildPayload(
+        records,
+        'resourceMetrics',
+        'scopeMetrics',
+        'metrics',
+        metricToOtlpMetric,
+        serviceName,
+    )
 }
 
 /**
@@ -502,7 +487,7 @@ async function flushTraces() {
     const batch = traceBatch
     traceBatch = []
 
-    await exportTraces(batch)
+    await trackExport(exportTraces(batch))
 }
 
 /**
@@ -514,7 +499,7 @@ async function flushLogs() {
     const batch = logBatch
     logBatch = []
 
-    await exportLogs(batch)
+    await trackExport(exportLogs(batch))
 }
 
 /**
@@ -526,14 +511,14 @@ async function flushMetrics() {
     const batch = metricBatch
     metricBatch = []
 
-    await exportMetrics(batch)
+    await trackExport(exportMetrics(batch))
 }
 
 /**
  * Flush all batches
  */
 async function flushAll() {
-    await Promise.all([flushTraces(), flushLogs(), flushMetrics()])
+    await Promise.all([flushTraces(), flushLogs(), flushMetrics(), ...pendingExports])
 }
 
 /**
@@ -566,32 +551,24 @@ function getConfig() {
 /**
  * Initialize export hooks
  */
+let stopHooks = null
 function initExportHooks(db) {
-    if (!EXPORT_ENABLED) {
-        return
+    if (stopHooks) return stopHooks
+    if (!EXPORT_ENABLED) return () => {}
+    const unsubscribe = []
+    if (EXPORT_ENDPOINTS.traces) unsubscribe.push(db.subscribeTraces(queueTrace))
+    if (EXPORT_ENDPOINTS.logs) unsubscribe.push(db.subscribeLogs(queueLog))
+    if (EXPORT_ENDPOINTS.metrics) unsubscribe.push(db.subscribeMetrics(queueMetric))
+    process.on('beforeExit', flushAll)
+    stopHooks = () => {
+        unsubscribe.forEach((stop) => stop())
+        process.off('beforeExit', flushAll)
+        clearTimeout(flushTimer)
+        flushTimer = null
+        stopHooks = null
+        return flushAll()
     }
-
-    if (EXPORT_ENDPOINTS.traces) {
-        db.setInsertTraceHook((trace) => {
-            queueTrace(trace)
-        })
-    }
-
-    if (EXPORT_ENDPOINTS.logs) {
-        db.setInsertLogHook((logEntry) => {
-            queueLog(logEntry)
-        })
-    }
-
-    if (EXPORT_ENDPOINTS.metrics) {
-        db.setInsertMetricHook((metric) => {
-            queueMetric(metric)
-        })
-    }
-
-    process.on('beforeExit', async () => {
-        await flushAll()
-    })
+    return stopHooks
 }
 
 module.exports = {

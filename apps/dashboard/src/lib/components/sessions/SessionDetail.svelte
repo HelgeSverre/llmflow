@@ -29,13 +29,15 @@
     </header>
     <ol class="trace-list">
       {#each sessionsState.selected.traces as t (t.trace_id)}
-        <li onclick={() => onOpenTrace(t.trace_id)}>
-          <span class="time">{fmt(t.started_at)}</span>
-          <span class="trace-id mono">{t.trace_id.slice(0, 8)}…</span>
-          <span class="spans">{t.span_count} spans</span>
-          <span class="cost">${t.cost.toFixed(4)}</span>
-          {#if t.has_error}
-            <span class="err">error</span>{/if}
+        <li>
+          <button type="button" onclick={() => onOpenTrace(t.root_span_id)}>
+            <span class="time">{fmt(t.started_at)}</span>
+            <span class="trace-id mono">{t.trace_id.slice(0, 8)}…</span>
+            <span class="spans">{t.span_count} spans</span>
+            <span class="cost">${t.cost.toFixed(4)}</span>
+            {#if t.has_error}
+              <span class="err">error</span>{/if}
+          </button>
         </li>
       {/each}
     </ol>
@@ -47,44 +49,49 @@
 <style>
   .session-detail {
     padding: 16px;
-    font-family: var(--font-sans);
+    font-family: inherit;
   }
   header h2 {
     margin: 0 0 8px;
     font-size: 16px;
   }
   .summary {
-    color: var(--muted);
+    color: var(--text-tertiary);
     font-size: 13px;
   }
   .error {
-    color: var(--err, #d55e00);
+    color: var(--error);
   }
   .trace-list {
     list-style: none;
     padding: 0;
     margin-top: 16px;
   }
-  .trace-list li {
+  .trace-list button {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
     display: grid;
     grid-template-columns: 80px 100px 1fr 80px auto;
     gap: 12px;
     padding: 8px;
     cursor: pointer;
-    border-bottom: 1px solid var(--row-border);
+    border-bottom: 1px solid var(--border-primary);
   }
-  .trace-list li:hover {
-    background: var(--row-hover);
+  .trace-list button:hover {
+    background: var(--bg-hover);
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: ui-monospace, monospace;
     font-size: 12px;
   }
   .err {
-    color: var(--err, #d55e00);
+    color: var(--error);
   }
   .empty {
     padding: 16px;
-    color: var(--muted);
+    color: var(--text-tertiary);
   }
 </style>

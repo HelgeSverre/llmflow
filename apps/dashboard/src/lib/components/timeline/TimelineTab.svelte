@@ -24,7 +24,7 @@
   }
 
   function handleToolChange(e: Event) {
-    timelineFilters.tool = (e.target as HTMLSelectElement).value
+    timelineFilters.tool = (e.target as HTMLInputElement).value
     loadTimeline()
   }
 
@@ -44,7 +44,11 @@
   }
 
   onMount(() => {
-    initTimelineSync()
+    const unsubscribe = initTimelineSync()
+    return () => {
+      unsubscribe()
+      clearTimeout(debounceTimer)
+    }
   })
 
   $effect(() => {
@@ -63,19 +67,14 @@
     value={searchInput}
     oninput={handleSearchInput}
   />
-  <select
+  <input
     id="toolFilter"
     data-testid="timeline-tool-filter"
+    aria-label="Service"
+    placeholder="Service name (exact)"
     value={timelineFilters.tool}
-    onchange={handleToolChange}
-  >
-    <option value="">All Tools</option>
-    <option value="claude-code">Claude Code</option>
-    <option value="codex-cli">Codex CLI</option>
-    <option value="gemini-cli">Gemini CLI</option>
-    <option value="aider">Aider</option>
-    <option value="proxy">Proxy</option>
-  </select>
+    oninput={handleToolChange}
+  />
   <select
     id="timelineTypeFilter"
     data-testid="timeline-type-filter"
@@ -85,7 +84,6 @@
     <option value="">All Types</option>
     <option value="trace">Traces</option>
     <option value="log">Logs</option>
-    <option value="metric">Metrics</option>
   </select>
   <select
     id="timelineDateFilter"

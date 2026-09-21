@@ -1,0 +1,1240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>LLMFlow — span viewer (intended design, hardcoded)</title>
+<style>
+  :root {
+    --bg: #0e1117;
+    --bg-panel: #161b22;
+    --bg-elev: #1c232c;
+    --bg-row-hover: #1f2731;
+    --bg-row-selected: #1e3a52;
+    --row-border: #232b36;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --muted-2: #6e7681;
+    --accent: #58a6ff;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --err: #f85149;
+
+    /* Okabe-Ito palette — already in apps/dashboard/src/lib/components/trace-viewer/SpanColors.ts */
+    --span-llm: #0072b2;
+    --span-agent: #d55e00;
+    --span-chain: #009e73;
+    --span-tool: #c9b500;
+    --span-retrieval: #56b4e9;
+    --span-embedding: #cc79a7;
+    --span-workflow: #e69f00;
+    --span-custom: #888;
+
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial;
+    --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--row-border);
+    background: var(--bg-panel);
+  }
+  .topbar .brand {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .topbar .brand::before {
+    content: "";
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 8px var(--ok);
+  }
+  .topbar .stats {
+    margin-left: auto;
+    display: flex;
+    gap: 24px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .topbar .stats b {
+    color: var(--text);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 320px 1fr 420px;
+    height: calc(100vh - 41px);
+  }
+
+  /* ─────────── Left rail: trace list ─────────── */
+  .traces {
+    border-right: 1px solid var(--row-border);
+    overflow-y: auto;
+    background: var(--bg);
+  }
+  .traces header {
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--row-border);
+  }
+  .trace-row {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--row-border);
+    cursor: pointer;
+    display: grid;
+    gap: 4px;
+  }
+  .trace-row:hover { background: var(--bg-row-hover); }
+  .trace-row.active { background: var(--bg-row-selected); }
+  .trace-row .name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .trace-row .meta {
+    display: flex;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+
+  /* ─────────── Center: waterfall ─────────── */
+  .waterfall {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    overflow: hidden;
+    background: var(--bg);
+    min-width: 0;
+  }
+  .wf-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--row-border);
+    background: var(--bg-panel);
+  }
+  .wf-toolbar h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-right: auto;
+    font-family: var(--font-mono);
+  }
+  .wf-toolbar .pill-group {
+    display: inline-flex;
+    border: 1px solid var(--row-border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .wf-toolbar .pill {
+    padding: 4px 10px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    border: 0;
+    cursor: pointer;
+    font-family: var(--font-sans);
+  }
+  .wf-toolbar .pill.on {
+    background: var(--bg-elev);
+    color: var(--text);
+  }
+  .wf-toolbar input {
+    background: var(--bg);
+    border: 1px solid var(--row-border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    width: 160px;
+  }
+
+  /* Mini-map */
+  .minimap {
+    height: 38px;
+    border-bottom: 1px solid var(--row-border);
+    background: var(--bg-panel);
+    position: relative;
+  }
+  .minimap canvas { display: block; width: 100%; height: 100%; }
+  .minimap .viewport {
+    position: absolute;
+    top: 0; bottom: 0;
+    border: 1px solid var(--accent);
+    background: rgba(88, 166, 255, 0.12);
+    pointer-events: none;
+  }
+
+  .wf-body {
+    position: relative;
+    overflow: auto;
+  }
+
+  /* Time axis */
+  .time-axis {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    height: 26px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--row-border);
+    display: grid;
+    grid-template-columns: var(--label-col) 1fr 80px;
+  }
+  .time-axis .label-spacer { border-right: 1px solid var(--row-border); }
+  .time-axis .axis-canvas { position: relative; }
+  .time-axis .duration-spacer {}
+  .time-axis .tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px dashed rgba(139, 148, 158, 0.15);
+    font-size: 11px;
+    color: var(--muted);
+    padding: 4px 0 0 4px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Span rows */
+  .rows {
+    --label-col: 340px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: var(--label-col) 1fr 80px;
+    align-items: stretch;
+    border-bottom: 1px solid var(--row-border);
+    height: 30px;
+    cursor: pointer;
+  }
+  .row:hover { background: var(--bg-row-hover); }
+  .row.selected { background: var(--bg-row-selected); }
+  .row.critical .bar { box-shadow: 0 0 0 1px var(--err) inset; }
+
+  .row .label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-right: 8px;
+    overflow: hidden;
+    min-width: 0;
+    border-right: 1px solid var(--row-border);
+    position: relative;
+  }
+  .row .indent { display: inline-flex; align-items: center; }
+  .row .tree-line {
+    width: 14px;
+    height: 100%;
+    position: relative;
+  }
+  .row .tree-line::before {
+    /* vertical connector for nested children */
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 0; bottom: 0;
+    border-left: 1px solid rgba(139, 148, 158, 0.25);
+  }
+  .row .tree-line.last::before {
+    bottom: 50%;
+  }
+  .row .tree-line.elbow::after {
+    /* horizontal hook */
+    content: "";
+    position: absolute;
+    left: 6px;
+    right: -4px;
+    top: 50%;
+    border-top: 1px solid rgba(139, 148, 158, 0.25);
+  }
+  .row .caret {
+    width: 12px;
+    text-align: center;
+    color: var(--muted);
+    user-select: none;
+    cursor: pointer;
+  }
+  .row .caret.empty { visibility: hidden; }
+
+  .badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .badge.llm { background: var(--span-llm); }
+  .badge.agent { background: var(--span-agent); }
+  .badge.chain, .badge.workflow { background: var(--span-workflow); }
+  .badge.tool { background: var(--span-tool); color: #0e1117; }
+  .badge.retrieval { background: var(--span-retrieval); color: #0e1117; }
+  .badge.embedding { background: var(--span-embedding); }
+  .badge.custom { background: var(--span-custom); }
+
+  .row .span-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row .inline-meta {
+    margin-left: auto;
+    display: inline-flex;
+    gap: 8px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .inline-meta .cost.hot { color: var(--warn); }
+  .row .inline-meta .err {
+    color: var(--err);
+    font-weight: 600;
+  }
+
+  .row .bar-col {
+    position: relative;
+    align-self: center;
+    height: 100%;
+  }
+  .bar {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 14px;
+    border-radius: 3px;
+    background: var(--span-custom);
+    display: flex;
+    overflow: hidden;
+  }
+  .bar.llm { background: var(--span-llm); }
+  .bar.agent { background: var(--span-agent); }
+  .bar.workflow, .bar.chain { background: var(--span-workflow); }
+  .bar.tool { background: var(--span-tool); }
+  .bar.retrieval { background: var(--span-retrieval); }
+  .bar.embedding { background: var(--span-embedding); }
+  /* TTFT: darker section then lighter completion stripe */
+  .bar .ttft { background: rgba(0, 0, 0, 0.35); }
+  .bar .completion { flex: 1; background: rgba(255, 255, 255, 0.18); }
+  .bar.error::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent 0 4px,
+      rgba(248, 81, 73, 0.5) 4px 6px
+    );
+  }
+
+  .row .duration-col {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 12px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    border-left: 1px solid var(--row-border);
+  }
+
+  /* ─────────── Right: detail panel ─────────── */
+  .detail {
+    border-left: 1px solid var(--row-border);
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    overflow: hidden;
+    background: var(--bg-panel);
+  }
+  .detail header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--row-border);
+  }
+  .detail header .title {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .detail header .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .detail header .subtitle .sep { color: var(--muted-2); }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--row-border);
+  }
+  .kpi {
+    padding: 10px 12px;
+    border-right: 1px solid var(--row-border);
+  }
+  .kpi:last-child { border-right: 0; }
+  .kpi .k {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  .kpi .v {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+
+  .token-bar {
+    display: flex;
+    height: 5px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: var(--bg-elev);
+    margin-top: 6px;
+  }
+  .token-bar > span { display: block; height: 100%; }
+  .token-bar .t-in    { background: var(--span-llm); }
+  .token-bar .t-cache { background: var(--span-retrieval); }
+  .token-bar .t-out   { background: var(--span-chain); }
+  .token-bar .t-reason{ background: var(--span-workflow); }
+
+  .tab-row {
+    display: flex;
+    border-bottom: 1px solid var(--row-border);
+  }
+  .tab-row button {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    padding: 9px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+  }
+  .tab-row button.on {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+  .tab-row button.muted { opacity: 0.4; }
+
+  .tab-body {
+    overflow: auto;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .tab-body[hidden] { display: none; }
+
+  /* Structured messages */
+  .msg {
+    border: 1px solid var(--row-border);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .msg .role {
+    padding: 6px 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: var(--bg-elev);
+    color: var(--muted);
+    border-bottom: 1px solid var(--row-border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .msg .role .role-pill {
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--bg);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .msg .parts { padding: 10px; }
+  .msg .part + .part { margin-top: 8px; }
+  .msg .text {
+    white-space: pre-wrap;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+  .msg .tool-call {
+    border-left: 3px solid var(--span-tool);
+    padding: 6px 10px;
+    background: rgba(201, 181, 0, 0.08);
+    border-radius: 0 4px 4px 0;
+  }
+  .msg .tool-call .head {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .msg .tool-call .name {
+    color: var(--span-tool);
+    font-weight: 600;
+  }
+  .msg .tool-call pre {
+    margin: 6px 0 0;
+    font-size: 11px;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+
+  /* Attribute table */
+  table.attrs {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  table.attrs tr { border-bottom: 1px solid var(--row-border); }
+  table.attrs td {
+    padding: 5px 8px;
+    vertical-align: top;
+    word-break: break-word;
+  }
+  table.attrs td.k {
+    color: var(--muted);
+    width: 50%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  table.attrs td.v {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  table.attrs tr.deprecated td.k { text-decoration: line-through; opacity: 0.55; }
+
+  .json-pre {
+    margin: 0;
+    white-space: pre-wrap;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 12px;
+    padding: 6px 12px;
+    border-top: 1px solid var(--row-border);
+    background: var(--bg-panel);
+    color: var(--muted);
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .legend .sw {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">LLMFlow</div>
+  <span style="color:var(--muted); font-size:11px; font-family:var(--font-mono)">
+    Intended span viewer · hardcoded mock · not wired
+  </span>
+  <div class="stats">
+    <span><b>1.2k</b>TRACES</span>
+    <span><b>184k</b>TOKENS</span>
+    <span><b>$2.41</b>COST</span>
+    <span><b>312ms</b>AVG</span>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ────── Left ────── -->
+  <aside class="traces">
+    <header>Recent traces</header>
+    <div class="trace-row active">
+      <div class="name">invoke_workflow rag-pipeline</div>
+      <div class="meta">
+        <span style="color:var(--span-workflow)">workflow</span>
+        <span>1.83s</span>
+        <span>9 spans</span>
+        <span>$0.0042</span>
+      </div>
+    </div>
+    <div class="trace-row">
+      <div class="name">chat gpt-4o-mini</div>
+      <div class="meta">
+        <span style="color:var(--span-llm)">llm</span>
+        <span>612ms</span>
+        <span>1 span</span>
+        <span>$0.0001</span>
+      </div>
+    </div>
+    <div class="trace-row">
+      <div class="name">chat claude-3-5-sonnet</div>
+      <div class="meta">
+        <span style="color:var(--span-llm)">llm</span>
+        <span>1.42s</span>
+        <span>1 span</span>
+        <span>$0.0186</span>
+      </div>
+    </div>
+    <div class="trace-row">
+      <div class="name">invoke_agent researcher</div>
+      <div class="meta">
+        <span style="color:var(--span-agent)">agent</span>
+        <span>2.05s</span>
+        <span>6 spans</span>
+        <span>$0.0033</span>
+      </div>
+    </div>
+    <div class="trace-row">
+      <div class="name">embeddings text-embedding-3-large</div>
+      <div class="meta">
+        <span style="color:var(--span-embedding)">embedding</span>
+        <span>118ms</span>
+        <span>1 span</span>
+        <span>$0.0008</span>
+      </div>
+    </div>
+    <div class="trace-row">
+      <div class="name">chat gpt-5 (reasoning)</div>
+      <div class="meta">
+        <span style="color:var(--span-llm)">llm</span>
+        <span>4.41s</span>
+        <span>1 span</span>
+        <span>$0.1247</span>
+      </div>
+    </div>
+    <div class="trace-row">
+      <div class="name">execute_tool send_email</div>
+      <div class="meta">
+        <span style="color:var(--span-tool); color:var(--span-tool)">tool</span>
+        <span style="color:var(--err)">err</span>
+        <span>83ms</span>
+        <span>1 span</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ────── Center waterfall ────── -->
+  <section class="waterfall">
+    <div class="wf-toolbar">
+      <h2>invoke_workflow rag-pipeline</h2>
+      <div class="pill-group" role="tablist">
+        <button class="pill on">Tree</button>
+        <button class="pill">Timeline</button>
+        <button class="pill">Graph</button>
+      </div>
+      <input type="search" placeholder="Filter spans (/)" />
+      <label style="display:inline-flex; gap:6px; align-items:center; color:var(--muted); font-size:12px">
+        <input type="checkbox" checked /> Critical path
+      </label>
+    </div>
+
+    <div class="minimap" title="Drag to navigate (mock)">
+      <canvas id="minimap"></canvas>
+      <div class="viewport" style="left: 12%; right: 28%"></div>
+    </div>
+
+    <div class="wf-body">
+      <div class="time-axis">
+        <div class="label-spacer"></div>
+        <div class="axis-canvas" id="axis">
+          <!-- Ticks injected by JS -->
+        </div>
+        <div class="duration-spacer"></div>
+      </div>
+
+      <div class="rows" id="rows"><!-- Rows injected by JS --></div>
+
+      <div class="legend">
+        <span><i class="sw" style="background:var(--span-workflow)"></i>workflow / chain</span>
+        <span><i class="sw" style="background:var(--span-agent)"></i>agent</span>
+        <span><i class="sw" style="background:var(--span-llm)"></i>llm (chat / completion)</span>
+        <span><i class="sw" style="background:var(--span-tool)"></i>tool</span>
+        <span><i class="sw" style="background:var(--span-retrieval)"></i>retrieval</span>
+        <span><i class="sw" style="background:var(--span-embedding)"></i>embedding</span>
+        <span><i class="sw" style="background:rgba(0,0,0,0.35); border:1px solid var(--muted)"></i>TTFT segment</span>
+        <span><i class="sw" style="background:transparent; outline:1px solid var(--err)"></i>critical path</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────── Right detail panel ────── -->
+  <aside class="detail" id="detail"><!-- populated by JS --></aside>
+</div>
+
+<script>
+  // ─────────────────────────────────────────────────────────────────────
+  // Hardcoded trace mirroring task-22's recommended demo:
+  // invoke_workflow rag-pipeline (root)
+  //   ├─ invoke_agent researcher
+  //   │    ├─ execute_tool vector_search
+  //   │    │    └─ retrieval pinecone:kb-prod-v3
+  //   │    │         └─ embeddings text-embedding-3-large
+  //   │    └─ chat gpt-4o-mini (with TTFT)
+  //   ├─ execute_tool send_email (error)
+  //   └─ chat claude-3-5-sonnet (with cache_read)
+  //
+  // start_time/duration_ms in milliseconds from trace start.
+  // ─────────────────────────────────────────────────────────────────────
+  const SPANS = [
+    {
+      id: "w", parent: null, name: "invoke_workflow rag-pipeline",
+      type: "workflow", start: 0, duration: 1830,
+      provider: null, model: null, operation: "invoke_workflow",
+      tokens: { input: 0, output: 0 }, cost: 0.0042,
+      attrs: {
+        "gen_ai.operation.name": "invoke_workflow",
+        "gen_ai.workflow.name": "rag-pipeline",
+        "gen_ai.conversation.id": "conv_4eb91",
+        "session.id": "sess_a31bc",
+        "service.name": "rag-svc",
+        "traceloop.entity.path": "rag-pipeline",
+      },
+      input: null, output: null, request: null, response: null,
+    },
+    {
+      id: "a", parent: "w", name: "invoke_agent researcher",
+      type: "agent", start: 40, duration: 1610,
+      provider: null, model: null, operation: "invoke_agent",
+      tokens: { input: 0, output: 0 }, cost: 0.0028,
+      attrs: {
+        "gen_ai.operation.name": "invoke_agent",
+        "gen_ai.agent.name": "researcher",
+        "gen_ai.agent.id": "asst_5j66UpCpwte",
+        "gen_ai.agent.version": "2.1.0",
+        "gen_ai.agent.description": "Searches the knowledge base and drafts grounded answers.",
+      },
+      input: [
+        { role: "user", parts: [{ type: "text", content: "What's our Q1 churn vs target?" }] }
+      ],
+      output: [
+        { role: "assistant", parts: [{ type: "text", content: "Q1 churn was 4.8% vs 4.0% target." }] }
+      ],
+    },
+    {
+      id: "t1", parent: "a", name: "execute_tool vector_search",
+      type: "tool", start: 78, duration: 304,
+      provider: null, model: null, operation: "execute_tool",
+      tokens: { input: 0, output: 0 }, cost: 0,
+      attrs: {
+        "gen_ai.operation.name": "execute_tool",
+        "gen_ai.tool.name": "vector_search",
+        "gen_ai.tool.type": "function",
+        "gen_ai.tool.call.id": "call_p9ZZ",
+      },
+      input: [{ role: "tool", parts: [{ type: "tool_call", id: "call_p9ZZ", name: "vector_search", arguments: { query: "Q1 churn rate", top_k: 5 } }] }],
+      output: [{ role: "tool", parts: [{ type: "tool_call_response", id: "call_p9ZZ", response: { hits: 5, top_score: 0.91 } }] }],
+    },
+    {
+      id: "r", parent: "t1", name: "retrieval pinecone:kb-prod-v3",
+      type: "retrieval", start: 102, duration: 220,
+      provider: "pinecone", model: null, operation: "retrieval",
+      tokens: { input: 0, output: 0 }, cost: 0,
+      attrs: {
+        "gen_ai.operation.name": "retrieval",
+        "gen_ai.data_source.id": "pinecone:kb-prod-v3",
+        "db.system": "pinecone",
+        "pinecone.query.top_k": 5,
+        "pinecone.usage.read_units": 1,
+      },
+      input: null, output: null,
+    },
+    {
+      id: "e", parent: "r", name: "embeddings text-embedding-3-large",
+      type: "embedding", start: 108, duration: 92,
+      provider: "openai", model: "text-embedding-3-large", operation: "embeddings",
+      tokens: { input: 14, output: 0 }, cost: 0.0008,
+      attrs: {
+        "gen_ai.operation.name": "embeddings",
+        "gen_ai.provider.name": "openai",
+        "gen_ai.request.model": "text-embedding-3-large",
+        "gen_ai.usage.input_tokens": 14,
+        "gen_ai.embeddings.dimension.count": 3072,
+        "gen_ai.request.encoding_formats": ["float"],
+      },
+      input: null, output: null,
+    },
+    {
+      id: "c1", parent: "a", name: "chat gpt-4o-mini",
+      type: "llm", start: 410, duration: 1198, ttft: 312,
+      provider: "openai", model: "gpt-4o-mini", operation: "chat",
+      tokens: { input: 482, output: 96, cache_read: 0 }, cost: 0.0013,
+      attrs: {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.provider.name": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.response.model": "gpt-4o-mini-2024-07-18",
+        "gen_ai.response.id": "chatcmpl-DjQfZw",
+        "gen_ai.response.finish_reasons": ["stop"],
+        "gen_ai.response.time_to_first_chunk": 0.312,
+        "gen_ai.usage.input_tokens": 482,
+        "gen_ai.usage.output_tokens": 96,
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 256,
+        "gen_ai.request.stream": true,
+        "server.address": "api.openai.com",
+      },
+      input: [
+        { role: "system", parts: [{ type: "text", content: "You are a careful analyst. Cite sources." }] },
+        { role: "user", parts: [{ type: "text", content: "Summarise the 5 hits below as a one-sentence answer." }] },
+      ],
+      output: [
+        { role: "assistant", parts: [{ type: "text", content: "Q1 churn ran 0.8 pp above target, driven by SMB cohort." }] }
+      ],
+      request: {
+        method: "POST", path: "/v1/chat/completions",
+        headers: { "content-type": "application/json", "authorization": "Bearer sk-…REDACTED" },
+        body: { model: "gpt-4o-mini", temperature: 0.2, max_tokens: 256, stream: true,
+                messages: [{ role: "system", content: "…" }, { role: "user", content: "…" }] },
+      },
+      response: {
+        status: 200,
+        headers: { "openai-processing-ms": "752", "x-ratelimit-remaining-tokens": "149998418" },
+        body: { id: "chatcmpl-DjQfZw", choices: [{ finish_reason: "stop", message: { role: "assistant", content: "Q1 churn ran 0.8 pp above target…" } }],
+                usage: { prompt_tokens: 482, completion_tokens: 96, total_tokens: 578 } },
+      },
+      critical: true,
+    },
+    {
+      id: "t2", parent: "w", name: "execute_tool send_email",
+      type: "tool", start: 1670, duration: 83,
+      operation: "execute_tool", provider: null,
+      tokens: { input: 0, output: 0 }, cost: 0, error: "smtp.timeout",
+      attrs: {
+        "gen_ai.operation.name": "execute_tool",
+        "gen_ai.tool.name": "send_email",
+        "gen_ai.tool.type": "function",
+        "error.type": "smtp.timeout",
+        "exception.message": "SMTP write timeout after 5s",
+      },
+      input: [{ role: "tool", parts: [{ type: "tool_call", id: "call_xPq2", name: "send_email", arguments: { to: "ops@acme.com", subject: "Q1 churn alert" } }] }],
+      output: null,
+    },
+    {
+      id: "c2", parent: "w", name: "chat claude-3-5-sonnet",
+      type: "llm", start: 760, duration: 1042, ttft: 184,
+      provider: "anthropic", model: "claude-3-5-sonnet-20241022", operation: "chat",
+      tokens: { input: 38, output: 184, cache_read: 4810, cache_creation: 0 }, cost: 0.0186,
+      attrs: {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.provider.name": "anthropic",
+        "gen_ai.request.model": "claude-3-5-sonnet-20241022",
+        "gen_ai.response.model": "claude-3-5-sonnet-20241022",
+        "gen_ai.response.id": "msg_01XK",
+        "gen_ai.response.finish_reasons": ["stop"],
+        "gen_ai.response.time_to_first_chunk": 0.184,
+        "gen_ai.usage.input_tokens": 38,
+        "gen_ai.usage.output_tokens": 184,
+        "gen_ai.usage.cache_read.input_tokens": 4810,
+        "gen_ai.usage.cache_creation.input_tokens": 0,
+        "gen_ai.request.temperature": 0.4,
+        "gen_ai.request.max_tokens": 512,
+        "gen_ai.request.stream": true,
+        // deprecated keys still emitted by older instrumentations
+        "gen_ai.system": "anthropic",
+        "gen_ai.usage.prompt_tokens": 38,
+        "gen_ai.usage.completion_tokens": 184,
+      },
+      input: [
+        { role: "system", parts: [{ type: "text", content: "Write a polite escalation email." }] },
+        { role: "user", parts: [{ type: "text", content: "Draft email about Q1 churn vs target, include next steps." }] },
+      ],
+      output: [
+        { role: "assistant", parts: [
+          { type: "text", content: "Hi team,\n\nQ1 churn finished at 4.8% vs our 4.0% target — primarily SMB. Proposed next steps:" },
+          { type: "tool_call", id: "call_yT91", name: "create_ticket", arguments: { project: "GROWTH", title: "SMB churn root cause", priority: "high" } },
+        ]}
+      ],
+    },
+  ];
+
+  const TOTAL_DURATION = Math.max(...SPANS.map(s => s.start + s.duration));
+
+  // ── Build a tree for indented rendering
+  function buildTree(spans) {
+    const byId = new Map();
+    for (const s of spans) byId.set(s.id, { span: s, children: [] });
+    const roots = [];
+    for (const n of byId.values()) {
+      if (n.span.parent && byId.has(n.span.parent)) byId.get(n.span.parent).children.push(n);
+      else roots.push(n);
+    }
+    const sortFn = (a, b) => a.span.start - b.span.start;
+    const walk = n => { n.children.sort(sortFn); n.children.forEach(walk); };
+    roots.sort(sortFn);
+    roots.forEach(walk);
+    return roots;
+  }
+
+  function flatten(roots) {
+    const out = [];
+    const walk = (n, depth, ancestorLast) => {
+      out.push({ ...n.span, depth, ancestorLast: ancestorLast.slice(), hasChildren: n.children.length > 0 });
+      n.children.forEach((c, i) => {
+        const isLast = i === n.children.length - 1;
+        walk(c, depth + 1, ancestorLast.concat([isLast]));
+      });
+    };
+    roots.forEach(r => walk(r, 0, []));
+    return out;
+  }
+
+  const flat = flatten(buildTree(SPANS));
+
+  // ── Render rows
+  function renderRows() {
+    const host = document.getElementById("rows");
+    host.innerHTML = "";
+    for (const s of flat) {
+      const row = document.createElement("div");
+      row.className = "row" + (s.critical ? " critical" : "");
+      row.dataset.id = s.id;
+
+      // Label column
+      const label = document.createElement("div");
+      label.className = "label";
+
+      // Tree connectors
+      for (let i = 0; i < s.depth; i++) {
+        const tl = document.createElement("span");
+        tl.className = "tree-line";
+        if (s.ancestorLast[i]) tl.classList.add("last");
+        if (i === s.depth - 1) tl.classList.add("elbow");
+        label.appendChild(tl);
+      }
+
+      const caret = document.createElement("span");
+      caret.className = "caret" + (s.hasChildren ? "" : " empty");
+      caret.textContent = s.hasChildren ? "▾" : "·";
+      label.appendChild(caret);
+
+      const badge = document.createElement("span");
+      badge.className = "badge " + s.type;
+      badge.textContent = s.type;
+      label.appendChild(badge);
+
+      const name = document.createElement("span");
+      name.className = "span-name";
+      name.textContent = s.name;
+      label.appendChild(name);
+
+      const meta = document.createElement("span");
+      meta.className = "inline-meta";
+      if (s.tokens && (s.tokens.input || s.tokens.output)) {
+        const tok = document.createElement("span");
+        tok.textContent = `${(s.tokens.input || 0)}↑${(s.tokens.output || 0)}↓`;
+        meta.appendChild(tok);
+      }
+      if (s.cost && s.cost > 0) {
+        const c = document.createElement("span");
+        c.className = "cost" + (s.cost > 0.01 ? " hot" : "");
+        c.textContent = "$" + s.cost.toFixed(4);
+        meta.appendChild(c);
+      }
+      if (s.error) {
+        const e = document.createElement("span");
+        e.className = "err";
+        e.textContent = s.error;
+        meta.appendChild(e);
+      }
+      label.appendChild(meta);
+
+      row.appendChild(label);
+
+      // Bar column
+      const barCol = document.createElement("div");
+      barCol.className = "bar-col";
+      const leftPct = (s.start / TOTAL_DURATION) * 100;
+      const widthPct = Math.max((s.duration / TOTAL_DURATION) * 100, 0.5);
+      const bar = document.createElement("div");
+      bar.className = "bar " + s.type + (s.error ? " error" : "");
+      bar.style.left = leftPct + "%";
+      bar.style.width = widthPct + "%";
+      if (s.ttft) {
+        const ttftPct = (s.ttft / s.duration) * 100;
+        const ttft = document.createElement("span");
+        ttft.className = "ttft";
+        ttft.style.width = ttftPct + "%";
+        ttft.title = `TTFT ${s.ttft}ms`;
+        bar.appendChild(ttft);
+        const comp = document.createElement("span");
+        comp.className = "completion";
+        bar.appendChild(comp);
+      }
+      barCol.appendChild(bar);
+      row.appendChild(barCol);
+
+      // Duration column
+      const dur = document.createElement("div");
+      dur.className = "duration-col";
+      dur.textContent = formatDuration(s.duration);
+      row.appendChild(dur);
+
+      row.addEventListener("click", () => selectRow(s.id));
+      host.appendChild(row);
+    }
+  }
+
+  // ── Time axis ticks
+  function renderAxis() {
+    const host = document.getElementById("axis");
+    host.innerHTML = "";
+    const ticks = 6;
+    for (let i = 0; i <= ticks; i++) {
+      const t = (i / ticks) * TOTAL_DURATION;
+      const el = document.createElement("div");
+      el.className = "tick";
+      el.style.left = ((i / ticks) * 100) + "%";
+      if (i === ticks) {
+        el.style.transform = "translateX(-100%)";
+        el.style.paddingLeft = "0";
+        el.style.paddingRight = "4px";
+        el.style.textAlign = "right";
+      } else if (i > 0) {
+        el.style.transform = "translateX(-50%)";
+        el.style.padding = "4px 0 0";
+        el.style.textAlign = "center";
+      }
+      el.textContent = formatDuration(t);
+      host.appendChild(el);
+    }
+  }
+
+  // ── Mini-map (canvas, condensed waterfall)
+  function renderMinimap() {
+    const c = document.getElementById("minimap");
+    const dpr = window.devicePixelRatio || 1;
+    const w = c.clientWidth, h = c.clientHeight;
+    c.width = w * dpr; c.height = h * dpr;
+    const ctx = c.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const types = { llm: "#0072b2", agent: "#d55e00", chain: "#e69f00",
+                    workflow: "#e69f00", tool: "#c9b500", retrieval: "#56b4e9",
+                    embedding: "#cc79a7", custom: "#888" };
+
+    const lanes = 5;
+    const laneH = h / lanes;
+    for (const s of flat) {
+      const x = (s.start / TOTAL_DURATION) * w;
+      const ww = Math.max((s.duration / TOTAL_DURATION) * w, 1);
+      const lane = s.depth % lanes;
+      ctx.fillStyle = types[s.type] || "#888";
+      ctx.globalAlpha = s.error ? 0.85 : 0.7;
+      ctx.fillRect(x, lane * laneH + 1, ww, laneH - 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Detail panel
+  function selectRow(id) {
+    document.querySelectorAll(".row").forEach(r => r.classList.toggle("selected", r.dataset.id === id));
+    const s = SPANS.find(x => x.id === id);
+    renderDetail(s);
+  }
+
+  function renderDetail(s) {
+    const host = document.getElementById("detail");
+    if (!s) {
+      host.innerHTML = `<div style="padding:20px;color:var(--muted)">Select a span.</div>`;
+      return;
+    }
+
+    const tokensTotal = (s.tokens.input || 0) + (s.tokens.output || 0)
+                      + (s.tokens.cache_read || 0) + (s.tokens.reasoning || 0);
+
+    const tokenBar = tokensTotal > 0
+      ? `<div class="token-bar">
+           ${s.tokens.cache_read ? `<span class="t-cache" title="cache_read ${s.tokens.cache_read}" style="width:${(s.tokens.cache_read/tokensTotal)*100}%"></span>` : ""}
+           <span class="t-in" title="input ${s.tokens.input}" style="width:${(s.tokens.input/tokensTotal)*100}%"></span>
+           <span class="t-out" title="output ${s.tokens.output}" style="width:${(s.tokens.output/tokensTotal)*100}%"></span>
+           ${s.tokens.reasoning ? `<span class="t-reason" title="reasoning ${s.tokens.reasoning}" style="width:${(s.tokens.reasoning/tokensTotal)*100}%"></span>` : ""}
+         </div>` : "";
+
+    const subtitleBits = [
+      s.operation && `<span>${s.operation}</span>`,
+      s.provider && `<span class="sep">·</span><span>${s.provider}</span>`,
+      s.model    && `<span class="sep">·</span><span>${s.model}</span>`,
+      s.attrs["gen_ai.response.model"] && s.attrs["gen_ai.response.model"] !== s.model
+        && `<span class="sep">→</span><span>${s.attrs["gen_ai.response.model"]}</span>`,
+      s.attrs["gen_ai.agent.name"] && `<span class="sep">·</span><span>agent: ${s.attrs["gen_ai.agent.name"]}</span>`,
+      s.attrs["gen_ai.workflow.name"] && `<span class="sep">·</span><span>workflow: ${s.attrs["gen_ai.workflow.name"]}</span>`,
+      s.attrs["gen_ai.conversation.id"] && `<span class="sep">·</span><span>conv ${s.attrs["gen_ai.conversation.id"]}</span>`,
+    ].filter(Boolean).join("");
+
+    host.innerHTML = `
+      <header>
+        <div class="title">
+          <span class="badge ${s.type}">${s.type}</span>
+          <span>${s.name}</span>
+        </div>
+        <div class="subtitle">${subtitleBits}</div>
+      </header>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="k">duration</div><div class="v">${formatDuration(s.duration)}</div></div>
+        <div class="kpi"><div class="k">TTFT</div><div class="v">${s.ttft ? s.ttft + "ms" : "—"}</div></div>
+        <div class="kpi"><div class="k">cost</div><div class="v">${s.cost ? "$" + s.cost.toFixed(4) : "—"}</div></div>
+        <div class="kpi"><div class="k">finish</div><div class="v">${(s.attrs["gen_ai.response.finish_reasons"] || ["—"]).join(",")}</div></div>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(5, 1fr)">
+        <div class="kpi"><div class="k">in</div><div class="v">${s.tokens.input || 0}</div></div>
+        <div class="kpi"><div class="k">out</div><div class="v">${s.tokens.output || 0}</div></div>
+        <div class="kpi"><div class="k">cache↓</div><div class="v">${s.tokens.cache_read || 0}</div></div>
+        <div class="kpi"><div class="k">cache↑</div><div class="v">${s.tokens.cache_creation || 0}</div></div>
+        <div class="kpi"><div class="k">reason</div><div class="v">${s.tokens.reasoning || 0}</div></div>
+      </div>
+      ${tokenBar ? `<div style="padding:0 12px 10px; border-bottom:1px solid var(--row-border)">${tokenBar}</div>` : ""}
+
+      <div class="tab-row" id="tabs">
+        ${tab("attributes", true)}
+        ${tab("input", !s.input)}
+        ${tab("output", !s.output)}
+        ${tab("request", !s.request)}
+        ${tab("response", !s.response)}
+        ${tab("events", true)}
+      </div>
+
+      <div class="tab-body" data-tab="attributes">
+        <table class="attrs">
+          ${renderAttrs(s.attrs)}
+        </table>
+      </div>
+      <div class="tab-body" data-tab="input" hidden>
+        ${s.input ? s.input.map(renderMessage).join("") : `<div style="color:var(--muted)">No input captured.</div>`}
+      </div>
+      <div class="tab-body" data-tab="output" hidden>
+        ${s.output ? s.output.map(renderMessage).join("") : `<div style="color:var(--muted)">No output captured.</div>`}
+      </div>
+      <div class="tab-body" data-tab="request" hidden>
+        ${s.request ? `<pre class="json-pre">${JSON.stringify(s.request, null, 2)}</pre>` : `<div style="color:var(--muted)">No HTTP request (this span isn't a proxy hop).</div>`}
+      </div>
+      <div class="tab-body" data-tab="response" hidden>
+        ${s.response ? `<pre class="json-pre">${JSON.stringify(s.response, null, 2)}</pre>` : `<div style="color:var(--muted)">No HTTP response.</div>`}
+      </div>
+      <div class="tab-body" data-tab="events" hidden>
+        <div style="color:var(--muted)">
+          gen_ai.client.inference.operation.details · ${s.attrs["gen_ai.response.time_to_first_chunk"] ? "stream.firstChunk @ " + Math.round(s.attrs["gen_ai.response.time_to_first_chunk"]*1000) + "ms" : "no streaming events"}
+        </div>
+      </div>
+    `;
+
+    // Tab switching
+    host.querySelectorAll("#tabs button").forEach(b => {
+      b.addEventListener("click", () => {
+        host.querySelectorAll("#tabs button").forEach(x => x.classList.remove("on"));
+        b.classList.add("on");
+        host.querySelectorAll(".tab-body").forEach(tb => tb.hidden = tb.dataset.tab !== b.dataset.tab);
+      });
+    });
+  }
+
+  function tab(name, muted) {
+    return `<button data-tab="${name}" class="${name==='attributes' ? 'on' : ''} ${muted ? 'muted' : ''}">${name}</button>`;
+  }
+
+  function renderMessage(m) {
+    const partsHtml = m.parts.map(p => {
+      if (p.type === "text") {
+        return `<div class="part"><div class="text">${escapeHtml(p.content)}</div></div>`;
+      }
+      if (p.type === "tool_call") {
+        return `<div class="part tool-call">
+          <div class="head"><span>tool_call</span><span class="name">${p.name}</span><span>id ${p.id}</span></div>
+          <pre>${escapeHtml(JSON.stringify(p.arguments, null, 2))}</pre>
+        </div>`;
+      }
+      if (p.type === "tool_call_response") {
+        return `<div class="part tool-call">
+          <div class="head"><span>tool_response</span><span>id ${p.id}</span></div>
+          <pre>${escapeHtml(JSON.stringify(p.response, null, 2))}</pre>
+        </div>`;
+      }
+      return `<div class="part"><pre>${escapeHtml(JSON.stringify(p, null, 2))}</pre></div>`;
+    }).join("");
+    return `<div class="msg">
+      <div class="role"><span class="role-pill">${m.role}</span></div>
+      <div class="parts">${partsHtml}</div>
+    </div>`;
+  }
+
+  function renderAttrs(attrs) {
+    const deprecated = new Set(["gen_ai.system", "gen_ai.usage.prompt_tokens", "gen_ai.usage.completion_tokens"]);
+    const rows = Object.entries(attrs).map(([k, v]) => {
+      const cls = deprecated.has(k) ? "deprecated" : "";
+      const vStr = typeof v === "object" ? JSON.stringify(v) : String(v);
+      return `<tr class="${cls}"><td class="k" title="${k}${deprecated.has(k) ? ' — deprecated' : ''}">${k}</td><td class="v">${escapeHtml(vStr)}</td></tr>`;
+    });
+    return rows.join("");
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]));
+  }
+
+  function formatDuration(ms) {
+    if (ms >= 1000) return (ms / 1000).toFixed(2) + "s";
+    return Math.round(ms) + "ms";
+  }
+
+  // Initial render
+  renderAxis();
+  renderRows();
+  renderMinimap();
+  selectRow("c1");
+  window.addEventListener("resize", renderMinimap);
+</script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 # RFC: OTLP Metrics and Logs Support
 
-**Status**: Draft  
+> Implemented. The proposal below is retained as a historical design record, including its original examples. For current ports, routes and setup, use the [integration guide](../guides/ai-cli-tools.md) and [README](../../README.md).
+
+**Status**: Implemented
 **Created**: 2025-12-20  
 **Author**: LLMFlow Team
 

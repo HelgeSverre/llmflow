@@ -18,7 +18,7 @@
     "dev": "bun run --filter @llmflow/server --filter @llmflow/dashboard dev",
     "dev:server": "bun run --filter @llmflow/server dev",
     "dev:dashboard": "bun run --filter @llmflow/dashboard dev",
-    "build": "bun run --filter @llmflow/dashboard build",
+    "build": "bun run --filter @llmflow/dashboard build && bun run scripts/build-server.ts",
     "demo": "bun run --filter @llmflow/server demo",
     "demo:many": "bun run --filter @llmflow/server demo:many",
     "test": "bun run --filter @llmflow/server test",
@@ -32,14 +32,12 @@
     "test:e2e:headed": "bunx playwright test --headed",
     "test:e2e:ui": "bunx playwright test --ui",
     "typecheck": "bun run --filter '*' typecheck",
-    "prepublishOnly": "bun install && bun run build"
+    "prepublishOnly": "bun install && bun run build",
+    "test:package": "bun run scripts/test-package.ts"
   },
   "files": [
     "bin/",
-    "apps/server/src/",
-    "packages/*/src/",
-    "packages/*/package.json",
-    "packages/pricing/pricing.fallback.json",
+    "dist/",
     "public/"
   ],
   "keywords": [

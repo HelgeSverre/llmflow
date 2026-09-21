@@ -19,7 +19,7 @@ apps/
   dashboard/    Svelte 5 + Vite SPA; build output → /public/ at repo root for npm + Docker shipping
 packages/
   db/           bun:sqlite schema + queries (TS, ESM). The safeJson helper lives here.
-  providers/    LLM provider adapters (OpenAI, Anthropic, Gemini, …) + passthrough handlers (CJS).
+  providers/    LLM provider adapters (OpenAI, Anthropic, Gemini, …) + passthrough handlers (TypeScript, ESM).
   otlp/         OTLP/HTTP ingestion (traces / logs / metrics) + export to upstream backends (CJS).
                 Sessions: `traces.session_id` (nullable) groups multiple traces. Filled by OTLP
                 ingest from `session.id`, `langsmith.trace.session_id`, `traceloop.association.properties.session_id`,
@@ -28,7 +28,7 @@ packages/
   pricing/      LiteLLM-backed cost calculation + bundled pricing.fallback.json (CJS).
   shared/       logger + cross-cutting utilities (CJS).
   sdk/          Published as `llmflow-sdk` on npm. Workspace-internal name still `llmflow-sdk`.
-bin/            CLI entry: `npx llmflow` → bin/llmflow.js (spawns apps/server/src/server.ts).
+bin/            CLI entry: `npx llmflow` → bin/llmflow.js (spawns bundled dist/server.js, or source in an unbuilt checkout).
 docker/         Dockerfile + docker-compose.yml.
 docs/           Markdown guides, RFCs, and `reference/trace-span-viewer-ui/` research.
 e2e/playwright/ Playwright specs + fixtures.
@@ -44,20 +44,20 @@ release-notes/  v*.md per release.
 import * as db from '@llmflow/db' // ESM, typed
 import { safeJson } from '@llmflow/db'
 const log = require('@llmflow/shared/logger') // CJS
-const { registry } = require('@llmflow/providers') // CJS
+import { registry } from '@llmflow/providers' // ESM, typed
 const { processOtlpTraces } = require('@llmflow/otlp/traces') // CJS sub-path
 ```
 
-`@llmflow/db` is ESM/TypeScript; all other workspace packages are CJS until ported.
+`@llmflow/db` and `@llmflow/providers` are ESM/TypeScript; OTLP, pricing, and shared remain CJS.
 
 ## Code Style
 
-- Backend: TS in `apps/server/src/` + `packages/db/src/`, CJS in every other package (transitional).
+- Backend: TS in `apps/server/src/`, `packages/db/src/`, and `packages/providers/src/`; CJS in OTLP, pricing, and shared (transitional).
 - Formatting: Prettier (`just format` / `just format-check`). No semicolons, single quotes, trailing commas, 4-space indent for backend / 2-space for `apps/dashboard/**` and Markdown/JSON/YAML.
-- No comments unless WHY is non-obvious. Minimal dependencies (only `get-port` in production).
+- No comments unless WHY is non-obvious. Minimal dependencies; OTLP protobuf decoding uses `protobufjs` with a pinned generated schema.
 - Naming: camelCase for variables/functions, UPPER_SNAKE for constants, snake_case for DB columns/trace fields.
 - Error handling: try/catch with `log.error(...)`, never throw in request handlers — return error Response.
-- Provider modules follow the `BaseProvider` class pattern in `packages/providers/src/base.js`.
+- Provider modules follow the `BaseProvider` class pattern in `packages/providers/src/base.ts`.
 - All workspace dep paths use `workspace:*`. Don't hardcode versions for internal packages.
 
 <!-- BACKLOG.MD GUIDELINES START -->

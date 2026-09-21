@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { refreshActiveTab } from '$lib/stores/refresh'
   import Header from '$lib/components/layout/Header.svelte'
   import PricingFreshnessBanner from '$lib/components/layout/PricingFreshnessBanner.svelte'
   import Tabs from '$lib/components/layout/Tabs.svelte'
@@ -12,30 +13,32 @@
   import SessionsTab from '$lib/components/sessions/SessionsTab.svelte'
   import { tabState, initTabHashSync, setTab, validTabs } from '$lib/stores/tabs.svelte'
   import { initTheme, toggleTheme } from '$lib/stores/theme.svelte'
-  import { initWebSocket } from '$lib/stores/websocket.svelte'
+  import { initWebSocket, disconnectWebSocket } from '$lib/stores/websocket.svelte'
   import { loadStats, initStatsSync } from '$lib/stores/stats.svelte'
 
   onMount(() => {
     initTheme()
-    initTabHashSync()
+    const stopTabSync = initTabHashSync()
     initWebSocket()
     loadStats()
-    initStatsSync()
+    const stopStatsSync = initStatsSync()
 
     // Polling fallback for stats
     const statsInterval = setInterval(loadStats, 30000)
 
     // Keyboard shortcuts
     const handleKeydown = (e: KeyboardEvent) => {
-      const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes(
-        document.activeElement?.tagName || '',
-      )
+      if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return
+      const focused = document.activeElement as HTMLElement | null
+      const isInputFocused =
+        !!focused &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(focused.tagName) || focused.isContentEditable)
 
       // "/" to focus search
       if (e.key === '/' && !isInputFocused) {
         e.preventDefault()
         const searchInput = document.querySelector<HTMLInputElement>(
-          '.filter-bar input[type="text"]',
+          '.tab-content.active .filter-bar input[type="text"]',
         )
         searchInput?.focus()
         return
@@ -51,8 +54,8 @@
 
       if (isInputFocused) return
 
-      // Tab shortcuts: 1-6 for tabs
-      if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Tab shortcuts follow the displayed tab order.
+      if (/^[1-9]$/.test(e.key)) {
         const tabIndex = parseInt(e.key) - 1
         if (tabIndex < validTabs.length) {
           e.preventDefault()
@@ -78,8 +81,7 @@
       // "r" to refresh
       if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
-        // Trigger refresh by dispatching custom event or calling load functions
-        window.dispatchEvent(new CustomEvent('llmflow:refresh'))
+        void refreshActiveTab()
         return
       }
     }
@@ -122,6 +124,9 @@
     window.addEventListener('keydown', handleKeydown)
 
     return () => {
+      disconnectWebSocket()
+      stopTabSync()
+      stopStatsSync()
       clearInterval(statsInterval)
       window.removeEventListener('keydown', handleKeydown)
     }

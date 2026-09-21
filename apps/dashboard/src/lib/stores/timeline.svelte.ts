@@ -1,10 +1,12 @@
+import type { Log } from './logs.svelte'
+import type { TraceDetail } from './traces.svelte'
 import { api } from '$lib/api/client'
 import { onMessage } from './websocket.svelte'
 import { tabState } from './tabs.svelte'
 
 export interface TimelineItem {
   id: string
-  type: 'trace' | 'log' | 'metric'
+  type: 'trace' | 'log'
   timestamp: number
   title: string
   subtitle?: string
@@ -16,8 +18,6 @@ export interface TimelineItem {
   tokens?: number
   cost?: number
   severity_text?: string
-  metric_type?: string
-  value?: number
   data?: unknown
 }
 
@@ -26,19 +26,17 @@ export interface TimelineFilters {
   tool: string
   type: string
   dateRange: string
-  date_from: number | null
 }
 
 export const timelineItems = $state<TimelineItem[]>([])
 export const selectedItem = $state<{ value: TimelineItem | null }>({ value: null })
-export const selectedItemData = $state<{ value: unknown }>({ value: null })
-export const relatedLogs = $state<unknown[]>([])
+export const selectedItemData = $state<{ value: TraceDetail | Log | null }>({ value: null })
+export const relatedLogs = $state<Log[]>([])
 export const timelineFilters = $state<TimelineFilters>({
   q: '',
   tool: '',
   type: '',
   dateRange: '',
-  date_from: null,
 })
 
 function getDateRange(range: string): number | null {
@@ -59,8 +57,10 @@ function getDateRange(range: string): number | null {
   }
 }
 
+let listRequest = 0
 export async function loadTimeline() {
   if (tabState.current !== 'timeline') return
+  const request = ++listRequest
 
   try {
     const params = new URLSearchParams({ limit: '100' })
@@ -72,6 +72,7 @@ export async function loadTimeline() {
     if (from) params.set('date_from', String(from))
 
     const data = await api.get<TimelineItem[]>(`/api/timeline?${params}`)
+    if (request !== listRequest) return
     timelineItems.length = 0
     timelineItems.push(...(data || []))
   } catch (e) {
@@ -79,35 +80,34 @@ export async function loadTimeline() {
   }
 }
 
+let selectionRequest = 0
 export async function selectTimelineItem(item: TimelineItem) {
+  const request = ++selectionRequest
   selectedItem.value = item
+  selectedItemData.value = null
   relatedLogs.length = 0
-
   try {
     if (item.type === 'trace') {
-      const detail = await api.get<unknown>(`/api/traces/${item.id}`)
+      const detail = await api.get<TraceDetail>(`/api/traces/${encodeURIComponent(item.id)}`)
+      if (request !== selectionRequest) return
       selectedItemData.value = detail
-
-      // Load related logs if trace has a trace_id
-      try {
-        const logs = await api.get<{ logs: unknown[] }>(`/api/logs?trace_id=${item.id}&limit=10`)
-        relatedLogs.push(...(logs.logs || []))
-      } catch {
-        // ignore
+      if (detail.trace.trace_id) {
+        const result = await api.get<{ logs: Log[] }>(
+          `/api/logs?trace_id=${encodeURIComponent(detail.trace.trace_id)}&limit=10`,
+        )
+        if (request === selectionRequest) relatedLogs.push(...result.logs)
       }
-    } else if (item.type === 'log') {
-      const detail = await api.get<unknown>(`/api/logs/${item.id}`)
-      selectedItemData.value = detail
-    } else if (item.type === 'metric') {
-      selectedItemData.value = item.data || item
+    } else {
+      const detail = await api.get<Log>(`/api/logs/${encodeURIComponent(item.id)}`)
+      if (request === selectionRequest) selectedItemData.value = detail
     }
   } catch (e) {
     console.error('Failed to load timeline item:', e)
-    selectedItemData.value = null
   }
 }
 
 export function clearSelection() {
+  selectionRequest++
   selectedItem.value = null
   selectedItemData.value = null
   relatedLogs.length = 0
@@ -118,12 +118,11 @@ export function clearFilters() {
   timelineFilters.tool = ''
   timelineFilters.type = ''
   timelineFilters.dateRange = ''
-  timelineFilters.date_from = null
   loadTimeline()
 }
 
 export function initTimelineSync() {
-  onMessage((msg) => {
+  return onMessage((msg) => {
     if (tabState.current !== 'timeline') return
 
     if (msg.type === 'new_trace' || msg.type === 'new_log') {

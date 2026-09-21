@@ -4,9 +4,15 @@
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
 
   function formatValue(m: Metric): string {
-    if (m.value != null) return m.value.toLocaleString(undefined, { maximumFractionDigits: 4 })
-    if (m.sum != null) return m.sum.toLocaleString(undefined, { maximumFractionDigits: 4 })
-    if (m.count != null) return `count: ${m.count}`
+    if (m.metric_type === 'histogram') {
+      const parts: string[] = []
+      if (m.value_int != null) parts.push(`count: ${m.value_int.toLocaleString()}`)
+      if (m.value_double != null)
+        parts.push(`sum: ${m.value_double.toLocaleString(undefined, { maximumFractionDigits: 4 })}`)
+      return parts.join(' · ') || '-'
+    }
+    const value = m.value_double ?? m.value_int
+    if (value != null) return value.toLocaleString(undefined, { maximumFractionDigits: 4 })
     return '-'
   }
 </script>

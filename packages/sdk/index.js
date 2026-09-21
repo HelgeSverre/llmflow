@@ -23,7 +23,7 @@
 import { AsyncLocalStorage } from 'async_hooks'
 import { randomUUID } from 'crypto'
 
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 // Span context storage
 const storage = new AsyncLocalStorage()

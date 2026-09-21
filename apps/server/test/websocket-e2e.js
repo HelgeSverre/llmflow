@@ -11,13 +11,13 @@
  * 5. Receiving stats_update after insertion
  *
  * Run: node test/websocket-e2e.js
- * Requires: LLMFlow server running on localhost:3000
+ * Requires: LLMFlow server running on 127.0.0.1:1337
  */
 
 const WebSocket = require('ws')
 const http = require('http')
 
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 const WS_URL = LLMFLOW_URL.replace('http', 'ws') + '/ws'
 
 const c = {
@@ -54,7 +54,7 @@ function httpRequest(method, path, body = null) {
         const url = new URL(LLMFLOW_URL)
         const options = {
             hostname: url.hostname,
-            port: url.port || 3000,
+            port: url.port || 80,
             path,
             method,
             headers: {
@@ -112,7 +112,7 @@ async function testWebSocketConnection() {
     console.log(`\n${c.cyan}Test 1: WebSocket Connection${c.reset}`)
 
     return new Promise((resolve) => {
-        const ws = new WebSocket(WS_URL)
+        const ws = new WebSocket(WS_URL, { headers: { Origin: LLMFLOW_URL } })
         let connected = false
         let helloReceived = false
 
@@ -234,8 +234,8 @@ async function testChildSpanBroadcast(ws, parentTraceId) {
 async function testMultipleClients() {
     console.log(`\n${c.cyan}Test 4: Multiple WebSocket Clients${c.reset}`)
 
-    const ws1 = new WebSocket(WS_URL)
-    const ws2 = new WebSocket(WS_URL)
+    const ws1 = new WebSocket(WS_URL, { headers: { Origin: LLMFLOW_URL } })
+    const ws2 = new WebSocket(WS_URL, { headers: { Origin: LLMFLOW_URL } })
 
     await new Promise((resolve) => {
         let ready = 0
@@ -283,7 +283,7 @@ async function testMultipleClients() {
 async function testReconnection() {
     console.log(`\n${c.cyan}Test 5: Reconnection${c.reset}`)
 
-    const ws = new WebSocket(WS_URL)
+    const ws = new WebSocket(WS_URL, { headers: { Origin: LLMFLOW_URL } })
 
     await new Promise((resolve, reject) => {
         ws.on('open', resolve)
@@ -296,7 +296,7 @@ async function testReconnection() {
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     // Reconnect
-    const ws2 = new WebSocket(WS_URL)
+    const ws2 = new WebSocket(WS_URL, { headers: { Origin: LLMFLOW_URL } })
 
     let reconnected = false
     let helloReceived = false

@@ -16,22 +16,22 @@ Instead of calling OpenAI directly, we configure the AI SDK to route requests th
 1. Start LLMFlow from the project root:
 
    ```bash
-   npm start
+   bun run start
    ```
 
 2. Install dependencies:
 
    ```bash
-   npm install
+   bun install
    ```
 
 3. Run the example:
 
    ```bash
-   npm start
+   bun run start
    ```
 
-4. View traces at [http://localhost:3000](http://localhost:3000)
+4. View traces at [http://localhost:1337](http://localhost:1337)
 
 ## Key Code
 

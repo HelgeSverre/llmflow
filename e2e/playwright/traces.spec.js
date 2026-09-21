@@ -170,25 +170,18 @@ test.describe('Traces Tab', () => {
         const row = page.locator('[data-testid="trace-row"]').first()
         await expect(row).toHaveClass(/selected/)
 
-        // Detail panel should update - wait for title to change from default
-        const detailTitle = page.locator('[data-testid="trace-detail-title"]')
-        await expect(detailTitle).not.toHaveText('Select a trace', { timeout: 5000 })
+        await expect(
+            page.getByTestId('traces-detail-panel').getByRole('treeitem').first(),
+        ).toBeVisible()
     })
 
-    test('trace detail panel shows info section', async ({ page }) => {
-        await page.click('[data-testid="trace-row"]:first-child')
-
-        // Wait for title to update, indicating selection completed
-        const detailTitle = page.locator('[data-testid="trace-detail-title"]')
-        await expect(detailTitle).not.toHaveText('Select a trace', { timeout: 5000 })
-
-        // Info section should be visible with content
-        const infoSection = page.locator('[data-testid="trace-info"]')
-        await expect(infoSection).toBeVisible()
-
-        const info = await infoSection.textContent()
-        expect(info).toBeDefined()
-        expect(info?.includes('{')).toBeTruthy()
+    test('selecting a span opens its captured details', async ({ page }) => {
+        await page.locator('[data-testid="trace-row"]').first().click()
+        const panel = page.getByTestId('traces-detail-panel')
+        await panel.getByRole('treeitem').first().click()
+        await expect(panel.locator('.detail-panel .name')).not.toBeEmpty()
+        await expect(panel.getByRole('button', { name: 'attributes', exact: true })).toBeVisible()
+        await expect(panel.locator('.detail-panel .body')).toBeVisible()
     })
 
     test('search input updates and filters work', async ({ page }) => {

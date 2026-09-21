@@ -41,11 +41,7 @@ function extractAttributes(attrs) {
 /**
  * Convert nanoseconds timestamp to milliseconds
  */
-function nanoToMs(nanoStr) {
-    if (!nanoStr) return Date.now()
-    const nano = BigInt(nanoStr)
-    return Number(nano / BigInt(1000000))
-}
+const { nanoToMs } = require('./timestamps')
 
 /**
  * Extract value from data point
@@ -84,7 +80,7 @@ function processSum(metric, resourceAttrs, scopeInfo) {
 
         results.push({
             id: uuidv4(),
-            timestamp: nanoToMs(dp.timeUnixNano),
+            timestamp: nanoToMs(dp.timeUnixNano) ?? Date.now(),
             name: metric.name,
             description: metric.description || null,
             unit: metric.unit || null,
@@ -117,7 +113,7 @@ function processGauge(metric, resourceAttrs, scopeInfo) {
 
         results.push({
             id: uuidv4(),
-            timestamp: nanoToMs(dp.timeUnixNano),
+            timestamp: nanoToMs(dp.timeUnixNano) ?? Date.now(),
             name: metric.name,
             description: metric.description || null,
             unit: metric.unit || null,
@@ -158,7 +154,7 @@ function processHistogram(metric, resourceAttrs, scopeInfo) {
 
         results.push({
             id: uuidv4(),
-            timestamp: nanoToMs(dp.timeUnixNano),
+            timestamp: nanoToMs(dp.timeUnixNano) ?? Date.now(),
             name: metric.name,
             description: metric.description || null,
             unit: metric.unit || null,
@@ -256,44 +252,8 @@ function processOtlpMetrics(body) {
     return results
 }
 
-/**
- * Express middleware for OTLP metrics endpoint
- */
-function createMetricsHandler() {
-    return (req, res) => {
-        const contentType = req.headers['content-type'] || ''
-
-        if (!contentType.includes('application/json')) {
-            return res.status(415).json({
-                error: 'Unsupported Media Type',
-                message: 'Only application/json is supported. Use OTLP/HTTP JSON format.',
-            })
-        }
-
-        try {
-            const results = processOtlpMetrics(req.body)
-
-            res.status(200).json({
-                partialSuccess:
-                    results.rejected > 0
-                        ? {
-                              rejectedDataPoints: results.rejected,
-                              errorMessage: results.errors.slice(0, 5).join('; '),
-                          }
-                        : undefined,
-            })
-        } catch (err) {
-            res.status(500).json({
-                error: 'Internal Server Error',
-                message: err.message,
-            })
-        }
-    }
-}
-
 module.exports = {
     processOtlpMetrics,
-    createMetricsHandler,
     extractAttributes,
     extractValue,
     processSum,

@@ -186,5 +186,6 @@ test.describe('Metrics Tab', () => {
         const values = page.locator('[data-testid="metrics-body"] .metric-value')
         const valueCount = await values.count()
         expect(valueCount).toBeGreaterThan(0)
+        for (const value of await values.all()) await expect(value).not.toHaveText('-')
     })
 })

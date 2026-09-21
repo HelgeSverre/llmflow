@@ -1,7 +1,6 @@
 import {
     BaseProvider,
     type NormalizedResponse,
-    type ParsedStreamChunk,
     type ProviderRequest,
     type ProviderTarget,
     type TokenUsage,
@@ -29,6 +28,7 @@ interface GeminiUsageMetadata {
  * - Different response format (candidates, usageMetadata)
  */
 export class GeminiProvider extends BaseProvider {
+    override streamFormat = 'gemini' as const
     hostname: string
     apiVersion: string
 
@@ -51,9 +51,10 @@ export class GeminiProvider extends BaseProvider {
 
         const apiKey = this.extractApiKey(req.headers)
         if (apiKey) {
-            path += `?key=${apiKey}`
+            path += `?key=${encodeURIComponent(apiKey)}`
         }
 
+        if (isStreaming) path += `${path.includes('?') ? '&' : '?'}alt=sse`
         return {
             hostname: this.hostname,
             port: 443,
@@ -225,64 +226,6 @@ export class GeminiProvider extends BaseProvider {
         }
     }
 
-    override parseStreamChunk(chunk: string): ParsedStreamChunk {
-        const lines = chunk.split('\n')
-        let content = ''
-        let usage: TokenUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed) continue
-
-            try {
-                let json: {
-                    candidates?: Array<{
-                        content?: { parts?: Array<{ text?: string }> }
-                        finishReason?: string
-                    }>
-                    usageMetadata?: GeminiUsageMetadata
-                }
-
-                if (trimmed.startsWith('data:')) {
-                    const payload = trimmed.slice(5).trim()
-                    if (payload === '[DONE]') {
-                        done = true
-                        continue
-                    }
-                    json = JSON.parse(payload)
-                } else if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-                    const parsed = JSON.parse(trimmed)
-                    json = Array.isArray(parsed) ? parsed[0] : parsed
-                } else {
-                    continue
-                }
-
-                if (json.candidates?.[0]?.content?.parts) {
-                    for (const part of json.candidates[0].content.parts) {
-                        if (part.text) content += part.text
-                    }
-                }
-
-                if (json.usageMetadata) {
-                    usage = {
-                        prompt_tokens: json.usageMetadata.promptTokenCount || 0,
-                        completion_tokens: json.usageMetadata.candidatesTokenCount || 0,
-                        total_tokens: json.usageMetadata.totalTokenCount || 0,
-                    }
-                }
-
-                if (json.candidates?.[0]?.finishReason) {
-                    done = true
-                }
-            } catch {
-                // Ignore parse errors for partial chunks
-            }
-        }
-
-        return { content, usage, done }
-    }
-
     override extractUsage(response: unknown): TokenUsage {
         const r = (response || {}) as {
             usage?: Partial<TokenUsage> & GeminiUsageMetadata
@@ -305,28 +248,6 @@ export class GeminiProvider extends BaseProvider {
         }
 
         return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
-    }
-
-    override assembleStreamingResponse(
-        fullContent: string,
-        usage: TokenUsage | null,
-        req: ProviderRequest,
-        traceId: string,
-    ): unknown {
-        const reqBody = (req.body || {}) as Record<string, unknown>
-        return {
-            id: traceId,
-            object: 'chat.completion',
-            model: reqBody.model || 'gemini',
-            choices: [
-                {
-                    message: { role: 'assistant', content: fullContent },
-                    finish_reason: 'stop',
-                },
-            ],
-            usage,
-            _streaming: true,
-        }
     }
 }
 

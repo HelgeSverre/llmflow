@@ -1,69 +1,129 @@
 <script lang="ts">
   import SpanWaterfall from '$lib/components/trace-viewer/SpanWaterfall.svelte'
   import SpanDetailPanel from '$lib/components/trace-viewer/SpanDetailPanel.svelte'
-  import { selectedTrace } from '$lib/stores/traces.svelte'
+  import { selectedTrace, selectedTraceId, selectTrace } from '$lib/stores/traces.svelte'
 
-  let selectedId = $state<string | null>(null)
-  const selectedSpan = $derived(
-    selectedTrace.value?.spans?.find((s) => s.id === selectedId) ?? null,
-  )
+  import { flattenTraceTree } from '$lib/trace/tree'
 
-  // Adapt store-shape spans to viewport input shape.
-  // SpanInput requires: id, parent_id?, name, start_time, duration_ms, span_type?
-  // Span has all of these, so we just pass through + spread to keep extra fields.
-  const viewportSpans = $derived(
-    selectedTrace.value?.spans?.map((s) => ({
-      id: s.id,
-      parent_id: s.parent_id,
-      name: s.name,
-      start_time: s.start_time,
-      duration_ms: s.duration_ms ?? 0,
-      span_type: s.span_type,
-      ...s,
-    })) ?? [],
-  )
-</script>
-
-<div class="trace-detail" data-testid="traces-detail-panel">
-  {#if selectedTrace.value && viewportSpans.length > 0}
-    <div class="waterfall-pane">
-      <SpanWaterfall spans={viewportSpans} onSelect={(id) => (selectedId = id)} />
-    </div>
-    <div class="detail-pane">
-      <SpanDetailPanel span={selectedSpan} />
-    </div>
-  {:else}
-    <div class="empty-state">
-      {#if !selectedTrace.value}
-        <p>Select a trace to view spans</p>
-      {:else}
-        <p>No spans found</p>
-      {/if}
-    </div>
-  {/if}
-</div>
-
-<style>
-  .trace-detail {
-    display: grid;
-    grid-template-columns: 1fr 380px;
-    height: 100%;
-    min-height: 400px;
-  }
-
-  @media (max-width: 900px) {
-    .trace-detail {
-      grid-template-columns: 1fr;
-      grid-template-rows: 1fr 1fr;
+  let replaying = $state(false)
+  let replayError = $state('')
+  async function replay() {
+    const id = selectedId || selectedTraceId.value
+    if (!id) return
+    replaying = true
+    replayError = ''
+    try {
+      const response = await fetch(`/api/traces/${encodeURIComponent(id)}/replay`, {
+        method: 'POST',
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Replay failed')
+      await selectTrace(result.id)
+      selectedId = result.id
+    } catch (error) {
+      replayError = (error as Error).message
+    } finally {
+      replaying = false
     }
   }
 
+  let selectedId = $state<string | null>(null)
+  // Reset span selection when the trace changes so we don't keep an id pointing into the old trace.
+  $effect(() => {
+    selectedTraceId.value
+    selectedId = null
+  })
+
+  const viewportSpans = $derived(flattenTraceTree(selectedTrace.value?.spans ?? []))
+  const selectedSpan = $derived(viewportSpans.find((s) => s.id === selectedId) ?? null)
+</script>
+
+<div class="panel-right trace-panel" data-testid="traces-detail-panel">
+  {#if selectedTrace.value}
+    <div class="replay-bar">
+      <button class="btn-secondary" disabled={replaying} onclick={replay}
+        >{replaying ? 'Replaying…' : 'Replay request'}</button
+      >
+      <span>Runs a new provider request using the server’s configured credentials.</span>
+      {#if replayError}<p role="alert">{replayError}</p>{/if}
+    </div>
+  {/if}
+  {#if selectedTrace.value?.partial}
+    <p class="partial-notice">
+      Partial trace — some spans were evicted or have not arrived. Totals cover retained spans.
+    </p>
+  {/if}
+  <div class="trace-detail">
+    {#if selectedTrace.value && viewportSpans.length > 0}
+      <div class="waterfall-pane">
+        <SpanWaterfall
+          spans={viewportSpans}
+          traceId={selectedTraceId.value ?? undefined}
+          onSelect={(id) => (selectedId = id)}
+        />
+      </div>
+      <div class="detail-pane">
+        <SpanDetailPanel span={selectedSpan} />
+      </div>
+    {:else}
+      <div class="empty-state">
+        {#if !selectedTrace.value}
+          <p>Select a trace to view spans</p>
+        {:else}
+          <p>No spans found</p>
+        {/if}
+      </div>
+    {/if}
+  </div>
+</div>
+
+<style>
+  .replay-bar {
+    padding: 8px 12px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .replay-bar span {
+    margin-left: 8px;
+    color: var(--text-tertiary);
+  }
+  .partial-notice {
+    padding: 8px;
+    color: var(--warning);
+    flex-shrink: 0;
+  }
+  .trace-panel {
+    container-type: inline-size;
+  }
+
+  .trace-detail {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 38%);
+    min-width: 0;
+    min-height: 0;
+  }
+
+  @container (max-width: 760px) {
+    .trace-detail {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+
+  .waterfall-pane,
+  .detail-pane {
+    min-width: 0;
+    min-height: 0;
+  }
+
   .empty-state {
+    grid-column: 1 / -1;
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--muted);
+    color: var(--text-tertiary);
     font-size: 14px;
   }
 </style>

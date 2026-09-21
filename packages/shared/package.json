@@ -5,6 +5,7 @@
   "main": "./src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./logger": "./src/logger.js"
+    "./logger": "./src/logger.js",
+    "./redaction": "./src/redaction.js"
   }
 }

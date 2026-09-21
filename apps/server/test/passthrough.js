@@ -101,7 +101,7 @@ test('isStreamingRequest detects stream=true', () => {
 test('sanitizeHeaders removes sensitive headers', () => {
     const handler = new PassthroughHandler({ targetHost: 'api.example.com' })
 
-    const sanitized = handler.sanitizeHeaders({
+    const sanitized = require('@llmflow/shared/redaction').sanitizeHeaders({
         'content-type': 'application/json',
         'x-api-key': 'secret-key',
         authorization: 'Bearer secret',
@@ -112,10 +112,10 @@ test('sanitizeHeaders removes sensitive headers', () => {
 
     assertEqual(sanitized['content-type'], 'application/json')
     assertEqual(sanitized['x-custom-header'], 'safe')
-    assert(!sanitized['x-api-key'], 'Should remove x-api-key')
-    assert(!sanitized['authorization'], 'Should remove authorization')
-    assert(!sanitized['x-goog-api-key'], 'Should remove x-goog-api-key')
-    assert(!sanitized['api-key'], 'Should remove api-key')
+    assertEqual(sanitized['x-api-key'], '[REDACTED]')
+    assertEqual(sanitized['authorization'], '[REDACTED]')
+    assertEqual(sanitized['x-goog-api-key'], '[REDACTED]')
+    assertEqual(sanitized['api-key'], '[REDACTED]')
 })
 
 // ============ AnthropicPassthrough Tests ============
@@ -221,7 +221,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text
 
 `
 
-    const parsed = handler.defaultParseStreamChunk(chunk)
+    const parsed = parseStream(handler, chunk)
 
     assertEqual(parsed.content, 'Hello World')
     assertEqual(parsed.done, false)
@@ -235,7 +235,7 @@ data: {"type":"message_stop"}
 
 `
 
-    const parsed = handler.defaultParseStreamChunk(chunk)
+    const parsed = parseStream(handler, chunk)
 
     assertEqual(parsed.done, true)
 })
@@ -248,7 +248,7 @@ data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"outpu
 
 `
 
-    const parsed = handler.defaultParseStreamChunk(chunk)
+    const parsed = parseStream(handler, chunk)
 
     assertEqual(parsed.usage.completion_tokens, 42)
 })
@@ -261,7 +261,7 @@ data: {"type":"message_start","message":{"id":"msg_123","type":"message","role":
 
 `
 
-    const parsed = handler.defaultParseStreamChunk(chunk)
+    const parsed = parseStream(handler, chunk)
 
     assertEqual(parsed.usage.prompt_tokens, 25)
 })
@@ -344,7 +344,7 @@ test('GeminiPassthrough parses JSON streaming response', () => {
         },
     })
 
-    const parsed = handler.defaultParseStreamChunk(chunk)
+    const parsed = parseStream(handler, chunk)
 
     assertEqual(parsed.content, 'Hello World')
     assertEqual(parsed.done, true)
@@ -423,7 +423,7 @@ data: {"id":"chatcmpl-123","choices":[{"delta":{"content":" World"}}]}
 
 `
 
-    const parsed = handler.defaultParseStreamChunk(chunk)
+    const parsed = parseStream(handler, chunk)
 
     assertEqual(parsed.content, 'Hello World')
     assertEqual(parsed.done, false)
@@ -436,7 +436,7 @@ test('OpenAIPassthrough detects [DONE] in stream', () => {
 
 `
 
-    const parsed = handler.defaultParseStreamChunk(chunk)
+    const parsed = parseStream(handler, chunk)
 
     assertEqual(parsed.done, true)
 })
@@ -451,3 +451,9 @@ if (failed > 0) {
 console.log('')
 
 process.exit(failed > 0 ? 1 : 0)
+
+function parseStream(handler, chunk) {
+    const session = handler.createStreamSession({ path: '/', headers: {}, body: {} }, 'fixture')
+    session.push(new TextEncoder().encode(chunk), true)
+    return { content: session.content, usage: session.usage, done: session.done }
+}

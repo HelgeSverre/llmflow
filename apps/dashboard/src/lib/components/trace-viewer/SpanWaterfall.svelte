@@ -1,40 +1,62 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { TraceViewport, type SpanInput } from '$lib/trace/viewport.svelte'
   import SpanRow from './SpanRow.svelte'
 
   interface Props {
     spans: SpanInput[]
-    onSelect?: (id: string) => void
+    traceId?: string
+    onSelect?: (id: string | null) => void
   }
 
-  let { spans, onSelect }: Props = $props()
+  let { spans, traceId, onSelect }: Props = $props()
 
   const ROW_HEIGHT_PX = 28
   const OVERSCAN = 8
 
-  const viewport = new TraceViewport(spans)
+  const viewport = new TraceViewport([])
+  let previousTraceId: string | undefined
 
   let scrollEl: HTMLDivElement
+  let axisBar: HTMLDivElement
   let scrollTop = $state(0)
-  let containerHeight = $state(600)
-  let waterfallWidth = $state(0)
+  let containerHeight = $state(0)
 
   $effect(() => {
-    if (!scrollEl) return
-    const ro = new ResizeObserver((entries) => {
-      for (const e of entries) {
-        containerHeight = e.contentRect.height
-        const barCol = e.contentRect.width * 0.65 - 80
-        waterfallWidth = Math.max(200, barCol)
-        viewport.setViewportWidth(waterfallWidth)
-      }
+    const nextSpans = spans
+    const nextTraceId = traceId
+    untrack(() => {
+      const reset = nextTraceId !== previousTraceId
+      const selected = viewport.selectedId
+      viewport.setSpans(nextSpans, reset)
+      previousTraceId = nextTraceId
+      if (selected !== viewport.selectedId) onSelect?.(viewport.selectedId)
+      if (reset && scrollEl) scrollEl.scrollTop = scrollTop = 0
+    })
+  })
+
+  $effect(() => {
+    if (!scrollEl || !axisBar) return
+    const ro = new ResizeObserver(() => {
+      containerHeight = scrollEl.clientHeight
+      viewport.setViewportWidth(axisBar.getBoundingClientRect().width)
     })
     ro.observe(scrollEl)
+    ro.observe(axisBar)
     return () => ro.disconnect()
   })
 
   const total = $derived(viewport.rows.length)
-  const visibleStart = $derived(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT_PX) - OVERSCAN))
+  $effect(() => {
+    const maxScroll = Math.max(0, total * ROW_HEIGHT_PX + 24 - containerHeight)
+    if (scrollEl && scrollTop > maxScroll) scrollEl.scrollTop = scrollTop = maxScroll
+  })
+  const visibleStart = $derived(
+    Math.min(
+      total,
+      Math.max(0, Math.floor(Math.max(0, scrollTop - 24) / ROW_HEIGHT_PX) - OVERSCAN),
+    ),
+  )
   const visibleEnd = $derived(
     Math.min(total, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT_PX) + OVERSCAN),
   )
@@ -56,11 +78,21 @@
   }}
 >
   <div class="time-axis">
-    <span class="axis-tick">0ms</span>
-    <span class="axis-tick" style:left="50%">{Math.round(viewport.totalDuration / 2)}ms</span>
-    <span class="axis-tick" style:right="80px">{Math.round(viewport.totalDuration)}ms</span>
+    <div class="axis-label-spacer"></div>
+    <div class="axis-bar-area" bind:this={axisBar}>
+      <span class="axis-tick axis-start">0ms</span>
+      <span class="axis-tick axis-mid">{Math.round(viewport.totalDuration / 2)}ms</span>
+      <span class="axis-tick axis-end">{Math.round(viewport.totalDuration)}ms</span>
+    </div>
+    <div class="axis-duration-spacer"></div>
   </div>
-  <div class="row-list" style:padding-top="{padTop}px" style:padding-bottom="{padBottom}px">
+  <div
+    class="row-list"
+    role="tree"
+    aria-label="Trace spans"
+    style:padding-top="{padTop}px"
+    style:padding-bottom="{padBottom}px"
+  >
     {#each visibleRows as row (row.id)}
       <SpanRow
         {row}
@@ -74,24 +106,45 @@
 
 <style>
   .waterfall {
+    --waterfall-columns: minmax(100px, 35%) minmax(0, 1fr) 64px;
+    --waterfall-gap: 8px;
     height: 100%;
     overflow-y: auto;
     position: relative;
-    font-family: var(--font-sans);
+    font-family: inherit;
   }
   .time-axis {
     position: sticky;
     top: 0;
     height: 24px;
-    background: var(--bg-panel);
-    border-bottom: 1px solid var(--row-border);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
     z-index: 1;
+    display: grid;
+    grid-template-columns: var(--waterfall-columns);
+    column-gap: var(--waterfall-gap);
+  }
+  .axis-bar-area {
+    position: relative;
   }
   .axis-tick {
     position: absolute;
+    top: 0;
     font-size: 11px;
-    color: var(--muted);
-    padding: 4px 6px;
+    color: var(--text-tertiary);
+    padding: 4px 0;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .axis-start {
+    left: 0;
+  }
+  .axis-mid {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .axis-end {
+    right: 0;
   }
   .row-list {
     will-change: transform;

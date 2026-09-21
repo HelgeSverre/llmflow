@@ -1,5 +1,4 @@
-import * as https from 'https'
-import * as http from 'http'
+import { StreamSession, type StreamFormat } from './stream'
 
 export interface PassthroughTarget {
     hostname: string
@@ -15,12 +14,6 @@ export interface PassthroughUsage {
     [extra: string]: number | string | undefined
 }
 
-export interface PassthroughParsedChunk {
-    content: string
-    usage: PassthroughUsage | null
-    done: boolean
-}
-
 interface PassthroughRequest {
     method?: string
     path: string
@@ -28,10 +21,11 @@ interface PassthroughRequest {
     body?: Record<string, unknown> | unknown
 }
 
-type HeaderTransform = (headers: Record<string, string | undefined>) => Record<string, string | undefined>
+type HeaderTransform = (
+    headers: Record<string, string | undefined>,
+) => Record<string, string | undefined>
 type ExtractUsageFn = (body: unknown) => PassthroughUsage
 type IdentifyModelFn = (reqBody: unknown, respBody: unknown) => string
-type ParseStreamChunkFn = (chunk: string) => PassthroughParsedChunk
 
 export interface PassthroughOptions {
     name?: string
@@ -42,10 +36,7 @@ export interface PassthroughOptions {
     extractUsage?: ExtractUsageFn
     identifyModel?: IdentifyModelFn
     headerTransform?: HeaderTransform
-    parseStreamChunk?: ParseStreamChunkFn
 }
-
-type HttpLikeModule = typeof http | typeof https
 
 /**
  * Base passthrough handler for forwarding requests without body transformation.
@@ -57,6 +48,14 @@ type HttpLikeModule = typeof http | typeof https
  * - Usage metrics ARE extracted for observability
  */
 export class PassthroughHandler {
+    streamFormat: StreamFormat = 'openai'
+    identifyRequestModel(req: PassthroughRequest): string {
+        return (req.body as { model?: string })?.model || 'unknown'
+    }
+    createStreamSession(req: PassthroughRequest, id: string) {
+        return new StreamSession(this.streamFormat, this.identifyRequestModel(req), id)
+    }
+
     name: string
     displayName: string
     targetHost: string
@@ -66,7 +65,6 @@ export class PassthroughHandler {
     extractUsage: ExtractUsageFn
     identifyModel: IdentifyModelFn
     headerTransform: HeaderTransform
-    parseStreamChunk: ParseStreamChunkFn
 
     constructor(options: PassthroughOptions = {}) {
         this.name = options.name || 'passthrough'
@@ -79,10 +77,7 @@ export class PassthroughHandler {
         this.extractUsage = options.extractUsage || ((b) => this.defaultExtractUsage(b))
         this.identifyModel =
             options.identifyModel || ((rq, rs) => this.defaultIdentifyModel(rq, rs))
-        this.headerTransform =
-            options.headerTransform || ((h) => this.defaultHeaderTransform(h))
-        this.parseStreamChunk =
-            options.parseStreamChunk || ((c) => this.defaultParseStreamChunk(c))
+        this.headerTransform = options.headerTransform || ((h) => this.defaultHeaderTransform(h))
     }
 
     /** Get target configuration - passthrough preserves the original path */
@@ -125,55 +120,10 @@ export class PassthroughHandler {
         return rq.model || rs.model || 'unknown'
     }
 
-    /** Parse streaming chunk - override in subclasses */
-    defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
-        const lines = chunk.split('\n')
-        const content = ''
-        let usage: PassthroughUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed.startsWith('data:')) continue
-
-            const payload = trimmed.slice(5).trim()
-            if (payload === '[DONE]') {
-                done = true
-                continue
-            }
-
-            try {
-                const json = JSON.parse(payload)
-                if (json.usage) usage = this.extractUsage(json)
-            } catch {
-                // Ignore parse errors
-            }
-        }
-
-        return { content, usage, done }
-    }
-
     /** Check if request is streaming */
     isStreamingRequest(req: PassthroughRequest): boolean {
         const body = (req.body || {}) as { stream?: boolean }
         return body.stream === true
-    }
-
-    /** Get HTTP module based on protocol */
-    getHttpModule(): HttpLikeModule {
-        return this.protocol === 'https' ? https : http
-    }
-
-    /** Strip sensitive headers for logging */
-    sanitizeHeaders(
-        headers: Record<string, string | undefined>,
-    ): Record<string, string | undefined> {
-        const safe: Record<string, string | undefined> = { ...headers }
-        delete safe['x-api-key']
-        delete safe['authorization']
-        delete safe['x-goog-api-key']
-        delete safe['api-key']
-        return safe
     }
 }
 
@@ -182,6 +132,7 @@ export class PassthroughHandler {
  * Used by Claude Code and other tools using Anthropic's /v1/messages endpoint.
  */
 export class AnthropicPassthrough extends PassthroughHandler {
+    override streamFormat = 'anthropic' as const
     constructor() {
         super({
             name: 'anthropic-passthrough',
@@ -238,64 +189,22 @@ export class AnthropicPassthrough extends PassthroughHandler {
         const rs = (respBody || {}) as { model?: string }
         return rs.model || rq.model || 'claude-unknown'
     }
-
-    override defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
-        const lines = chunk.split('\n')
-        let content = ''
-        let usage: PassthroughUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-
-            if (trimmed.startsWith('event:')) {
-                const eventType = trimmed.slice(6).trim()
-                if (eventType === 'message_stop') {
-                    done = true
-                }
-                continue
-            }
-
-            if (!trimmed.startsWith('data:')) continue
-
-            const payload = trimmed.slice(5).trim()
-            if (!payload) continue
-
-            try {
-                const json = JSON.parse(payload)
-
-                if (json.type === 'content_block_delta') {
-                    if (json.delta?.type === 'text_delta') {
-                        content += json.delta.text || ''
-                    }
-                } else if (json.type === 'message_delta') {
-                    if (json.usage) {
-                        usage = {
-                            prompt_tokens: 0,
-                            completion_tokens: json.usage.output_tokens || 0,
-                            total_tokens: json.usage.output_tokens || 0,
-                        }
-                    }
-                } else if (json.type === 'message_start' && json.message?.usage) {
-                    usage = {
-                        prompt_tokens: json.message.usage.input_tokens || 0,
-                        completion_tokens: 0,
-                        total_tokens: json.message.usage.input_tokens || 0,
-                    }
-                }
-            } catch {
-                // Ignore parse errors
-            }
-        }
-
-        return { content, usage, done }
-    }
 }
 
 /**
  * Google Gemini passthrough handler for native Gemini API format.
  */
 export class GeminiPassthrough extends PassthroughHandler {
+    override streamFormat = 'gemini' as const
+    override isStreamingRequest(req: PassthroughRequest): boolean {
+        return (
+            /:streamGenerateContent$/.test(req.path.split('?')[0]) || super.isStreamingRequest(req)
+        )
+    }
+    override identifyRequestModel(req: PassthroughRequest): string {
+        return req.path.match(/\/models\/([^/:?]+)/)?.[1] || super.identifyRequestModel(req)
+    }
+
     constructor() {
         super({
             name: 'gemini-passthrough',
@@ -312,7 +221,7 @@ export class GeminiPassthrough extends PassthroughHandler {
         const apiKey = this.extractApiKey(req.headers)
         if (apiKey) {
             const separator = path.includes('?') ? '&' : '?'
-            path = `${path}${separator}key=${apiKey}`
+            path = `${path}${separator}key=${encodeURIComponent(apiKey)}`
         }
 
         return {
@@ -365,55 +274,6 @@ export class GeminiPassthrough extends PassthroughHandler {
         const rs = (respBody || {}) as { model?: string; modelVersion?: string }
         return rs.modelVersion || rq.model || 'gemini-unknown'
     }
-
-    override defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
-        let content = ''
-        let usage: PassthroughUsage | null = null
-        let done = false
-
-        try {
-            const json = JSON.parse(chunk)
-
-            if (json.candidates?.[0]?.content?.parts) {
-                content = json.candidates[0].content.parts
-                    .filter((p: { text?: string }) => p.text)
-                    .map((p: { text?: string }) => p.text || '')
-                    .join('')
-            }
-
-            if (json.usageMetadata) {
-                usage = this.defaultExtractUsage(json)
-            }
-
-            if (json.candidates?.[0]?.finishReason) {
-                done = true
-            }
-        } catch {
-            // May be SSE format
-            const lines = chunk.split('\n')
-            for (const line of lines) {
-                const trimmed = line.trim()
-                if (!trimmed.startsWith('data:')) continue
-
-                const payload = trimmed.slice(5).trim()
-                if (payload === '[DONE]') {
-                    done = true
-                    continue
-                }
-
-                try {
-                    const json = JSON.parse(payload)
-                    if (json.usageMetadata) {
-                        usage = this.defaultExtractUsage(json)
-                    }
-                } catch {
-                    // Ignore
-                }
-            }
-        }
-
-        return { content, usage, done }
-    }
 }
 
 /**
@@ -458,35 +318,6 @@ export class OpenAIPassthrough extends PassthroughHandler {
             completion_tokens: completionTokens,
             total_tokens: usage.total_tokens || promptTokens + completionTokens,
         }
-    }
-
-    override defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
-        const lines = chunk.split('\n')
-        let content = ''
-        let usage: PassthroughUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed.startsWith('data:')) continue
-
-            const payload = trimmed.slice(5).trim()
-            if (payload === '[DONE]') {
-                done = true
-                continue
-            }
-
-            try {
-                const json = JSON.parse(payload)
-                const delta = json.choices?.[0]?.delta?.content
-                if (delta) content += delta
-                if (json.usage) usage = this.defaultExtractUsage(json)
-            } catch {
-                // Ignore parse errors
-            }
-        }
-
-        return { content, usage, done }
     }
 }
 
@@ -566,34 +397,5 @@ export class HeliconePassthrough extends PassthroughHandler {
             total_tokens:
                 usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
         }
-    }
-
-    override defaultParseStreamChunk(chunk: string): PassthroughParsedChunk {
-        const lines = chunk.split('\n')
-        let content = ''
-        let usage: PassthroughUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed.startsWith('data:')) continue
-
-            const payload = trimmed.slice(5).trim()
-            if (payload === '[DONE]') {
-                done = true
-                continue
-            }
-
-            try {
-                const json = JSON.parse(payload)
-                const delta = json.choices?.[0]?.delta?.content
-                if (delta) content += delta
-                if (json.usage) usage = this.defaultExtractUsage(json)
-            } catch {
-                // Ignore parse errors
-            }
-        }
-
-        return { content, usage, done }
     }
 }

@@ -10,12 +10,12 @@
  * 4. Test filtering and search
  *
  * Run: node test/otlp-logs-e2e.js
- * Requires: LLMFlow server running on localhost:3000
+ * Requires: LLMFlow server running on 127.0.0.1:1337
  */
 
 const http = require('http')
 
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 const c = {
     reset: '\x1b[0m',
@@ -40,7 +40,7 @@ function httpRequest(method, path, body = null) {
         const url = new URL(LLMFLOW_URL)
         const options = {
             hostname: url.hostname,
-            port: url.port || 3000,
+            port: url.port || 80,
             path,
             method,
             headers: {

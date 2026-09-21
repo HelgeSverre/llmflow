@@ -1,7 +1,6 @@
 import {
     BaseProvider,
     type NormalizedResponse,
-    type ParsedStreamChunk,
     type ProviderRequest,
     type ProviderTarget,
     type TokenUsage,
@@ -28,6 +27,7 @@ interface CohereTokens {
  * - Streaming uses granular event types (message-start, content-delta, message-end)
  */
 export class CohereProvider extends BaseProvider {
+    override streamFormat = 'cohere' as const
     hostname: string
 
     constructor(config: CohereProviderConfig = {}) {
@@ -89,8 +89,7 @@ export class CohereProvider extends BaseProvider {
         if (b.max_tokens) transformed.max_tokens = b.max_tokens
         if (b.temperature !== undefined) transformed.temperature = b.temperature
         if (b.top_p !== undefined) transformed.p = b.top_p // Cohere uses 'p' not 'top_p'
-        if (b.frequency_penalty !== undefined)
-            transformed.frequency_penalty = b.frequency_penalty
+        if (b.frequency_penalty !== undefined) transformed.frequency_penalty = b.frequency_penalty
         if (b.presence_penalty !== undefined) transformed.presence_penalty = b.presence_penalty
         if (b.stop) {
             transformed.stop_sequences = Array.isArray(b.stop) ? b.stop : [b.stop]
@@ -172,68 +171,6 @@ export class CohereProvider extends BaseProvider {
         }
     }
 
-    override parseStreamChunk(chunk: string): ParsedStreamChunk {
-        const lines = chunk.split('\n')
-        let content = ''
-        let usage: TokenUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed.startsWith('data:')) continue
-
-            const payload = trimmed.slice(5).trim()
-            if (payload === '[DONE]') {
-                done = true
-                continue
-            }
-
-            try {
-                const json = JSON.parse(payload)
-
-                switch (json.type) {
-                    case 'content-delta':
-                        if (json.delta?.message?.content) {
-                            for (const c of json.delta.message.content) {
-                                if (c.type === 'text' && c.text) {
-                                    content += c.text
-                                }
-                            }
-                        }
-                        break
-
-                    case 'message-end': {
-                        done = true
-                        if (json.delta?.usage) {
-                            const tokens = (json.delta.usage.tokens || {}) as CohereTokens
-                            const billedUnits = (json.delta.usage.billed_units ||
-                                {}) as CohereTokens
-                            usage = {
-                                prompt_tokens:
-                                    tokens.input_tokens || billedUnits.input_tokens || 0,
-                                completion_tokens:
-                                    tokens.output_tokens || billedUnits.output_tokens || 0,
-                                total_tokens:
-                                    (tokens.input_tokens || 0) + (tokens.output_tokens || 0),
-                            }
-                        }
-                        break
-                    }
-
-                    case 'message-start':
-                    case 'content-start':
-                    case 'content-end':
-                        // structural events, no content
-                        break
-                }
-            } catch {
-                // Ignore parse errors for partial chunks
-            }
-        }
-
-        return { content, usage, done }
-    }
-
     override extractUsage(response: unknown): TokenUsage {
         const r = (response || {}) as {
             usage?:
@@ -254,28 +191,6 @@ export class CohereProvider extends BaseProvider {
             prompt_tokens: tokens.input_tokens || billedUnits.input_tokens || 0,
             completion_tokens: tokens.output_tokens || billedUnits.output_tokens || 0,
             total_tokens: (tokens.input_tokens || 0) + (tokens.output_tokens || 0),
-        }
-    }
-
-    override assembleStreamingResponse(
-        fullContent: string,
-        usage: TokenUsage | null,
-        req: ProviderRequest,
-        traceId: string,
-    ): unknown {
-        const reqBody = (req.body || {}) as Record<string, unknown>
-        return {
-            id: traceId,
-            object: 'chat.completion',
-            model: reqBody.model || 'command',
-            choices: [
-                {
-                    message: { role: 'assistant', content: fullContent },
-                    finish_reason: 'stop',
-                },
-            ],
-            usage,
-            _streaming: true,
         }
     }
 }

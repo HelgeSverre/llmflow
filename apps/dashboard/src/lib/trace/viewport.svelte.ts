@@ -5,7 +5,7 @@ export interface SpanInput {
   parent_id?: string | undefined
   name: string
   start_time: number // ms since trace root (or absolute — both work since we subtract rootStart)
-  duration_ms: number
+  duration_ms: number | null
   span_type?: string
   [key: string]: unknown
 }
@@ -16,8 +16,9 @@ export interface SpanRow {
   name: string
   depth: number
   start_time: number
-  duration_ms: number
+  duration_ms: number | null
   span_type?: string
+  expanded: boolean
   hasChildren: boolean
   xPx: number // left offset within waterfall canvas
   widthPx: number // bar width (min 2px enforced for visibility)
@@ -32,8 +33,8 @@ interface InternalNode {
 const MIN_BAR_PX = 2
 
 export class TraceViewport {
-  #spans: SpanInput[]
-  #tree: InternalNode[]
+  #spans = $state.raw<SpanInput[]>([])
+  #tree = $state.raw<InternalNode[]>([])
   // SvelteSet (not plain Set) so reactive readers (Svelte templates, effects) recompute
   // when expanded changes. rows + selectedSpan are plain getters rather than $derived
   // fields because $derived runes don't evaluate outside Svelte's compiler context
@@ -44,12 +45,27 @@ export class TraceViewport {
   selectedId: string | null = $state(null)
 
   constructor(spans: SpanInput[]) {
+    this.setSpans(spans, true)
+  }
+
+  setSpans(spans: SpanInput[], reset = false) {
+    const previousIds = new Set(this.#spans.map((span) => span.id))
     this.#spans = spans
     this.#tree = this.#buildTree(spans)
-    // Default: every node with children is expanded.
-    for (const node of this.#walk(this.#tree)) {
-      if (node.children.length) this.#expanded.add(node.span.id)
+    const ids = new Set(spans.map((span) => span.id))
+    if (reset) {
+      this.#expanded.clear()
+      this.selectedId = null
     }
+    for (const id of this.#expanded) {
+      if (!ids.has(id)) this.#expanded.delete(id)
+    }
+    for (const node of this.#walk(this.#tree)) {
+      if (node.children.length && (reset || !previousIds.has(node.span.id))) {
+        this.#expanded.add(node.span.id)
+      }
+    }
+    if (this.selectedId && !ids.has(this.selectedId)) this.selectedId = null
   }
 
   get rootStart(): number {
@@ -59,7 +75,7 @@ export class TraceViewport {
 
   get totalDuration(): number {
     if (this.#spans.length === 0) return 1
-    const end = Math.max(...this.#spans.map((s) => s.start_time + s.duration_ms))
+    const end = Math.max(...this.#spans.map((s) => s.start_time + (s.duration_ms ?? 0)))
     return Math.max(1, end - this.rootStart)
   }
 
@@ -97,8 +113,9 @@ export class TraceViewport {
         duration_ms: s.duration_ms,
         span_type: s.span_type,
         hasChildren: node.children.length > 0,
+        expanded: this.#expanded.has(s.id),
         xPx: (s.start_time - root) * pxPerMs,
-        widthPx: Math.max(MIN_BAR_PX, s.duration_ms * pxPerMs),
+        widthPx: Math.max(MIN_BAR_PX, (s.duration_ms ?? 0) * pxPerMs),
       })
       if (this.#expanded.has(s.id)) {
         for (const c of node.children) walk(c)
@@ -121,15 +138,15 @@ export class TraceViewport {
       const pid = node.span.parent_id
       if (pid && byId.has(pid)) {
         const parent = byId.get(pid)!
-        node.depth = parent.depth + 1
         parent.children.push(node)
       } else {
         roots.push(node)
       }
     }
-    const sort = (n: InternalNode) => {
+    const sort = (n: InternalNode, depth = 0) => {
+      n.depth = depth
       n.children.sort((a, b) => a.span.start_time - b.span.start_time)
-      for (const c of n.children) sort(c)
+      for (const c of n.children) sort(c, depth + 1)
     }
     for (const r of roots) sort(r)
     return roots

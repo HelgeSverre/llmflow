@@ -1,0 +1,22 @@
+name: Checks
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
+      - run: bun run test
+        env:
+          LLMFLOW_PYTHON: python3
+      - run: bun run --filter @llmflow/dashboard test
+      - run: bun run build
+      - run: bun run test:package
+      - run: bunx playwright install --with-deps chromium
+      - run: bunx playwright test

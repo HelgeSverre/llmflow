@@ -5,9 +5,9 @@
  * by routing API calls through the LLMFlow proxy.
  *
  * Prerequisites:
- *   1. Start LLMFlow: cd ../.. && npm start
+ *   1. Start LLMFlow: cd ../.. && bun run start
  *   2. Set your OpenAI API key in .env at project root
- *   3. Run: make examples (from project root)
+ *   3. Run: ./examples/run-all.sh (from project root)
  */
 
 import { createOpenAI } from '@ai-sdk/openai'
@@ -15,7 +15,7 @@ import { generateText, streamText } from 'ai'
 
 const LLMFLOW_PROXY = process.env.LLMFLOW_PROXY || 'http://localhost:8080/v1'
 const LLMFLOW_DASHBOARD =
-    process.env.LLMFLOW_DASHBOARD || process.env.LLMFLOW_URL || 'http://localhost:3000'
+    process.env.LLMFLOW_DASHBOARD || process.env.LLMFLOW_URL || 'http://localhost:1337'
 
 // Check for API key early
 if (!process.env.OPENAI_API_KEY) {

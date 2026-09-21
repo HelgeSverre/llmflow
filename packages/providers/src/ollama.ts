@@ -1,9 +1,4 @@
-import {
-    BaseProvider,
-    type HttpLikeModule,
-    type ProviderRequest,
-    type ProviderTarget,
-} from './base'
+import { BaseProvider, type ProviderRequest, type ProviderTarget } from './base'
 
 export interface OllamaProviderConfig {
     hostname?: string
@@ -42,11 +37,6 @@ export class OllamaProvider extends BaseProvider {
         return {
             'Content-Type': 'application/json',
         }
-    }
-
-    override getHttpModule(): HttpLikeModule {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        return require('http')
     }
 }
 

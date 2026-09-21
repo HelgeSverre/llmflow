@@ -7,7 +7,7 @@ export interface ModelStats {
   prompt_tokens: number
   completion_tokens: number
   total_cost: number
-  avg_latency: number
+  avg_latency: number | null
 }
 
 export const modelStats = $state<ModelStats[]>([])

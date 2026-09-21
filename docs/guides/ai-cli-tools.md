@@ -21,7 +21,7 @@ AI CLI tools can be integrated with LLMFlow in two ways:
 ¹ Many CLI tools don't emit `session.id` by default but accept arbitrary OTel
 resource attributes via environment variables. If you can set
 `OTEL_RESOURCE_ATTRIBUTES=session.id=<your-id>` before launching the tool,
-LLMFlow groups the resulting traces in its **Sessions** tab. See the per-tool
+LLMFlow groups resulting **trace spans** in its Sessions tab. Logs and metrics alone do not create session trace groups. See the per-tool
 sections below for specifics. The OpenInference convention (`session.id`) is
 the recommended attribute; LLMFlow also accepts `langsmith.trace.session_id`,
 `traceloop.association.properties.session_id`, `ai.telemetry.metadata.sessionId`,
@@ -189,7 +189,7 @@ aider --openai-api-base http://localhost:8080/v1 \
       --model gpt-4o-mini
 
 # For Anthropic models
-aider --anthropic-api-base http://localhost:8080/anthropic \
+aider --anthropic-api-base http://localhost:8080/passthrough/anthropic \
       --model claude-3-haiku-20240307
 ```
 
@@ -211,21 +211,11 @@ The LLMFlow dashboard includes a unified **Timeline** view that shows activity f
 
 ### Features
 
-- **Unified feed** - Traces, logs, and metrics from all tools
-- **Tool filtering** - Filter by Claude Code, Codex CLI, Gemini CLI, etc.
-- **Type filtering** - Show only traces, logs, or metrics
-- **Correlation** - Click a trace to see related logs
-- **Tool colors** - Each tool has a distinct color for easy identification
-
-### Tool Colors
-
-| Tool          | Color     |
-| ------------- | --------- |
-| Claude Code   | 🟣 Purple |
-| Codex CLI     | 🟢 Green  |
-| Gemini CLI    | 🔵 Blue   |
-| Aider         | 🟠 Orange |
-| Proxy (other) | ⚪ Gray   |
+- **Unified feed** - Traces and logs from captured services; measurements appear in the separate Metrics tab
+- **Service filtering** - Enter the exact captured service name
+- **Type filtering** - Show only traces or logs
+- **Readable details** - Inspect span attributes, conversations and tool calls
+- **Related logs** - See logs with the same trace ID and open captured spans from a log
 
 ---
 

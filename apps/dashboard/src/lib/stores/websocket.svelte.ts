@@ -5,6 +5,8 @@ export const connectionStatus = $state<{ value: ConnectionStatus }>({ value: 'co
 let ws: WebSocket | null = null
 let retryDelay = 1000
 const WS_MAX_RETRY = 30000
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+let stopped = false
 
 type MessageHandler = (msg: { type: string; payload: unknown }) => void
 const handlers: MessageHandler[] = []
@@ -19,30 +21,60 @@ export function onMessage(handler: MessageHandler) {
 
 export function initWebSocket() {
   if (typeof window === 'undefined') return
-
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
+  stopped = false
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = null
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  ws = new WebSocket(`${protocol}//${location.host}/ws`)
+  const socket = new WebSocket(`${protocol}//${location.host}/ws`)
+  ws = socket
+  connectionStatus.value = 'connecting'
 
-  ws.onopen = () => {
+  socket.onopen = () => {
+    if (ws !== socket) return
     connectionStatus.value = 'connected'
     retryDelay = 1000
   }
-
-  ws.onclose = () => {
+  socket.onclose = () => {
+    if (ws !== socket) return
+    ws = null
     connectionStatus.value = 'disconnected'
-    setTimeout(initWebSocket, Math.min((retryDelay *= 1.5), WS_MAX_RETRY))
+    if (stopped || retryTimer) return
+    retryTimer = setTimeout(() => {
+      retryTimer = null
+      initWebSocket()
+    }, retryDelay)
+    retryDelay = Math.min(retryDelay * 1.5, WS_MAX_RETRY)
   }
-
-  ws.onerror = () => {
-    connectionStatus.value = 'disconnected'
+  socket.onerror = () => {
+    if (ws === socket) connectionStatus.value = 'disconnected'
   }
-
-  ws.onmessage = (event) => {
+  socket.onmessage = (event) => {
+    if (ws !== socket) return
+    let message: Parameters<MessageHandler>[0]
     try {
-      const msg = JSON.parse(event.data)
-      handlers.forEach((h) => h(msg))
-    } catch (e) {
-      console.error('WebSocket message parse error:', e)
+      message = JSON.parse(event.data)
+    } catch (error) {
+      console.error('WebSocket message parse error:', error)
+      return
+    }
+    for (const handler of handlers.slice()) {
+      try {
+        handler(message)
+      } catch (error) {
+        console.error('WebSocket handler error:', error)
+      }
     }
   }
+}
+
+export function disconnectWebSocket() {
+  stopped = true
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = null
+  const socket = ws
+  ws = null
+  socket?.close()
+  retryDelay = 1000
+  connectionStatus.value = 'disconnected'
 }

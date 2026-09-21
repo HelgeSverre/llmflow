@@ -46,10 +46,12 @@ export function initTabHashSync() {
     history.replaceState(null, '', '#' + tabState.current)
   }
 
-  window.addEventListener('hashchange', () => {
+  const onHashChange = () => {
     const tab = getTabFromHash()
     if (tab !== tabState.current) {
       tabState.current = tab
     }
-  })
+  }
+  window.addEventListener('hashchange', onHashChange)
+  return () => window.removeEventListener('hashchange', onHashChange)
 }

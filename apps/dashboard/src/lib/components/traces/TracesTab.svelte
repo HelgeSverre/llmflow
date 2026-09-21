@@ -47,7 +47,11 @@
 
   onMount(() => {
     loadFilterOptions()
-    initTracesSync()
+    const unsubscribe = initTracesSync()
+    return () => {
+      clearTimeout(debounceTimer)
+      unsubscribe()
+    }
   })
 
   $effect(() => {

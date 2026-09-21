@@ -262,9 +262,8 @@ function parseMaybeJson(value) {
  * Precedence:
  *   1. gen_ai.input.messages / gen_ai.output.messages (current spec,
  *      structured array with role + parts)
- *   2. gen_ai.system_instructions (current spec, system-prompt array)
- *   3. gen_ai.prompt / gen_ai.completion (deprecated v1.36.0 attributes)
- *   4. Span events: gen_ai.content.prompt / completion, or the newer
+ *   2. gen_ai.prompt / gen_ai.completion (deprecated v1.36.0 attributes)
+ *   3. Span events: gen_ai.content.prompt / completion, or the newer
  *      gen_ai.client.inference.operation.details event carrying messages
  */
 function extractIO(attrs, events) {
@@ -279,13 +278,7 @@ function extractIO(attrs, events) {
         output = { messages: parseMaybeJson(attrs['gen_ai.output.messages']) }
     }
 
-    // 2. System instructions attach to input when present
-    if (attrs['gen_ai.system_instructions'] !== undefined) {
-        input = input || {}
-        input.system_instructions = parseMaybeJson(attrs['gen_ai.system_instructions'])
-    }
-
-    // 3. Legacy gen_ai.prompt / gen_ai.completion (OpenLLMetry v1.36.0)
+    // Legacy gen_ai.prompt / gen_ai.completion (OpenLLMetry v1.36.0)
     if (input == null && attrs['gen_ai.prompt'] !== undefined) {
         const parsed = parseMaybeJson(attrs['gen_ai.prompt'])
         input = typeof parsed === 'object' && parsed !== null ? parsed : { prompt: parsed }
@@ -295,7 +288,7 @@ function extractIO(attrs, events) {
         output = typeof parsed === 'object' && parsed !== null ? parsed : { completion: parsed }
     }
 
-    // 4. Span events
+    // Span events
     if (events && events.length > 0) {
         for (const event of events) {
             const eventAttrs = extractAttributes(event.attributes)
@@ -326,17 +319,20 @@ function extractIO(attrs, events) {
         }
     }
 
+    // Instructions supplement messages; they must not prevent message fallback.
+    if (attrs['gen_ai.system_instructions'] !== undefined) {
+        if (Array.isArray(input)) input = { messages: input }
+        input = input || {}
+        input.system_instructions = parseMaybeJson(attrs['gen_ai.system_instructions'])
+    }
+
     return { input, output }
 }
 
 /**
  * Convert nanoseconds timestamp to milliseconds
  */
-function nanoToMs(nanoStr) {
-    if (!nanoStr) return Date.now()
-    const nano = BigInt(nanoStr)
-    return Number(nano / BigInt(1000000))
-}
+const { nanoToMs } = require('./timestamps')
 
 /**
  * Transform a single OTLP span to LLMFlow format
@@ -353,7 +349,10 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
 
     const startTimeMs = nanoToMs(span.startTimeUnixNano)
     const endTimeMs = nanoToMs(span.endTimeUnixNano)
-    const durationMs = endTimeMs - startTimeMs
+    const durationMs =
+        startTimeMs !== null && endTimeMs !== null && endTimeMs >= startTimeMs
+            ? endTimeMs - startTimeMs
+            : null
 
     const spanType = determineSpanType(attrs)
     const model = extractModel(attrs)
@@ -402,7 +401,7 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
 
     return {
         id: spanId,
-        timestamp: startTimeMs,
+        timestamp: startTimeMs ?? endTimeMs ?? Date.now(),
         duration_ms: durationMs,
         provider,
         model,
@@ -503,46 +502,8 @@ function processOtlpTraces(body) {
     return results
 }
 
-/**
- * Express middleware for OTLP endpoint
- */
-function createOtlpHandler() {
-    return (req, res) => {
-        const contentType = req.headers['content-type'] || ''
-
-        // Only support JSON for now
-        if (!contentType.includes('application/json')) {
-            return res.status(415).json({
-                error: 'Unsupported Media Type',
-                message: 'Only application/json is supported. Use OTLP/HTTP JSON format.',
-            })
-        }
-
-        try {
-            const results = processOtlpTraces(req.body)
-
-            // OTLP response format
-            res.status(200).json({
-                partialSuccess:
-                    results.rejected > 0
-                        ? {
-                              rejectedSpans: results.rejected,
-                              errorMessage: results.errors.slice(0, 5).join('; '),
-                          }
-                        : undefined,
-            })
-        } catch (err) {
-            res.status(500).json({
-                error: 'Internal Server Error',
-                message: err.message,
-            })
-        }
-    }
-}
-
 module.exports = {
     processOtlpTraces,
-    createOtlpHandler,
     transformSpan,
     extractAttributes,
     determineSpanType,

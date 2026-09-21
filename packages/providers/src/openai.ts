@@ -1,7 +1,6 @@
 import {
     BaseProvider,
     type NormalizedResponse,
-    type ParsedStreamChunk,
     type ProviderRequest,
     type ProviderTarget,
     type TokenUsage,
@@ -141,111 +140,6 @@ export class OpenAIProvider extends BaseProvider {
             completion_tokens: usage.completion_tokens || 0,
             total_tokens:
                 usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
-        }
-    }
-
-    /** Parse streaming chunks - handles both API formats */
-    override parseStreamChunk(chunk: string): ParsedStreamChunk {
-        const lines = chunk.split('\n')
-        let content = ''
-        let usage: TokenUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-
-            if (trimmed.startsWith('event:')) {
-                const eventType = trimmed.slice(6).trim()
-                if (eventType === 'response.done' || eventType === 'done') {
-                    done = true
-                }
-                continue
-            }
-
-            if (!trimmed.startsWith('data:')) continue
-
-            const payload = trimmed.slice(5).trim()
-            if (payload === '[DONE]') {
-                done = true
-                continue
-            }
-
-            try {
-                const json = JSON.parse(payload)
-
-                // Chat Completions format
-                if (json.choices?.[0]?.delta?.content) {
-                    content += json.choices[0].delta.content
-                }
-                if (json.usage) {
-                    usage = json.usage as TokenUsage
-                }
-
-                // Responses API format
-                if (json.type === 'response.output_text.delta') {
-                    content += json.delta || ''
-                }
-                if (json.type === 'response.done' && json.response?.usage) {
-                    usage = {
-                        prompt_tokens: json.response.usage.input_tokens || 0,
-                        completion_tokens: json.response.usage.output_tokens || 0,
-                        total_tokens: json.response.usage.total_tokens || 0,
-                    }
-                    done = true
-                }
-            } catch {
-                // Ignore parse errors
-            }
-        }
-
-        return { content, usage, done }
-    }
-
-    /** Assemble streaming response - handles both API formats */
-    override assembleStreamingResponse(
-        fullContent: string,
-        usage: TokenUsage | null,
-        req: ProviderRequest,
-        traceId: string,
-    ): unknown {
-        const reqBody = (req.body || {}) as Record<string, unknown>
-        const isResponses = this.isResponsesAPI(req)
-
-        if (isResponses) {
-            return {
-                id: traceId,
-                object: 'response',
-                model: reqBody.model,
-                output: [
-                    {
-                        type: 'message',
-                        role: 'assistant',
-                        content: [
-                            {
-                                type: 'output_text',
-                                text: fullContent,
-                            },
-                        ],
-                    },
-                ],
-                output_text: fullContent,
-                usage: usage,
-                _streaming: true,
-            }
-        }
-
-        return {
-            id: traceId,
-            object: 'chat.completion',
-            model: reqBody.model,
-            choices: [
-                {
-                    message: { role: 'assistant', content: fullContent },
-                    finish_reason: 'stop',
-                },
-            ],
-            usage: usage,
-            _streaming: true,
         }
     }
 }

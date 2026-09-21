@@ -28,14 +28,14 @@
 4. Restart LLMFlow:
 
    ```bash
-   npm start
+   bun run start
    ```
 
 5. Make some LLM requests through the proxy
 
 6. View traces:
    - **Langfuse UI**: http://localhost:3001
-   - **LLMFlow Dashboard**: http://localhost:3000
+   - **LLMFlow Dashboard**: http://localhost:1337
 
 ## Langfuse Cloud
 

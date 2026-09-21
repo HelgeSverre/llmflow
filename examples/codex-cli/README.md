@@ -12,7 +12,7 @@ Create or edit `~/.codex/config.toml`:
 enabled = true
 
 [telemetry.otlp]
-endpoint = "http://localhost:3000/v1/logs"
+endpoint = "http://localhost:1337/v1/logs"
 protocol = "http"
 ```
 
@@ -21,7 +21,7 @@ protocol = "http"
 Alternatively, use environment variables:
 
 ```bash
-export CODEX_OTLP_ENDPOINT="http://localhost:3000/v1/logs"
+export CODEX_OTLP_ENDPOINT="http://localhost:1337/v1/logs"
 export CODEX_TELEMETRY_ENABLED=true
 ```
 

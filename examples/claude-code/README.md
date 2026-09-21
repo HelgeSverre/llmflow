@@ -1,121 +1,41 @@
-# Claude Code + OpenTelemetry
+# Claude Code with LLMFlow
 
-This example explores how to monitor Claude Code with OpenTelemetry.
+Start LLMFlow with Bun installed (`npx llmflow`, or `bun install && bun run build && bun run start` from this checkout). Dashboard and OTLP use port 1337; the proxy uses 8080.
 
-## ⚠️ Important Limitation
+## Send telemetry
 
-**Claude Code exports OTEL metrics and logs, NOT traces.**
+Claude Code can export logs and metrics over OTLP/HTTP. LLMFlow accepts JSON or protobuf at `/v1/logs`, `/v1/metrics` and `/v1/traces`.
 
-LLMFlow currently only supports trace ingestion (`/v1/traces`). Claude Code's telemetry uses:
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:1337
+claude
+```
 
-- `/v1/metrics` - for metrics like token usage, costs, session counts
-- `/v1/logs` - for events like user prompts, tool calls, API requests
+View records in the Logs and Metrics tabs at http://localhost:1337. Trace export is optional and version-dependent; see the [current Claude Code monitoring instructions](https://code.claude.com/docs/en/monitoring-usage) for its beta configuration. LLMFlow accepts those spans through the same receiver.
 
-This means **Claude Code's OTEL export doesn't work directly with LLMFlow's current implementation**.
-
-## What Claude Code Exports
-
-When you enable `CLAUDE_CODE_ENABLE_TELEMETRY=1`, Claude Code exports:
-
-### Metrics
-
-- `claude_code.session.count` - CLI sessions started
-- `claude_code.token.usage` - Token usage (input/output/cache)
-- `claude_code.cost.usage` - Cost by model
-- `claude_code.lines_of_code.count` - Lines modified
-- `claude_code.pull_request.count` - PRs created
-- `claude_code.commit.count` - Commits created
-- `claude_code.code_edit_tool.decision` - Tool permission decisions
-
-### Events (Logs)
-
-- `claude_code.user_prompt` - User prompt submissions
-- `claude_code.tool_result` - Tool execution results
-- `claude_code.api_request` - API requests with duration and tokens
-- `claude_code.api_error` - API errors
-
-## Options for Monitoring Claude Code
-
-### Option 1: Use Console Exporter (This Example)
-
-See what Claude Code exports without needing a full OTEL stack:
+The included launcher applies the log/metric settings while preserving your existing Claude authentication and configuration:
 
 ```bash
 ./run-with-llmflow.sh --print "What is 2+2?"
 ```
 
-This uses `OTEL_METRICS_EXPORTER=console` to print telemetry to stdout.
+It loads the project-root `.env` if present. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to override the receiver. For console-only telemetry, set `OTEL_LOGS_EXPORTER=console OTEL_METRICS_EXPORTER=console` when invoking the launcher.
 
-### Option 2: Use a Full OTEL Stack
+## Capture native API requests
 
-Set up Grafana Cloud, SigNoz, or similar:
+Use native passthrough to capture Anthropic request/response bodies, usage and cost:
 
 ```bash
-export CLAUDE_CODE_ENABLE_TELEMETRY=1
-export OTEL_METRICS_EXPORTER=otlp
-export OTEL_LOGS_EXPORTER=otlp
-export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
-export OTEL_EXPORTER_OTLP_ENDPOINT="https://otlp-gateway.your-provider.com:4317"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer your-token"
+export ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic
 claude
 ```
 
-See the [official docs](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage) for details.
+This forwards the native Anthropic API format. Use your existing Claude credentials; a valid upstream account is still required. Telemetry export and API proxying are separate options and can be used together.
 
-### Option 3: Extend LLMFlow
+## Verify setup
 
-LLMFlow could be extended to support:
-
-- `/v1/metrics` endpoint for OTLP metrics
-- `/v1/logs` endpoint for OTLP logs
-
-This would require implementing the OTLP metrics and logs protocols.
-
-### Option 4: Use a Proxy (Not Supported)
-
-Claude Code uses the native Anthropic API format, not OpenAI-compatible format. The LLMFlow proxy expects OpenAI-style requests. You would need:
-
-- A proxy that translates Anthropic format to/from OpenAI format
-- Or modify LLMFlow's Anthropic provider to pass through native requests
-
-Projects like [claude-code-proxy](https://github.com/fuergaosi233/claude-code-proxy) do the reverse (OpenAI → Anthropic) which doesn't help here.
-
-## Running This Example
-
-```bash
-# Make script executable
-chmod +x run-with-llmflow.sh
-
-# Run with console telemetry (see what Claude exports)
-./run-with-llmflow.sh --print "Explain observability in one sentence"
-
-# Interactive mode
-./run-with-llmflow.sh
-```
-
-## Environment Variables
-
-| Variable                       | Description                                |
-| ------------------------------ | ------------------------------------------ |
-| `CLAUDE_CODE_ENABLE_TELEMETRY` | Enable telemetry (`1`)                     |
-| `OTEL_METRICS_EXPORTER`        | `console`, `otlp`, `prometheus`            |
-| `OTEL_LOGS_EXPORTER`           | `console`, `otlp`                          |
-| `OTEL_EXPORTER_OTLP_PROTOCOL`  | `grpc`, `http/json`, `http/protobuf`       |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`  | OTLP collector endpoint                    |
-| `OTEL_EXPORTER_OTLP_HEADERS`   | Auth headers                               |
-| `OTEL_METRIC_EXPORT_INTERVAL`  | Export interval in ms (default: 60000)     |
-| `OTEL_LOGS_EXPORT_INTERVAL`    | Logs export interval in ms (default: 5000) |
-| `OTEL_LOG_USER_PROMPTS`        | Include prompt content in logs (`1`)       |
-
-## Isolated Configuration
-
-The script uses `CLAUDE_CONFIG_DIR` to avoid affecting your normal Claude Code setup:
-
-- Config stored in `./.claude-config/`
-- May need to authenticate: set `ANTHROPIC_API_KEY` in project root `.env`
-
-## References
-
-- [Claude Code Monitoring Docs](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage)
-- [Claude Code OTEL Stack](https://github.com/ColeMurray/claude-code-otel) - Full Grafana/Prometheus setup
-- [SigNoz Guide](https://signoz.io/blog/claude-code-monitoring-with-opentelemetry/) - Using SigNoz with Claude Code
+Check `http://localhost:1337/api/health`, then run a normal Claude prompt. Telemetry is batched, so allow an export interval before inspecting Logs and Metrics. Server routes are tested locally with fixtures; using the actual Claude CLI requires it to be installed and authenticated.

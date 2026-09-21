@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { sessionsState, loadSessions } from '$lib/stores/sessions.svelte'
+  import { selectTrace } from '$lib/stores/traces.svelte'
   import { setTab } from '$lib/stores/tabs.svelte'
   import SessionList from './SessionList.svelte'
   import SessionDetail from './SessionDetail.svelte'
@@ -14,11 +15,8 @@
   }
 
   function openTrace(traceId: string) {
-    // Cross-tab navigation: jump to Traces tab.
-    // (Selecting the specific trace is left to the existing TracesTab —
-    //  setting the hash gives a hook for that integration later.)
     setTab('traces')
-    window.location.hash = `#traces?trace=${encodeURIComponent(traceId)}`
+    void selectTrace(traceId)
   }
 </script>
 

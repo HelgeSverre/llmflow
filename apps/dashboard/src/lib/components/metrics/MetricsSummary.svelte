@@ -2,24 +2,20 @@
   import { metricsSummary, type MetricSummary } from '$lib/stores/metrics.svelte'
 
   function formatMetricValue(m: MetricSummary): string {
-    if (m.metric_type === 'sum' && m.sum != null) {
-      return m.sum.toLocaleString()
-    }
-    if (m.latest_value != null) {
-      return typeof m.latest_value === 'number'
-        ? m.latest_value.toLocaleString(undefined, { maximumFractionDigits: 2 })
-        : String(m.latest_value)
-    }
-    if (m.avg != null) {
-      return m.avg.toLocaleString(undefined, { maximumFractionDigits: 2 })
-    }
+    const value =
+      m.metric_type === 'histogram'
+        ? m.sum_int
+        : m.metric_type === 'gauge'
+          ? m.avg_value
+          : m.sum_value
+    if (value != null) return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
     return '-'
   }
 </script>
 
 {#if metricsSummary.length > 0}
   <div class="metrics-summary" data-testid="metrics-summary">
-    {#each metricsSummary.slice(0, 8) as m (m.name + m.service_name)}
+    {#each metricsSummary.slice(0, 8) as m (JSON.stringify( [m.name, m.service_name, m.metric_type], ))}
       <div class="metric-card">
         <div class="metric-card-header">
           <span class="metric-card-name" title={m.name}>{m.name}</span>
@@ -29,7 +25,13 @@
         </div>
         <div class="metric-card-value">{formatMetricValue(m)}</div>
         <div class="metric-card-meta">
-          <span>{m.data_points} data points</span>
+          <span
+            >{m.metric_type === 'histogram'
+              ? 'Observations'
+              : m.metric_type === 'gauge'
+                ? 'Average'
+                : 'Total'} · {m.data_points} data points</span
+          >
           <span>{m.service_name || 'unknown'}</span>
         </div>
       </div>

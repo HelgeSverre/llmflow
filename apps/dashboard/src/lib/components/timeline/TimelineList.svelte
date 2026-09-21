@@ -14,8 +14,6 @@
         return 'llm'
       case 'log':
         return 'chain'
-      case 'metric':
-        return 'tool'
       default:
         return 'custom'
     }
@@ -59,10 +57,10 @@
           {#if item.model}
             <span class="timeline-meta-item">{item.model}</span>
           {/if}
-          {#if item.duration_ms}
+          {#if item.duration_ms != null}
             <span class="timeline-meta-item">{formatLatency(item.duration_ms)}</span>
           {/if}
-          {#if item.cost}
+          {#if item.cost != null}
             <span class="timeline-meta-item">{formatCost(item.cost)}</span>
           {/if}
           {#if item.severity_text}
@@ -108,6 +106,7 @@
   }
 
   .timeline-item-title {
+    overflow-wrap: anywhere;
     font-weight: 500;
     font-size: 13px;
     color: var(--text-primary);
@@ -115,6 +114,7 @@
   }
 
   .timeline-item-subtitle {
+    overflow-wrap: anywhere;
     font-size: 12px;
     color: var(--text-secondary);
     margin-bottom: 4px;

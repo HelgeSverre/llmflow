@@ -191,7 +191,7 @@ Use these standard types for consistent visualization:
 
 | Variable        | Default                 | Description           |
 | --------------- | ----------------------- | --------------------- |
-| `LLMFLOW_URL`   | `http://localhost:3000` | LLMFlow dashboard URL |
+| `LLMFLOW_URL`   | `http://127.0.0.1:1337` | LLMFlow dashboard URL |
 | `LLMFLOW_DEBUG` | (unset)                 | Enable debug logging  |
 
 ## Examples

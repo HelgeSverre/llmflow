@@ -50,42 +50,24 @@ function normalizeId(hexId) {
 /**
  * Convert nanoseconds timestamp to milliseconds
  */
-function nanoToMs(nanoStr) {
-    if (!nanoStr) return Date.now()
-    const nano = BigInt(nanoStr)
-    return Number(nano / BigInt(1000000))
-}
+const { nanoToMs } = require('./timestamps')
 
 /**
  * Extract log body from OTLP AnyValue format
  */
 function extractBody(body) {
     if (!body) return null
-
     if (body.stringValue !== undefined) return body.stringValue
     if (body.intValue !== undefined) return String(body.intValue)
-    if (body.doubleValue !== undefined) return String(body.doubleValue)
-    if (body.boolValue !== undefined) return String(body.boolValue)
-    if (body.arrayValue?.values) {
-        return JSON.stringify(
-            body.arrayValue.values.map(
-                (v) => v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue ?? null,
-            ),
+    if (body.doubleValue !== undefined) return body.doubleValue
+    if (body.boolValue !== undefined) return body.boolValue
+    if (body.arrayValue?.values) return body.arrayValue.values.map(extractBody)
+    if (body.kvlistValue?.values)
+        return Object.fromEntries(
+            body.kvlistValue.values.map(({ key, value }) => [key, extractBody(value)]),
         )
-    }
-    if (body.kvlistValue?.values) {
-        const obj = {}
-        for (const kv of body.kvlistValue.values) {
-            obj[kv.key] =
-                kv.value?.stringValue ?? kv.value?.intValue ?? kv.value?.doubleValue ?? null
-        }
-        return JSON.stringify(obj)
-    }
-    if (body.bytesValue) {
-        return `[binary: ${body.bytesValue.length} bytes]`
-    }
-
-    return JSON.stringify(body)
+    if (body.bytesValue !== undefined) return body.bytesValue
+    return null
 }
 
 /**
@@ -193,7 +175,10 @@ function processOtlpLogs(body) {
 
                     db.insertLog({
                         id: logId,
-                        timestamp: nanoToMs(logRecord.timeUnixNano),
+                        timestamp:
+                            nanoToMs(logRecord.timeUnixNano) ??
+                            nanoToMs(logRecord.observedTimeUnixNano) ??
+                            Date.now(),
                         observed_timestamp: nanoToMs(logRecord.observedTimeUnixNano),
                         severity_number: logRecord.severityNumber || null,
                         severity_text: getSeverityText(
@@ -221,44 +206,8 @@ function processOtlpLogs(body) {
     return results
 }
 
-/**
- * Express middleware for OTLP logs endpoint
- */
-function createLogsHandler() {
-    return (req, res) => {
-        const contentType = req.headers['content-type'] || ''
-
-        if (!contentType.includes('application/json')) {
-            return res.status(415).json({
-                error: 'Unsupported Media Type',
-                message: 'Only application/json is supported. Use OTLP/HTTP JSON format.',
-            })
-        }
-
-        try {
-            const results = processOtlpLogs(req.body)
-
-            res.status(200).json({
-                partialSuccess:
-                    results.rejected > 0
-                        ? {
-                              rejectedLogRecords: results.rejected,
-                              errorMessage: results.errors.slice(0, 5).join('; '),
-                          }
-                        : undefined,
-            })
-        } catch (err) {
-            res.status(500).json({
-                error: 'Internal Server Error',
-                message: err.message,
-            })
-        }
-    }
-}
-
 module.exports = {
     processOtlpLogs,
-    createLogsHandler,
     extractAttributes,
     extractBody,
     extractLogEventName,

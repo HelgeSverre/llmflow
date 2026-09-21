@@ -19,14 +19,14 @@
 3. Restart LLMFlow:
 
    ```bash
-   npm start
+   bun run start
    ```
 
 4. Make some LLM requests through the proxy
 
 5. View traces:
    - **Jaeger UI**: http://localhost:16686
-   - **LLMFlow Dashboard**: http://localhost:3000
+   - **LLMFlow Dashboard**: http://localhost:1337
 
 ## Configuration
 

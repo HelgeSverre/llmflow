@@ -21,3 +21,5 @@ codedb.snapshot
 
 # Compound Engineering local config
 .compound-engineering/*.local.yaml
+
+/dist/

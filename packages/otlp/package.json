@@ -8,11 +8,13 @@
     "./traces": "./src/traces.js",
     "./logs": "./src/logs.js",
     "./metrics": "./src/metrics.js",
-    "./export": "./src/export.js"
+    "./export": "./src/export.js",
+    "./transport": "./src/transport.js"
   },
   "dependencies": {
     "@llmflow/db": "workspace:*",
     "@llmflow/pricing": "workspace:*",
-    "@llmflow/shared": "workspace:*"
+    "@llmflow/shared": "workspace:*",
+    "protobufjs": "^8.8.0"
   }
 }

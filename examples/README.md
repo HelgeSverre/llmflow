@@ -10,7 +10,7 @@ This folder contains working examples of LLMFlow integrations with popular LLM f
 | [ai-sdk-proxy](./ai-sdk-proxy)   | Vercel AI SDK via LLMFlow proxy  | Basic tracing                                                            |
 | [vercel-ai-sdk](./vercel-ai-sdk) | Vercel AI SDK via proxy          | Basic tracing                                                            |
 | [rag-pipeline](./rag-pipeline)   | RAG pipeline with LLMFlow SDK    | **Hierarchical spans**, parent-child relationships, input/output capture |
-| [claude-code](./claude-code)     | Claude Code CLI OTEL exploration | ⚠️ Metrics/logs only (not traces)                                        |
+| [claude-code](./claude-code)     | Claude Code OTLP and native proxy | Logs/metrics and native request capture                                        |
 
 ## Quick Start
 
@@ -21,22 +21,24 @@ This folder contains working examples of LLMFlow integrations with popular LLM f
    # Edit .env and add your OPENAI_API_KEY
    ```
 
-2. **Start LLMFlow**:
+2. **Start LLMFlow** (requires Bun; run from the project root):
 
    ```bash
-   npm install
-   npm start
+   bun install
+   bun run build
+   bun run start
    ```
 
-3. **Run all examples**:
+3. **Check the server and run examples** in another terminal (live examples use your provider key):
 
    ```bash
-   make examples
+   ./examples/run-all.sh --check # no provider calls or API key needed
+   ./examples/run-all.sh
    ```
 
-4. **View traces** at [http://localhost:3000](http://localhost:3000)
+4. **View traces** at [http://localhost:1337](http://localhost:1337)
 
-> **Note:** Examples automatically load the `.env` file from the project root, so you only need one `.env` file.
+> Run each example with `bun run start` to load the project-root `.env`. The runner also loads it. Exported environment variables and `LLMFLOW_URL` / `LLMFLOW_PROXY` can override the defaults.
 
 ## Integration Methods
 
@@ -108,7 +110,7 @@ Send traces via the OTLP/HTTP endpoint:
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 
 new OTLPTraceExporter({
-  url: 'http://localhost:3000/v1/traces',
+  url: 'http://localhost:1337/v1/traces',
 })
 ```
 
@@ -119,7 +121,7 @@ All examples use the `.env` file from the project root. See `.env.example` for a
 | Variable         | Required | Description                                              |
 | ---------------- | -------- | -------------------------------------------------------- |
 | `OPENAI_API_KEY` | Yes      | Your OpenAI API key                                      |
-| `LLMFLOW_URL`    | No       | LLMFlow dashboard URL (default: `http://localhost:3000`) |
+| `LLMFLOW_URL`    | No       | LLMFlow dashboard URL (default: `http://localhost:1337`) |
 | `LLMFLOW_PROXY`  | No       | LLMFlow proxy URL (default: `http://localhost:8080/v1`)  |
 
 ## Adding New Examples

@@ -6,7 +6,7 @@
   "main": "./src/server.ts",
   "scripts": {
     "start": "bun run src/server.ts",
-    "dev": "bun run --hot src/server.ts",
+    "dev": "WS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 bun run --hot src/server.ts",
     "demo": "bun run test/demo.js",
     "demo:many": "bun run test/demo.js --count=20",
     "test": "bun run test/run-tests.js",
@@ -23,7 +23,6 @@
     "@llmflow/otlp": "workspace:*",
     "@llmflow/pricing": "workspace:*",
     "@llmflow/providers": "workspace:*",
-    "@llmflow/shared": "workspace:*",
-    "get-port": "^7.1.0"
+    "@llmflow/shared": "workspace:*"
   }
 }

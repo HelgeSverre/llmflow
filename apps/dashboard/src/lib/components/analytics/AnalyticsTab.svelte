@@ -27,7 +27,7 @@
   })
 
   // Compute max values for chart scaling
-  let maxDailyTokens = $derived(Math.max(...analytics.daily.map((d) => d.total_tokens), 1))
+  let maxDailyTokens = $derived(Math.max(...analytics.daily.map((d) => d.tokens), 1))
   let maxToolCost = $derived(Math.max(...analytics.by_tool.map((t) => t.total_cost), 0.01))
   let maxModelCost = $derived(Math.max(...analytics.by_model.map((m) => m.total_cost), 0.01))
   let totalToolCost = $derived(analytics.by_tool.reduce((sum, t) => sum + t.total_cost, 0))
@@ -74,11 +74,11 @@
                 <div
                   class="bar-group"
                   style="flex: 1"
-                  title="{day.date}: {formatNumber(day.total_tokens)} tokens"
+                  title="{day.date}: {formatNumber(day.tokens)} tokens"
                 >
                   <div
                     class="bar bar-total"
-                    style="height: {(day.total_tokens / maxDailyTokens) * 100}%"
+                    style="height: {(day.tokens / maxDailyTokens) * 100}%"
                   ></div>
                   <div
                     class="bar bar-prompt"
@@ -117,10 +117,14 @@
           <div class="horizontal-bar-chart">
             {#each analytics.by_tool.slice(0, 5) as tool}
               <div class="h-bar-row">
-                <span class="h-bar-label" title={tool.tool}>{tool.tool}</span>
+                <span class="h-bar-label" title={`${tool.service_name} (${tool.provider})`}
+                  >{tool.service_name}</span
+                >
                 <div class="h-bar-track">
                   <div
-                    class="h-bar-fill tool-{tool.tool.toLowerCase().replace(/[^a-z]/g, '-')}"
+                    class="h-bar-fill tool-{tool.service_name
+                      .toLowerCase()
+                      .replace(/[^a-z]/g, '-')}"
                     style="width: {(tool.total_cost / maxToolCost) * 100}%"
                   ></div>
                 </div>
@@ -189,9 +193,9 @@
               {#each analytics.daily as day}
                 <tr>
                   <td>{day.date}</td>
-                  <td>{formatNumber(day.request_count)}</td>
-                  <td>{formatNumber(day.total_tokens)}</td>
-                  <td>{formatCost(day.total_cost)}</td>
+                  <td>{formatNumber(day.requests)}</td>
+                  <td>{formatNumber(day.tokens)}</td>
+                  <td>{formatCost(day.cost)}</td>
                 </tr>
               {/each}
             </tbody>

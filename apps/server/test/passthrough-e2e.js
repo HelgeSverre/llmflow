@@ -18,7 +18,7 @@
 const http = require('http')
 
 const PROXY_URL = process.env.PROXY_URL || 'http://localhost:8080'
-const DASHBOARD_URL = process.env.LLMFLOW_URL || 'http://localhost:3000'
+const DASHBOARD_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 const c = {
     reset: '\x1b[0m',

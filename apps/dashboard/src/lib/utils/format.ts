@@ -1,5 +1,5 @@
 export function formatTime(timestamp: number | string): string {
-  const date = new Date(typeof timestamp === 'string' ? timestamp : timestamp)
+  const date = new Date(timestamp)
   const now = new Date()
   const isToday = date.toDateString() === now.toDateString()
 
@@ -36,10 +36,4 @@ export function formatLatency(ms: number | null | undefined): string {
   if (ms == null) return '-'
   if (ms < 1000) return Math.round(ms) + 'ms'
   return (ms / 1000).toFixed(1) + 's'
-}
-
-export function escapeHtml(str: string): string {
-  const div = document.createElement('div')
-  div.textContent = str
-  return div.innerHTML
 }

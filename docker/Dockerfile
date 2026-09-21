@@ -14,7 +14,7 @@ COPY packages/sdk/package.json ./packages/sdk/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY e2e/playwright/package.json ./e2e/playwright/package.json
 
-RUN bun install --frozen-lockfile --production 2>/dev/null || bun install --production
+RUN bun install --frozen-lockfile --production
 
 # Copy source — server + packages it depends on + built dashboard assets.
 COPY apps/server ./apps/server/
@@ -33,6 +33,8 @@ RUN mkdir -p /root/.llmflow
 ENV NODE_ENV=production
 ENV PROXY_PORT=8080
 ENV DASHBOARD_PORT=1337
+ENV PROXY_HOST=0.0.0.0
+ENV DASHBOARD_HOST=0.0.0.0
 ENV DATA_DIR=/root/.llmflow
 
 VOLUME ["/root/.llmflow"]

@@ -225,7 +225,7 @@ test('OpenAI parses streaming chunks', () => {
     const chunk =
         'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\ndata: {"choices":[{"delta":{"content":" World"}}]}\n\n'
 
-    const parsed = provider.parseStreamChunk(chunk)
+    const parsed = parseStream(provider, chunk)
     assertEqual(parsed.content, 'Hello World')
     assertEqual(parsed.done, false)
 })
@@ -234,7 +234,7 @@ test('OpenAI detects [DONE] in stream', () => {
     const provider = new OpenAIProvider()
     const chunk = 'data: [DONE]\n\n'
 
-    const parsed = provider.parseStreamChunk(chunk)
+    const parsed = parseStream(provider, chunk)
     assertEqual(parsed.done, true)
 })
 
@@ -244,8 +244,7 @@ console.log(`\n${c.cyan}Ollama Provider${c.reset}\n`)
 
 test('Ollama uses HTTP module', () => {
     const provider = new OllamaProvider()
-    const httpModule = provider.getHttpModule()
-    assertEqual(httpModule, require('http'))
+    assertEqual(provider.getTarget({ path: '/v1/chat/completions' }).protocol, 'http')
 })
 
 test('Ollama uses correct default host and port', () => {
@@ -369,7 +368,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text
 
 `
 
-    const parsed = provider.parseStreamChunk(chunk)
+    const parsed = parseStream(provider, chunk)
     assertEqual(parsed.content, 'Hello World')
 })
 
@@ -380,7 +379,7 @@ data: {"type":"message_stop"}
 
 `
 
-    const parsed = provider.parseStreamChunk(chunk)
+    const parsed = parseStream(provider, chunk)
     assertEqual(parsed.done, true)
 })
 
@@ -585,7 +584,7 @@ data: {"type":"content-delta","index":0,"delta":{"message":{"content":[{"type":"
 
 `
 
-    const parsed = provider.parseStreamChunk(chunk)
+    const parsed = parseStream(provider, chunk)
     assertEqual(parsed.content, 'Hello World')
 })
 
@@ -595,7 +594,7 @@ test('Cohere detects message-end event with usage', () => {
 
 `
 
-    const parsed = provider.parseStreamChunk(chunk)
+    const parsed = parseStream(provider, chunk)
     assertEqual(parsed.done, true)
     assertEqual(parsed.usage.prompt_tokens, 10)
     assertEqual(parsed.usage.completion_tokens, 5)
@@ -724,3 +723,9 @@ if (failed > 0) {
 console.log('')
 
 process.exit(failed > 0 ? 1 : 0)
+
+function parseStream(provider, chunk) {
+    const session = provider.createStreamSession({ path: '/', headers: {}, body: {} }, 'fixture')
+    session.push(new TextEncoder().encode(chunk), true)
+    return { content: session.content, usage: session.usage, done: session.done }
+}

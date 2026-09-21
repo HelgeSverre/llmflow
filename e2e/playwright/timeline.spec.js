@@ -45,17 +45,9 @@ test.describe('Timeline Tab', () => {
         expect(content).toBeDefined()
     })
 
-    test('tool filter has expected options', async ({ page }) => {
-        const options = page.locator('[data-testid="timeline-tool-filter"] option')
-        await expect(options).toHaveCount.call(expect(options.first()), await options.count())
-        const count = await options.count()
-        expect(count).toBeGreaterThan(1) // "All Tools" + tool options
-
-        // Verify some expected tool options
-        const values = await options.evaluateAll((opts) => opts.map((o) => o.value))
-        expect(values).toContain('') // All Tools
-        expect(values).toContain('aider')
-        expect(values).toContain('proxy')
+    test('service filter accepts arbitrary names', async ({ page }) => {
+        await page.getByRole('textbox', { name: 'Service', exact: true }).fill('custom-service')
+        await expect(page.getByTestId('timeline-tool-filter')).toHaveValue('custom-service')
     })
 
     test('type filter shows only traces', async ({ page }) => {
@@ -124,37 +116,13 @@ test.describe('Timeline Tab', () => {
         await expect(searchInput).toHaveValue('')
     })
 
-    test('clicking timeline item updates detail panel', async ({ page }) => {
-        // Click first timeline item (if any)
+    test('clicking timeline item shows structured detail', async ({ page }) => {
         const items = page.locator('.timeline-item')
-        const count = await items.count()
-
-        if (count > 0) {
-            await items.first().click()
-
-            // Wait for detail title to update
-            const detailTitle = page.locator('[data-testid="timeline-detail-title"]')
-            await expect(detailTitle).not.toHaveText('Select an item', { timeout: 5000 })
-
-            const data = await page.locator('[data-testid="timeline-detail-data"]').textContent()
-            expect(data?.startsWith('{')).toBeTruthy()
-        }
-    })
-
-    test('detail panel displays properly formatted JSON', async ({ page }) => {
-        const items = page.locator('.timeline-item')
-        const count = await items.count()
-
-        if (count > 0) {
-            await items.first().click()
-
-            // Wait for detail data to populate
-            const detailData = page.locator('[data-testid="timeline-detail-data"]')
-            await expect(detailData).not.toHaveText('{}', { timeout: 5000 })
-
-            const data = await detailData.textContent()
-            // Should be valid JSON
-            expect(() => JSON.parse(data || '')).not.toThrow()
-        }
+        await expect(items.first()).toBeVisible()
+        await items.first().click()
+        await expect(page.getByTestId('timeline-detail-title')).not.toHaveText('Select an item')
+        await expect(
+            page.getByTestId('timeline-detail-panel').locator('.detail-body'),
+        ).not.toContainText('Loading details')
     })
 })

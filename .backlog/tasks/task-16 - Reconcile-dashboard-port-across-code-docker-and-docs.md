@@ -4,7 +4,7 @@ title: 'Reconcile dashboard port across code, docker, and docs'
 status: Done
 assignee: []
 created_date: '2026-05-27 02:23'
-updated_date: '2026-05-27 04:11'
+updated_date: '2026-09-21 09:42'
 labels:
   - docs
   - p3
@@ -14,7 +14,9 @@ references:
   - docker/docker-compose.yml
   - website/index.html
   - website/llms.txt
-  - 'todos.md:131'
+  - packages/sdk/index.js
+  - AGENTS.md
+  - ARCHITECTURE.md
 modified_files:
   - README.md
   - docker/docker-compose.yml
@@ -27,7 +29,7 @@ ordinal: 16000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The dashboard port differs across surfaces: code default 1337 (via get-port), docker-compose default 3000, README uses 1337, website/index.html and website/llms.txt use 3000. Pick one and update everything.
+Dashboard and OTLP endpoints default to port 1337 across runtime, SDK, Docker and public setup documentation. Startup uses the configured port and fails clearly if it is unavailable; it no longer selects an alternative using get-port.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -46,5 +48,5 @@ Decide 1337 (matches code default). Grep for 3000 across docs/, website/, docker
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Standardized on port 1337 across code (get-port default), Dockerfile (ENV DASHBOARD_PORT + EXPOSE), docker-compose.yml, README, AGENTS.md, ARCHITECTURE.md, DOCKER_HUB.md, website/index.html, website/llms.txt. Vite proxy and docs follow-up landed in a0163e3.
+Dashboard defaults are standardized on 1337, including SDK and Docker configuration. Startup reports port conflicts instead of silently selecting another port. Removed stale get-port wording from this task; the existing completion criteria remain satisfied.
 <!-- SECTION:FINAL_SUMMARY:END -->

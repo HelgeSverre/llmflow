@@ -1,231 +1,130 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
+import { spawn } from 'node:child_process'
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { createServer } from 'node:net'
 
-/**
- * Test Runner
- *
- * Starts the LLMFlow server, runs tests, then shuts down.
- * Usage: node test/run-tests.js [test-file]
- *
- * Examples:
- *   node test/run-tests.js              # Run all tests
- *   node test/run-tests.js otlp-e2e.js  # Run specific test
- */
-
-const { spawn, fork } = require('child_process')
-const path = require('path')
-const http = require('http')
-
-const c = {
-    reset: '\x1b[0m',
-    dim: '\x1b[2m',
-    green: '\x1b[32m',
-    red: '\x1b[31m',
-    yellow: '\x1b[33m',
-    cyan: '\x1b[36m',
-}
-
-const ROOT_DIR = path.join(__dirname, '..')
-const SERVER_FILE = path.join(ROOT_DIR, 'src', 'server.ts')
-const TEST_DIR = __dirname
-
-const HEALTH_URL = 'http://localhost:3000/api/health'
-const MAX_WAIT_MS = 10000
-const POLL_INTERVAL_MS = 200
-
-let serverProcess = null
-
-async function waitForServer() {
-    const start = Date.now()
-
-    while (Date.now() - start < MAX_WAIT_MS) {
-        try {
-            await new Promise((resolve, reject) => {
-                const req = http.get(HEALTH_URL, (res) => {
-                    if (res.statusCode === 200) {
-                        resolve()
-                    } else {
-                        reject(new Error(`Status ${res.statusCode}`))
-                    }
-                })
-                req.on('error', reject)
-                req.setTimeout(1000, () => {
-                    req.destroy()
-                    reject(new Error('Timeout'))
-                })
-            })
-            return true
-        } catch {
-            await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
-        }
-    }
-    return false
-}
-
-function startServer() {
-    return new Promise((resolve, reject) => {
-        console.log(`${c.dim}Starting server...${c.reset}`)
-
-        // Use bun to run the TypeScript server.
-        // Pin DASHBOARD_PORT/PROXY_PORT so HEALTH_URL below matches; the
-        // server otherwise falls back to 1337/8080 which leaves the health
-        // poll waiting on the wrong port.
-        serverProcess = spawn('bun', ['run', SERVER_FILE], {
-            cwd: ROOT_DIR,
-            stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, NODE_ENV: 'test', DASHBOARD_PORT: '3000', PROXY_PORT: '8080' },
-        })
-
-        let started = false
-
-        serverProcess.stdout.on('data', (data) => {
-            const msg = data.toString()
-            // Check for either old or new startup message
-            if (msg.includes('Dashboard') || msg.includes('[llmflow]')) {
-                started = true
-                resolve()
-            }
-            // Only show server output in verbose mode
-            if (process.env.VERBOSE === '1') {
-                process.stdout.write(`${c.dim}[server] ${msg}${c.reset}`)
-            }
-        })
-
-        serverProcess.stderr.on('data', (data) => {
-            process.stderr.write(`${c.red}[server] ${data}${c.reset}`)
-        })
-
-        serverProcess.on('error', (err) => {
-            if (!started) reject(err)
-        })
-
-        serverProcess.on('exit', (code) => {
-            if (!started && code !== 0) {
-                reject(new Error(`Server exited with code ${code}`))
-            }
-        })
-
-        // Timeout fallback
-        setTimeout(() => {
-            if (!started) {
-                reject(new Error('Server startup timeout'))
-            }
-        }, MAX_WAIT_MS)
+export async function freePort() {
+    const socket = createServer()
+    await new Promise((resolve, reject) => {
+        socket.once('error', reject)
+        socket.listen(0, '127.0.0.1', resolve)
     })
+    const port = socket.address().port
+    await new Promise((resolve) => socket.close(resolve))
+    return port
 }
-
-function stopServer() {
+export function runChild(command, args, options = {}, onSpawn = () => {}) {
     return new Promise((resolve) => {
-        if (!serverProcess) {
-            resolve()
-            return
-        }
-
-        console.log(`${c.dim}Stopping server...${c.reset}`)
-
-        serverProcess.on('exit', () => {
-            serverProcess = null
-            resolve()
-        })
-
-        serverProcess.kill('SIGTERM')
-
-        // Force kill after 3 seconds
-        setTimeout(() => {
-            if (serverProcess) {
-                serverProcess.kill('SIGKILL')
-                serverProcess = null
-                resolve()
-            }
-        }, 3000)
+        const child = spawn(command, args, options)
+        onSpawn(child)
+        child.once('error', () => resolve(1))
+        child.once('close', (code, signal) => resolve(signal || code !== 0 ? 1 : 0))
     })
 }
-
-async function runTest(testFile) {
-    return new Promise((resolve) => {
-        const testPath = path.join(TEST_DIR, testFile)
-        console.log(`\n${c.cyan}Running: ${testFile}${c.reset}\n`)
-
-        // Use bun to run tests for consistency with the server
-        const testProcess = spawn('bun', ['run', testPath], {
-            cwd: ROOT_DIR,
-            stdio: 'inherit',
-            env: { ...process.env, LLMFLOW_URL: 'http://localhost:3000' },
-        })
-
-        testProcess.on('exit', (code) => {
-            resolve(code || 0)
-        })
-    })
-}
-
-async function getTestFiles() {
-    const fs = require('fs')
-    const files = fs.readdirSync(TEST_DIR)
-    return files.filter((f) => f.endsWith('.js') && f !== 'run-tests.js' && !f.startsWith('_'))
-}
-
 async function main() {
-    const args = process.argv.slice(2)
-    let testFiles = []
-
-    if (args.length > 0 && !args[0].startsWith('-')) {
-        // Specific test file
-        testFiles = [args[0]]
-    } else {
-        // All test files
-        testFiles = await getTestFiles()
+    const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-suite-'))
+    const dashboardPort = await freePort(),
+        proxyPort = await freePort()
+    const env = {
+        ...process.env,
+        DATA_DIR: directory,
+        DB_PATH: path.join(directory, 'test.db'),
+        DASHBOARD_HOST: '127.0.0.1',
+        PROXY_HOST: '127.0.0.1',
+        DASHBOARD_PORT: String(dashboardPort),
+        PROXY_PORT: String(proxyPort),
+        LLMFLOW_URL: `http://127.0.0.1:${dashboardPort}`,
+        PROXY_URL: `http://127.0.0.1:${proxyPort}`,
+        NODE_ENV: 'test',
+        PRICING_URL: 'https://127.0.0.1:1/pricing.json',
+        OTLP_EXPORT_ENABLED: 'false',
+        OTLP_EXPORT_ENDPOINT: '',
+        OTLP_EXPORT_TRACES_ENDPOINT: '',
+        OTLP_EXPORT_LOGS_ENDPOINT: '',
+        OTLP_EXPORT_METRICS_ENDPOINT: '',
     }
-
-    if (testFiles.length === 0) {
-        console.log(`${c.yellow}No test files found${c.reset}`)
-        process.exit(0)
+    const testFiles = process.argv.slice(2).length
+        ? process.argv.slice(2)
+        : readdirSync(import.meta.dir)
+              .filter((name) => !['providers-e2e.js', 'passthrough-e2e.js'].includes(name))
+              .filter(
+                  (name) =>
+                      /(?:-e2e\.js|\.test\.ts)$/.test(name) ||
+                      ['providers.js', 'passthrough.js'].includes(name),
+              )
+              .sort()
+    const server = spawn(process.execPath, [path.resolve(import.meta.dir, '../src/server.ts')], {
+        env,
+        stdio: ['ignore', 'ignore', 'pipe'],
+    })
+    let failed = false,
+        stopped = false
+    server.on('error', () => {
+        stopped = true
+    })
+    server.on('exit', () => {
+        stopped = true
+    })
+    server.stderr.on('data', (data) => process.stderr.write(data))
+    let activeTest = null
+    const terminate = () => {
+        failed = true
+        activeTest?.kill('SIGTERM')
+        server.kill('SIGTERM')
     }
-
-    console.log(`${c.cyan}LLMFlow Test Runner${c.reset}`)
-    console.log(`${c.dim}Tests: ${testFiles.join(', ')}${c.reset}\n`)
-
-    let exitCode = 0
-
+    process.once('SIGINT', terminate)
+    process.once('SIGTERM', terminate)
     try {
-        // Start server
-        await startServer()
-
-        // Wait for server to be ready
-        const ready = await waitForServer()
-        if (!ready) {
-            throw new Error('Server did not become ready')
+        let ready = false
+        for (let attempt = 0; attempt < 100 && !stopped; attempt++) {
+            try {
+                ready = (
+                    await fetch(`${env.LLMFLOW_URL}/api/health`, {
+                        signal: AbortSignal.timeout(500),
+                    })
+                ).ok
+            } catch {}
+            if (ready) break
+            await Bun.sleep(100)
         }
-        console.log(`${c.green}Server ready${c.reset}`)
-
-        // Run each test
-        for (const testFile of testFiles) {
-            const code = await runTest(testFile)
-            if (code !== 0) {
-                exitCode = code
-            }
+        if (!ready) throw new Error('Isolated test server did not become ready')
+        for (const name of testFiles) {
+            if (stopped) throw new Error('Test server stopped unexpectedly')
+            console.log(`Running ${name}`)
+            const args = name.endsWith('.test.ts')
+                ? ['test', path.join(import.meta.dir, name)]
+                : [path.join(import.meta.dir, name)]
+            if (
+                (await runChild(
+                    process.execPath,
+                    args,
+                    { env, stdio: 'inherit', timeout: 120000 },
+                    (child) => {
+                        activeTest = child
+                    },
+                )) !== 0
+            )
+                failed = true
+            activeTest = null
         }
-    } catch (err) {
-        console.error(`${c.red}Error: ${err.message}${c.reset}`)
-        exitCode = 1
+    } catch (error) {
+        console.error(error)
+        failed = true
     } finally {
-        await stopServer()
+        if (!stopped) {
+            const exit = new Promise((resolve) => server.once('close', resolve))
+            server.kill('SIGTERM')
+            const timer = setTimeout(() => server.kill('SIGKILL'), 3000)
+            await exit
+            clearTimeout(timer)
+        }
+        process.off('SIGINT', terminate)
+        process.off('SIGTERM', terminate)
+        rmSync(directory, { recursive: true, force: true })
     }
-
-    console.log('')
-    if (exitCode === 0) {
-        console.log(`${c.green}All tests passed${c.reset}`)
-    } else {
-        console.log(`${c.red}Some tests failed${c.reset}`)
-    }
-
-    process.exit(exitCode)
+    console.log(failed ? 'Some tests failed' : 'All tests passed')
+    process.exitCode = failed ? 1 : 0
 }
-
-// Handle Ctrl+C
-process.on('SIGINT', async () => {
-    console.log(`\n${c.yellow}Interrupted${c.reset}`)
-    await stopServer()
-    process.exit(130)
-})
-
-main()
+if (import.meta.main) await main()

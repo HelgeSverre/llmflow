@@ -1,6 +1,8 @@
 services:
   llmflow:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: llmflow
     # Safe default: only publish ports on the host's loopback. Anything else on
     # the network can't reach LLMFlow — there's no auth on these endpoints.
@@ -14,6 +16,8 @@ services:
     environment:
       - PROXY_PORT=8080
       - DASHBOARD_PORT=1337
+      - PROXY_HOST=0.0.0.0
+      - DASHBOARD_HOST=0.0.0.0
       - DATA_DIR=/root/.llmflow
       - MAX_TRACES=${MAX_TRACES:-10000}
     restart: unless-stopped

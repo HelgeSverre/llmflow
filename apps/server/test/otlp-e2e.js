@@ -10,7 +10,7 @@
  * 4. Verify dashboard API returns correct data
  *
  * Run: node test/otlp-e2e.js
- * Requires: LLMFlow server running on localhost:3000
+ * Requires: LLMFlow server running on 127.0.0.1:1337
  */
 
 const http = require('http')
@@ -30,7 +30,7 @@ const {
     postOtlp,
 } = require('./lib/otlp-builders.js')
 
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 const c = {
     reset: '\x1b[0m',
@@ -55,7 +55,7 @@ function httpRequest(method, path, body = null) {
         const url = new URL(LLMFLOW_URL)
         const options = {
             hostname: url.hostname,
-            port: url.port || 3000,
+            port: url.port || 80,
             path,
             method,
             headers: {
@@ -437,27 +437,31 @@ async function runTests() {
 
     const cacheSpan = newSpanId()
     const t10now = Date.now()
-    await postOtlp(LLMFLOW_URL, '/v1/traces', buildTracesPayload({
-        spans: [
-            buildSpan({
-                traceId: newTraceId(),
-                spanId: cacheSpan,
-                name: 'chat claude-3-5-sonnet',
-                kind: SpanKind.CLIENT,
-                startMs: t10now,
-                endMs: t10now + 200,
-                attributes: genAiChatAttributes({
-                    provider: 'anthropic',
-                    model: 'claude-3-5-sonnet',
-                    inputTokens: 50,
-                    outputTokens: 100,
-                    cacheCreationInputTokens: 25,
-                    cacheReadInputTokens: 200,
-                    reasoningOutputTokens: 512,
+    await postOtlp(
+        LLMFLOW_URL,
+        '/v1/traces',
+        buildTracesPayload({
+            spans: [
+                buildSpan({
+                    traceId: newTraceId(),
+                    spanId: cacheSpan,
+                    name: 'chat claude-3-5-sonnet',
+                    kind: SpanKind.CLIENT,
+                    startMs: t10now,
+                    endMs: t10now + 200,
+                    attributes: genAiChatAttributes({
+                        provider: 'anthropic',
+                        model: 'claude-3-5-sonnet',
+                        inputTokens: 50,
+                        outputTokens: 100,
+                        cacheCreationInputTokens: 25,
+                        cacheReadInputTokens: 200,
+                        reasoningOutputTokens: 512,
+                    }),
                 }),
-            }),
-        ],
-    }))
+            ],
+        }),
+    )
 
     await new Promise((r) => setTimeout(r, 150))
     const cacheTree = await httpRequest('GET', `/api/traces/${cacheSpan}/tree`)

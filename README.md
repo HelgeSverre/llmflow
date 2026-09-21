@@ -4,6 +4,8 @@
 
 LLMFlow is a local observability tool for LLM applications. Point your SDK at it, see your costs, tokens, and latency in real-time.
 
+Install [Bun](https://bun.sh/docs/installation) first; the npm launcher requires Node.js and runs the server with Bun.
+
 ```bash
 npx llmflow
 ```
@@ -27,7 +29,7 @@ git clone https://github.com/HelgeSverre/llmflow.git
 cd llmflow && bun install && bun run dev
 
 # Option C: Docker
-docker run -p 1337:1337 -p 8080:8080 helgesverre/llmflow
+docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 helgesverre/llmflow
 ```
 
 ### 2. Point Your SDK
@@ -143,13 +145,15 @@ For chat-thread correlation, set `gen_ai.conversation.id` (OTel) or
 
 ## Configuration
 
-| Variable         | Default      | Description                                             |
-| ---------------- | ------------ | ------------------------------------------------------- |
-| `PROXY_PORT`     | `8080`       | Proxy port                                              |
-| `DASHBOARD_PORT` | `1337`       | Dashboard + OTLP receiver port                          |
-| `DATA_DIR`       | `~/.llmflow` | Data directory                                          |
-| `MAX_TRACES`     | `10000`      | Max traces to retain                                    |
-| `VERBOSE`        | `0`          | Enable verbose logging                                  |
+| Variable         | Default      | Description                                       |
+| ---------------- | ------------ | ------------------------------------------------- |
+| `PROXY_HOST`     | `127.0.0.1`  | Proxy listener address                            |
+| `DASHBOARD_HOST` | `127.0.0.1`  | Dashboard and OTLP listener address               |
+| `PROXY_PORT`     | `8080`       | Proxy port                                        |
+| `DASHBOARD_PORT` | `1337`       | Dashboard + OTLP receiver port                    |
+| `DATA_DIR`       | `~/.llmflow` | Data directory                                    |
+| `MAX_TRACES`     | `10000`      | Maximum retained span rows (whole-trace eviction) |
+| `VERBOSE`        | `0`          | Enable verbose logging                            |
 
 Set provider API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) if you want the proxy to forward requests.
 
@@ -170,8 +174,8 @@ The "what your LLM calls cost" number comes from a live model price table — th
   "status": "ok",
   "timestamp": 1716800000000,
   "pricing": {
-    "source": "litellm",                    // or "fallback" / "unknown"
-    "last_updated": 1716799000000,          // ms since epoch
+    "source": "litellm", // or "fallback" / "unknown"
+    "last_updated": 1716799000000, // ms since epoch
     "model_count": 2143,
     "upstream_url": "https://raw.githubusercontent.com/BerriAI/litellm/..."
   }
@@ -190,25 +194,23 @@ The dashboard shows a warning banner when `source: "fallback"` and the data is m
 
 LLMFlow is designed to run on `localhost`. It has no built-in authentication today, so anything that can reach the ports can read your traces and send requests to your provider keys.
 
-**Default binding.** When you run `npx llmflow`, the server binds to all interfaces. On a single-user laptop behind a firewall that's fine. On a shared network, a cloud VM, or a coffee-shop Wi-Fi, it isn't. There are two safe patterns:
+**Default binding.** Native dashboard/OTLP and proxy listeners bind to `127.0.0.1`. Set `DASHBOARD_HOST` and `PROXY_HOST` explicitly for remote access. Startup output reports each listener's actual address.
 
 ```bash
-# Bind to loopback only (safest for local dev)
-HOST=127.0.0.1 npx llmflow
-```
+# Explicit network access; place behind authenticated access on a trusted network
+DASHBOARD_HOST=0.0.0.0 PROXY_HOST=0.0.0.0 npx llmflow
 
-```bash
-# Docker: publish the ports on loopback rather than 0.0.0.0
+# Containers listen on all container interfaces; publish only on host loopback
 docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 helgesverre/llmflow
 ```
 
-> **Heads up.** The default `docker-compose.yml` in this repo publishes ports on `0.0.0.0` for convenience. If your host has a public IP — or you're on a network with other users — change the `ports:` entries to the `127.0.0.1:HOST:CONTAINER` form above before running it.
+The supplied Compose configuration explicitly binds both listeners to `0.0.0.0` inside the container and publishes both ports on host loopback. Run it with `docker compose -f docker/docker-compose.yml up --build`. Changing the host-side publishing address enables network access; it does not add authentication.
 
 **Provider keys.** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc. live in the environment of the LLMFlow process. Anyone who can hit `/v1/*` can spend against them — treat the listening surface accordingly.
 
 **OTLP receiver.** The OTLP endpoints (`POST /v1/traces`, `/v1/logs`, `/v1/metrics`) sit on the dashboard port and accept any well-formed payload. If you open `:1337` to the network, expect arbitrary spans to land in your local SQLite.
 
-Bearer-token auth (`LLMFLOW_TOKEN`) and a 127.0.0.1 default bind are tracked work; until they land, the patterns above are the supported way to harden a deployment.
+LLMFlow intentionally requires no login or token setup for local use. WebSocket Origin validation is implemented; built-in bearer authentication is not planned.
 
 ---
 
@@ -241,7 +243,9 @@ bun run test:e2e            # Playwright
 
 The dashboard is Svelte 5 + Vite 8 and builds to `/public/` at the repo root.
 The bin entry `bin/llmflow.js` (used by `npx llmflow`) spawns
-`apps/server/src/server.ts` directly.
+the bundled `dist/server.js` in npm installations (source in an unbuilt checkout).
+`bun run build` generates both the dashboard and the self-contained Bun server.
+`bun run test:package` verifies the packed artifact in a fresh consumer project.
 
 ---
 
@@ -259,3 +263,36 @@ For advanced usage, see the [docs/](docs/) folder:
 ## License
 
 MIT © [Helge Sverre](https://github.com/HelgeSverre)
+
+### Regression checks
+
+`bun run --filter '*' typecheck` checks all workspace types. `bun run --filter @llmflow/dashboard test` covers trace selection ordering and viewport updates. `bun test apps/server/test/reviewed-fixes.test.ts` exercises listener binding, OTLP ingestion, message preservation, and token/cost persistence with a temporary database and deterministic pricing.
+
+Run `bunx playwright install chromium` once, then `bun run test:e2e`. Playwright builds the dashboard, starts an isolated seeded server on available loopback ports, and cleans up its temporary database. Trace-viewer tests save desktop/narrow screenshots in light and dark themes under `test-results/`.
+
+Trace-tree API responses remain nested using `timestamp` and `span_name`; the dashboard adapts them once in `lib/trace/tree.ts`. Within a mounted trace, span updates preserve valid selection and collapsed branches; switching trace IDs resets selection, expansion, and scroll position.
+
+### Runtime and retention policy
+
+- Dashboard/OTLP and SDK default to `http://127.0.0.1:1337`; the proxy defaults to `http://127.0.0.1:8080`. A requested port already in use fails startup; the server never silently selects another port. Set `DASHBOARD_PORT` and the SDK's `LLMFLOW_URL` together for overrides. Port `0` is available for tests; startup prints the actual assigned URLs.
+- WebSocket upgrades require an exact trusted Origin. Loopback dashboard origins at the listening port are accepted. For a reverse proxy, explicitly set `WS_ALLOWED_ORIGINS=https://your-dashboard.example`; forwarded headers do not grant access. The Vite dev command allows its local port 5173. Native WebSocket clients must send an allowed Origin too.
+- Proxy socket idle timeouts are disabled to permit slow LLM responses and quiet streams. `PROXY_TIMEOUT_MS` sets the overall upstream deadline (default 300000 ms), including body consumption. Downstream cancellation aborts upstream work. Capture is bounded to 2 MiB of text, 1 MiB per tool argument, 4 MiB per streaming frame and 16 MiB for non-streaming responses.
+- OTLP/HTTP accepts JSON and protobuf with identity or gzip encoding for traces, logs and metrics. Encoded input is limited to 4 MiB and decompressed output to 16 MiB. Missing/nonpositive/invalid timestamps are absent: logs prefer event time, then observed time, then ingestion time; metrics use ingestion time; spans use the valid endpoint or ingestion time, with zero duration unless both endpoints form a valid interval.
+- `MAX_TRACES` bounds span rows. Overflow evicts the logical trace with the oldest latest-span timestamp as a unit, including active traces when necessary. A single trace larger than the cap is evicted completely. Independent rows form their own logical traces. Up to `MAX_TRACES` eviction markers identify late fragments; missing-parent checks also mark partial trees. Totals describe retained data. Session ownership prefers a root annotation, otherwise the earliest annotated span (ID breaks ties); all retained descendants contribute.
+- Model input/output token totals use recorded counts. Average latency is in milliseconds across LLM spans with a recorded nonnegative duration; absent measurements display `-`.
+- Credentials in diagnostic request/response headers and credential query parameters are redacted before persistence and notification. A versioned migration scrubs existing rows and vacuums/checkpoints the database. Backups and external copies made before upgrading are not rewritten. Another one-off migration repairs historical zero log timestamps with valid observed times.
+
+The server test runner uses a new temporary database and ports for every run, overriding inherited database settings. Default tests use local fixtures; live provider tests are opt-in through `bun run test:providers-e2e` or `bun run --filter @llmflow/server test passthrough-e2e.js` and require credentials. To include the real Python protobuf/gzip integration, install `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`, then run `LLMFLOW_PYTHON=python3 bun run test`.
+
+### Replay a captured request
+
+In **Traces**, select a captured request and click **Replay request**. LLMFlow runs
+a new provider request and opens its separate trace; the original capture stays
+unchanged. Streaming requests follow the same proxy path.
+
+Replay currently supports POST requests through the normalized proxy, including
+Ollama. For hosted providers, configure the corresponding API key in the LLMFlow
+server environment (for example, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) and
+restart. Stored credentials are redacted and are never reused. Telemetry-only
+spans, native passthrough requests, incomplete bodies and URLs containing
+redacted parameters cannot be replayed from the dashboard.

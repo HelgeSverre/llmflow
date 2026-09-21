@@ -18,7 +18,7 @@ This folder contains example configurations for integrating LLMFlow with popular
 
    ```bash
    cd ../..
-   npm start
+   bun run start
    ```
 
 2. Start your observability backend:
@@ -44,8 +44,8 @@ This folder contains example configurations for integrating LLMFlow with popular
 5. View traces:
    - Jaeger: http://localhost:16686
    - Phoenix: http://localhost:6006
-   - Langfuse: http://localhost:3000
-   - LLMFlow: http://localhost:3000
+   - Langfuse: http://localhost:3001
+   - LLMFlow: http://localhost:1337
 
 ## Architecture
 
@@ -63,7 +63,7 @@ This folder contains example configurations for integrating LLMFlow with popular
 │                       LLMFlow                                │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
 │  │   Proxy     │───▶│  Dashboard  │───▶│ OTLP Export │     │
-│  │   :8080     │    │   :3000     │    │  (batched)  │     │
+│  │   :8080     │    │   :1337     │    │  (batched)  │     │
 │  └──────┬──────┘    └─────────────┘    └──────┬──────┘     │
 │         │                                      │            │
 └─────────┼──────────────────────────────────────┼────────────┘

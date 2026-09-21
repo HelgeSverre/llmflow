@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { sessionsState, loadSession } from '$lib/stores/sessions.svelte'
+  import { sessionsState, loadSession, loadSessions } from '$lib/stores/sessions.svelte'
 
   interface Props {
     onSelect: (id: string) => void
@@ -19,6 +19,30 @@
   }
 </script>
 
+{#if sessionsState.error}<p role="alert">{sessionsState.error}</p>{/if}
+<nav aria-label="Session pages">
+  <button
+    class="btn-secondary"
+    disabled={sessionsState.loading || sessionsState.offset === 0}
+    onclick={() =>
+      loadSessions(sessionsState.limit, Math.max(0, sessionsState.offset - sessionsState.limit))}
+    >Previous</button
+  >
+  <span
+    >{sessionsState.total === 0 ? 0 : sessionsState.offset + 1}–{Math.min(
+      sessionsState.offset + sessionsState.list.length,
+      sessionsState.total,
+    )} of {sessionsState.total}</span
+  >
+  <button
+    class="btn-secondary"
+    disabled={sessionsState.loading ||
+      sessionsState.offset + sessionsState.limit >= sessionsState.total}
+    onclick={() => loadSessions(sessionsState.limit, sessionsState.offset + sessionsState.limit)}
+    >Next</button
+  >
+</nav>
+{#if !sessionsState.loading && sessionsState.total === 0}<p>No sessions found.</p>{/if}
 <table class="sessions-table">
   <thead>
     <tr>
@@ -50,6 +74,12 @@
 </table>
 
 <style>
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+  }
   .sessions-table {
     width: 100%;
     border-collapse: collapse;

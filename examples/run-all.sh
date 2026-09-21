@@ -4,6 +4,13 @@
 
 set -e
 
+case "${1:-}" in
+    ""|--check) ;;
+    --help|-h) echo "Usage: ./examples/run-all.sh [--check]"; echo "--check checks local endpoints without installing examples or calling providers."; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+esac
+command -v bun >/dev/null || { echo "Bun is required: https://bun.sh" >&2; exit 1; }
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 RED='\033[0;31m'
@@ -28,15 +35,29 @@ else
 fi
 echo ""
 
+LLMFLOW_URL="${LLMFLOW_URL:-http://localhost:1337}"
+LLMFLOW_PROXY="${LLMFLOW_PROXY:-http://localhost:8080/v1}"
+export LLMFLOW_URL LLMFLOW_PROXY
+
 # Check if LLMFlow is running
-if ! curl -s http://localhost:3000/api/health > /dev/null 2>&1; then
+if ! curl --fail --silent --show-error --max-time 5 "${LLMFLOW_URL%/}/api/health" > /dev/null 2>&1; then
     echo -e "${RED}Error: LLMFlow is not running${NC}"
-    echo "Start it with: npm start"
+    echo "Start it with: bun install && bun run build && bun run start"
     exit 1
 fi
 
 echo -e "${GREEN}✓ LLMFlow is running${NC}"
 echo ""
+
+PROXY_HEALTH_URL=$(bun -e 'console.log(new URL("/health", process.argv.at(-1)).href)' "$LLMFLOW_PROXY")
+if ! curl --fail --silent --show-error --max-time 5 "$PROXY_HEALTH_URL" >/dev/null; then
+    echo "Proxy is unavailable at $LLMFLOW_PROXY" >&2
+    exit 1
+fi
+if [ "${1:-}" = "--check" ]; then
+    echo "Dashboard and proxy preflight passed."
+    exit 0
+fi
 
 # Check for OPENAI_API_KEY
 if [ -z "$OPENAI_API_KEY" ]; then
@@ -68,11 +89,14 @@ run_example() {
     
     # Install deps if needed
     if [ ! -d "node_modules" ]; then
-        npm install --silent 2>/dev/null || true
+        if ! bun install; then
+            FAILED=$((FAILED + 1))
+            return
+        fi
     fi
     
     # Run with timeout
-    if timeout 30 npm start 2>&1; then
+    if bun -e 'const child = Bun.spawn(["bun", "run", "start"], { stdout: "inherit", stderr: "inherit", stdin: "inherit" }); const timer = setTimeout(() => child.kill(), 30000); const code = await child.exited; clearTimeout(timer); process.exit(code)' 2>&1; then
         echo -e "${GREEN}✓ $name passed${NC}"
         PASSED=$((PASSED + 1))
     else
@@ -99,7 +123,7 @@ fi
 echo ""
 
 # Check traces were logged
-TRACE_COUNT=$(curl -s http://localhost:3000/api/stats | grep -o '"total_requests":[0-9]*' | cut -d: -f2)
+TRACE_COUNT=$(curl --fail --silent --show-error --max-time 5 "${LLMFLOW_URL%/}/api/stats" | grep -o '"total_requests":[0-9]*' | cut -d: -f2)
 echo "Total traces in LLMFlow: $TRACE_COUNT"
 
 exit $FAILED

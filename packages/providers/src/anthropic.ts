@@ -1,7 +1,6 @@
 import {
     BaseProvider,
     type NormalizedResponse,
-    type ParsedStreamChunk,
     type ProviderRequest,
     type ProviderTarget,
     type TokenUsage,
@@ -25,6 +24,7 @@ interface AnthropicUsage {
  * Handles request/response transformation and different streaming format.
  */
 export class AnthropicProvider extends BaseProvider {
+    override streamFormat = 'anthropic' as const
     hostname: string
     apiVersion: string
 
@@ -75,7 +75,20 @@ export class AnthropicProvider extends BaseProvider {
     override transformRequestBody(body: unknown, _req: ProviderRequest): unknown {
         const b = body as
             | {
-                  messages?: Array<{ role: string; content: unknown }>
+                  messages?: Array<{
+                      role: string
+                      content: unknown
+                      tool_call_id?: string
+                      tool_calls?: Array<{
+                          id: string
+                          function: { name: string; arguments: string }
+                      }>
+                  }>
+                  tools?: Array<{
+                      type: string
+                      function: { name: string; description?: string; parameters?: unknown }
+                  }>
+                  tool_choice?: string | { type: string; function?: { name: string } }
                   model?: string
                   max_tokens?: number
                   stream?: boolean
@@ -106,8 +119,34 @@ export class AnthropicProvider extends BaseProvider {
         // Transform messages (Anthropic expects role to be 'user' or 'assistant')
         transformed.messages = otherMessages.map((msg) => ({
             role: msg.role === 'assistant' ? 'assistant' : 'user',
-            content: msg.content,
+            content:
+                msg.role === 'tool'
+                    ? [{ type: 'tool_result', tool_use_id: msg.tool_call_id, content: msg.content }]
+                    : msg.tool_calls
+                      ? [
+                            ...(msg.content ? [{ type: 'text', text: msg.content }] : []),
+                            ...msg.tool_calls.map((tool) => ({
+                                type: 'tool_use',
+                                id: tool.id,
+                                name: tool.function.name,
+                                input: JSON.parse(tool.function.arguments || '{}'),
+                            })),
+                        ]
+                      : msg.content,
         }))
+        if (b.tools)
+            transformed.tools = b.tools
+                .filter((tool) => tool.type === 'function')
+                .map((tool) => ({
+                    name: tool.function.name,
+                    description: tool.function.description,
+                    input_schema: tool.function.parameters || { type: 'object' },
+                }))
+        if (b.tool_choice)
+            transformed.tool_choice =
+                typeof b.tool_choice === 'string'
+                    ? { type: b.tool_choice === 'required' ? 'any' : b.tool_choice }
+                    : { type: 'tool', name: b.tool_choice.function?.name }
 
         // Copy over optional parameters
         if (b.temperature !== undefined) transformed.temperature = b.temperature
@@ -125,7 +164,13 @@ export class AnthropicProvider extends BaseProvider {
             | {
                   id?: string
                   model?: string
-                  content?: Array<{ type?: string; text?: string }>
+                  content?: Array<{
+                      type?: string
+                      text?: string
+                      id?: string
+                      name?: string
+                      input?: unknown
+                  }>
                   stop_reason?: string
                   usage?: AnthropicUsage
                   error?: unknown
@@ -151,6 +196,7 @@ export class AnthropicProvider extends BaseProvider {
             end_turn: 'stop',
             stop_sequence: 'stop',
             max_tokens: 'length',
+            tool_use: 'tool_calls',
         }
 
         const normalizedUsage: TokenUsage = {
@@ -169,6 +215,20 @@ export class AnthropicProvider extends BaseProvider {
                     message: {
                         role: 'assistant',
                         content: textContent,
+                        ...(b.content?.some((block) => block.type === 'tool_use')
+                            ? {
+                                  tool_calls: b.content
+                                      .filter((block) => block.type === 'tool_use')
+                                      .map((block) => ({
+                                          id: block.id,
+                                          type: 'function',
+                                          function: {
+                                              name: block.name,
+                                              arguments: JSON.stringify(block.input || {}),
+                                          },
+                                      })),
+                              }
+                            : {}),
                     },
                     finish_reason:
                         (b.stop_reason && finishReasonMap[b.stop_reason]) || b.stop_reason,
@@ -182,59 +242,6 @@ export class AnthropicProvider extends BaseProvider {
             usage: normalizedUsage,
             model: b.model,
         }
-    }
-
-    override parseStreamChunk(chunk: string): ParsedStreamChunk {
-        const lines = chunk.split('\n')
-        let content = ''
-        let usage: TokenUsage | null = null
-        let done = false
-
-        for (const line of lines) {
-            const trimmed = line.trim()
-
-            // Handle event: lines
-            if (trimmed.startsWith('event:')) {
-                const eventType = trimmed.slice(6).trim()
-                if (eventType === 'message_stop') {
-                    done = true
-                }
-                continue
-            }
-
-            if (!trimmed.startsWith('data:')) continue
-
-            const payload = trimmed.slice(5).trim()
-            if (!payload) continue
-
-            try {
-                const json = JSON.parse(payload)
-
-                if (json.type === 'content_block_delta') {
-                    if (json.delta?.type === 'text_delta') {
-                        content += json.delta.text || ''
-                    }
-                } else if (json.type === 'message_delta') {
-                    if (json.usage) {
-                        usage = {
-                            prompt_tokens: 0, // Not provided in delta
-                            completion_tokens: json.usage.output_tokens || 0,
-                            total_tokens: json.usage.output_tokens || 0,
-                        }
-                    }
-                } else if (json.type === 'message_start' && json.message?.usage) {
-                    usage = {
-                        prompt_tokens: json.message.usage.input_tokens || 0,
-                        completion_tokens: 0,
-                        total_tokens: json.message.usage.input_tokens || 0,
-                    }
-                }
-            } catch {
-                // Ignore parse errors
-            }
-        }
-
-        return { content, usage, done }
     }
 
     override extractUsage(response: unknown): TokenUsage {

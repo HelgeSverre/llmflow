@@ -18,16 +18,16 @@
  *   └── generate_answer (llm) ← linked via x-trace-id header
  *
  * Prerequisites:
- *   1. Start LLMFlow: cd ../.. && npm start
+ *   1. Start LLMFlow: cd ../.. && bun run start
  *   2. Set your OpenAI API key in .env at project root
  *   3. Run: node index.js (from this directory)
  */
 
-import { trace, span, currentTraceHeaders, wrapOpenAI } from '../../sdk/index.js'
+import { trace, span, currentTraceHeaders, wrapOpenAI } from '../../packages/sdk/index.js'
 import OpenAI from 'openai'
 
 const LLMFLOW_PROXY = process.env.LLMFLOW_PROXY || 'http://localhost:8080/v1'
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:1337'
 
 // Check for API key early
 if (!process.env.OPENAI_API_KEY) {
@@ -55,7 +55,7 @@ const KNOWLEDGE_BASE = [
     },
     {
         id: 3,
-        text: 'The LLMFlow dashboard runs on port 3000 and displays traces in real-time.',
+        text: 'The LLMFlow dashboard runs on port 1337 and displays traces in real-time.',
         topic: 'dashboard',
     },
     { id: 4, text: 'LLMFlow supports OTLP/HTTP for OpenTelemetry integration.', topic: 'otlp' },
@@ -365,6 +365,7 @@ async function main() {
     console.log('\nClick on a trace to see the span tree hierarchy.')
 }
 
-main()
-    .catch(console.error)
-    .then(() => process.exit(0))
+main().catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+})

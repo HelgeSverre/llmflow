@@ -3,6 +3,7 @@
   import MetricsSummary from './MetricsSummary.svelte'
   import MetricsTable from './MetricsTable.svelte'
   import {
+    initMetricsSync,
     metricFilters,
     filterOptions,
     loadMetrics,
@@ -14,17 +15,14 @@
 
   function handleNameChange(e: Event) {
     metricFilters.name = (e.target as HTMLSelectElement).value
-    loadMetrics()
   }
 
   function handleServiceChange(e: Event) {
     metricFilters.service_name = (e.target as HTMLSelectElement).value
-    loadMetrics()
   }
 
   function handleTypeChange(e: Event) {
     metricFilters.metric_type = (e.target as HTMLSelectElement).value
-    loadMetrics()
   }
 
   function handleClear() {
@@ -33,6 +31,7 @@
 
   onMount(() => {
     loadFilterOptions()
+    return initMetricsSync()
   })
 
   $effect(() => {

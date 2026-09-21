@@ -44,7 +44,7 @@ const {
     postOtlp,
 } = require('./lib/otlp-builders.js')
 
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:3000'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 const args = process.argv.slice(2)
 const COUNT = parseInt(args.find((a) => a.startsWith('--count='))?.split('=')[1] || '1', 10)
@@ -65,8 +65,7 @@ const c = {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const jitter = (base, spread = 0.4) =>
-    Math.round(base * (1 - spread / 2 + Math.random() * spread))
+const jitter = (base, spread = 0.4) => Math.round(base * (1 - spread / 2 + Math.random() * spread))
 
 // Run-level state: collected metrics data points emitted at the end.
 const metricPoints = {
@@ -127,8 +126,16 @@ function scenarioChatBasic(now) {
 
     return {
         label: 'chat-basic',
-        operations: [{ op: 'chat', provider: 'openai', model: 'gpt-4o-mini-2024-07-18',
-            inputTokens, outputTokens, durationMs: duration }],
+        operations: [
+            {
+                op: 'chat',
+                provider: 'openai',
+                model: 'gpt-4o-mini-2024-07-18',
+                inputTokens,
+                outputTokens,
+                durationMs: duration,
+            },
+        ],
         traceId: tid,
         spans: [
             buildSpan({
@@ -184,8 +191,16 @@ function scenarioChatLegacyNames(now) {
 
     return {
         label: 'chat-legacy-names',
-        operations: [{ op: 'chat', provider: 'openai', model: 'gpt-3.5-turbo',
-            inputTokens, outputTokens, durationMs: duration }],
+        operations: [
+            {
+                op: 'chat',
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                inputTokens,
+                outputTokens,
+                durationMs: duration,
+            },
+        ],
         traceId: tid,
         spans: [
             buildSpan({
@@ -222,8 +237,16 @@ function scenarioEmbeddings(now) {
 
     return {
         label: 'embeddings',
-        operations: [{ op: 'embeddings', provider: 'openai', model: 'text-embedding-3-small',
-            inputTokens, outputTokens: 0, durationMs: duration }],
+        operations: [
+            {
+                op: 'embeddings',
+                provider: 'openai',
+                model: 'text-embedding-3-small',
+                inputTokens,
+                outputTokens: 0,
+                durationMs: duration,
+            },
+        ],
         traceId: tid,
         spans: [
             buildSpan({
@@ -292,7 +315,7 @@ function scenarioRagPipeline(now) {
                 {
                     type: 'text',
                     content:
-                        'Use certificates from a trusted CA (Let\'s Encrypt for many cases), set TLS 1.3, and verify hostname matching.',
+                        "Use certificates from a trusted CA (Let's Encrypt for many cases), set TLS 1.3, and verify hostname matching.",
                 },
             ],
         },
@@ -434,7 +457,8 @@ function scenarioAgentWithTools(now) {
         results: [
             {
                 title: 'GenAI Semantic Conventions | OpenTelemetry',
-                snippet: 'Status: Development. Recent renames include gen_ai.system → gen_ai.provider.name…',
+                snippet:
+                    'Status: Development. Recent renames include gen_ai.system → gen_ai.provider.name…',
             },
         ],
     }
@@ -619,7 +643,10 @@ function scenarioAnthropicCacheAndReasoning(now) {
         cacheReadInputTokens: 2048,
         requestParams: { temperature: 0.0, max_tokens: 1024 },
         inputMessages: [
-            { role: 'user', parts: [{ type: 'text', content: 'Continue our previous discussion.' }] },
+            {
+                role: 'user',
+                parts: [{ type: 'text', content: 'Continue our previous discussion.' }],
+            },
         ],
         outputMessages: [
             {
@@ -651,8 +678,7 @@ function scenarioAnthropicCacheAndReasoning(now) {
                 parts: [
                     {
                         type: 'text',
-                        content:
-                            'Prove that the sum of the first n odd numbers equals n squared.',
+                        content: 'Prove that the sum of the first n odd numbers equals n squared.',
                     },
                 ],
             },
@@ -747,7 +773,8 @@ function scenarioStreamingAndError(now) {
                 parts: [
                     {
                         type: 'text',
-                        content: 'Spans branch through the dark,\nparent waits for children\'s end,\nthe trace breathes alive.',
+                        content:
+                            "Spans branch through the dark,\nparent waits for children's end,\nthe trace breathes alive.",
                     },
                 ],
             },
@@ -993,9 +1020,7 @@ async function run() {
             `${c.reset}\n`,
     )
 
-    const scenarios = ONLY_SCENARIO
-        ? { [ONLY_SCENARIO]: SCENARIOS[ONLY_SCENARIO] }
-        : SCENARIOS
+    const scenarios = ONLY_SCENARIO ? { [ONLY_SCENARIO]: SCENARIOS[ONLY_SCENARIO] } : SCENARIOS
 
     if (ONLY_SCENARIO && !SCENARIOS[ONLY_SCENARIO]) {
         console.error(`${c.red}Unknown scenario: ${ONLY_SCENARIO}${c.reset}`)
@@ -1024,9 +1049,11 @@ async function run() {
     if (!SKIP_METRICS) {
         try {
             await emitMetrics()
-            console.log(`\n${c.dim}metrics: ${metricPoints.operationDuration.length} ops, ` +
-                `${metricPoints.tokenUsage.length} token points, ` +
-                `${metricPoints.timeToFirstChunk.length} ttfc points${c.reset}`)
+            console.log(
+                `\n${c.dim}metrics: ${metricPoints.operationDuration.length} ops, ` +
+                    `${metricPoints.tokenUsage.length} token points, ` +
+                    `${metricPoints.timeToFirstChunk.length} ttfc points${c.reset}`,
+            )
         } catch (err) {
             console.log(`${c.red}metrics emit failed: ${err.message}${c.reset}`)
         }

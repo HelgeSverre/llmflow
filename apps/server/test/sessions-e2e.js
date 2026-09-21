@@ -9,13 +9,13 @@
  * 3. Verify /api/sessions/:id returns the three traces
  *
  * Run: node test/run-tests.js sessions-e2e.js
- * Requires: LLMFlow server running on localhost:3000
+ * Requires: LLMFlow server running on 127.0.0.1:1337
  */
 
 const assert = require('node:assert')
 const http = require('http')
 
-const BASE = process.env.LLMFLOW_URL || 'http://127.0.0.1:3000'
+const BASE = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 const c = {
     reset: '\x1b[0m',
@@ -31,7 +31,7 @@ function httpRequest(method, path, body = null) {
         const url = new URL(BASE)
         const options = {
             hostname: url.hostname,
-            port: url.port || 3000,
+            port: url.port || 80,
             path,
             method,
             headers: {

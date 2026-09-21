@@ -2,15 +2,16 @@ import { api } from '$lib/api/client'
 
 export interface DailyStats {
   date: string
-  request_count: number
-  total_tokens: number
+  requests: number
+  tokens: number
   prompt_tokens: number
   completion_tokens: number
-  total_cost: number
+  cost: number
 }
 
 export interface ToolCost {
-  tool: string
+  service_name: string
+  provider: string
   total_cost: number
   request_count: number
 }

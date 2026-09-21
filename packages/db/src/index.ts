@@ -1,11 +1,13 @@
 import { Database } from 'bun:sqlite'
+import { migrate } from './migrations'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
+const { sanitizeHeaders, sanitizePath } = require('@llmflow/shared/redaction')
 
 const DATA_DIR = process.env.DATA_DIR || path.join(os.homedir(), '.llmflow')
 const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'data.db')
-const MAX_TRACES = parseInt(process.env.MAX_TRACES || '10000', 10)
+const MAX_TRACES = Math.max(1, parseInt(process.env.MAX_TRACES || '10000', 10) || 10000)
 const MAX_LOGS = parseInt(process.env.MAX_LOGS || '100000', 10)
 const MAX_METRICS = parseInt(process.env.MAX_METRICS || '1000000', 10)
 
@@ -22,6 +24,7 @@ const db = new Database(DB_PATH, { create: true })
 db.exec('PRAGMA journal_mode=WAL')
 db.exec('PRAGMA busy_timeout=5000')
 db.exec('PRAGMA synchronous=NORMAL')
+db.exec('PRAGMA secure_delete=ON')
 
 // Parse a JSON column that may be NULL, empty, or malformed (e.g. a
 // passthrough body that wasn't actually JSON). Never throws.
@@ -171,6 +174,7 @@ function initSchema() {
 }
 
 initSchema()
+migrate(db)
 
 // Prepared statements using bun:sqlite query()
 const insertTraceStmt = db.query(`
@@ -197,12 +201,39 @@ const insertTraceStmt = db.query(`
     )
 `)
 
-const deleteOverflowStmt = db.query(`
-    DELETE FROM traces
-    WHERE id NOT IN (
-        SELECT id FROM traces ORDER BY timestamp DESC LIMIT $limit
-    )
-`)
+function pruneTraces(insertedTraceId: string) {
+    const count = () =>
+        (
+            db.query('SELECT span_count FROM retention_counts WHERE id=1').get() as {
+                span_count: number
+            }
+        ).span_count
+    while (count() > MAX_TRACES) {
+        const oversized = db
+            .query('SELECT trace_id FROM trace_groups WHERE trace_id=? AND span_count>?')
+            .get(insertedTraceId, MAX_TRACES)
+        const oldest =
+            oversized ||
+            db
+                .query(
+                    'SELECT trace_id FROM trace_groups ORDER BY latest_timestamp,trace_id LIMIT 1',
+                )
+                .get()
+        if (!oldest) break
+        const id = (oldest as { trace_id: string }).trace_id
+        db.transaction(() => {
+            db.query('INSERT OR REPLACE INTO evicted_traces VALUES(?,?)').run(id, Date.now())
+            db.query('DELETE FROM traces WHERE COALESCE(trace_id,id)=?').run(id)
+            db.query(
+                'DELETE FROM evicted_traces WHERE trace_id NOT IN (SELECT trace_id FROM evicted_traces ORDER BY evicted_at DESC LIMIT ?)',
+            ).run(MAX_TRACES)
+        })()
+    }
+}
+
+export function wasTraceEvicted(traceId: string): boolean {
+    return !!db.query('SELECT 1 FROM evicted_traces WHERE trace_id=?').get(traceId)
+}
 
 const insertLogStmt = db.query(`
     INSERT INTO logs (
@@ -250,25 +281,77 @@ const deleteMetricOverflowStmt = db.query(`
     )
 `)
 
-// Hook for real-time updates
-type TraceHook = (trace: TraceSummary) => void
-type LogHook = (log: LogSummary) => void
-type MetricHook = (metric: MetricSummary) => void
-
-let onInsertTrace: TraceHook | null = null
-let onInsertLog: LogHook | null = null
-let onInsertMetric: MetricHook | null = null
-
-export function setInsertTraceHook(fn: TraceHook) {
-    onInsertTrace = fn
+type Subscriber<T> = (record: T) => void | Promise<void>
+function subscriptions<T>() {
+    const listeners = new Set<Subscriber<T>>()
+    return {
+        subscribe(fn: Subscriber<T>) {
+            listeners.add(fn)
+            return () => {
+                listeners.delete(fn)
+            }
+        },
+        emit(record: T) {
+            for (const fn of listeners) {
+                try {
+                    Promise.resolve(fn(structuredClone(record))).catch(() => {})
+                } catch {
+                    /* Persistence and other subscribers must still succeed. */
+                }
+            }
+        },
+    }
 }
+const traceSubscriptions = subscriptions<Trace>()
+const logSubscriptions = subscriptions<Log>()
+const metricSubscriptions = subscriptions<Metric>()
+export const subscribeTraces = traceSubscriptions.subscribe
+export const subscribeLogs = logSubscriptions.subscribe
+export const subscribeMetrics = metricSubscriptions.subscribe
 
-export function setInsertLogHook(fn: LogHook) {
-    onInsertLog = fn
+export function traceSummary(trace: Trace): TraceSummary {
+    return {
+        id: trace.id,
+        timestamp: trace.timestamp,
+        duration_ms: trace.duration_ms ?? null,
+        model: trace.model || null,
+        total_tokens: trace.total_tokens || 0,
+        estimated_cost: trace.estimated_cost || 0,
+        status: trace.status ?? null,
+        trace_id: trace.trace_id || trace.id,
+        parent_id: trace.parent_id || null,
+        span_type: trace.span_type || 'llm',
+        span_name: trace.span_name || null,
+        service_name: trace.service_name || null,
+    }
 }
-
-export function setInsertMetricHook(fn: MetricHook) {
-    onInsertMetric = fn
+export function logSummary(log: Log): LogSummary {
+    return {
+        id: log.id,
+        timestamp: log.timestamp,
+        severity_text: log.severity_text || null,
+        event_name: log.event_name || null,
+        service_name: log.service_name || null,
+        trace_id: log.trace_id || null,
+        body:
+            log.body == null
+                ? null
+                : (typeof log.body === 'string' ? log.body : JSON.stringify(log.body)).slice(
+                      0,
+                      200,
+                  ),
+    }
+}
+export function metricSummary(metric: Metric): MetricSummary {
+    return {
+        id: metric.id,
+        timestamp: metric.timestamp,
+        name: metric.name,
+        metric_type: metric.metric_type || 'gauge',
+        value_int: metric.value_int,
+        value_double: metric.value_double,
+        service_name: metric.service_name || null,
+    }
 }
 
 // Types
@@ -373,6 +456,7 @@ export interface MetricSummary {
 }
 
 export interface TraceFilters {
+    trace_id?: string
     model?: string
     status?: string
     q?: string
@@ -408,10 +492,18 @@ export interface MetricFilters {
 
 // Trace functions
 export function insertTrace(trace: Trace) {
+    trace = {
+        ...trace,
+        request_headers: sanitizeHeaders(trace.request_headers),
+        response_headers: sanitizeHeaders(trace.response_headers),
+        request_path: sanitizePath(trace.request_path),
+        trace_id: trace.trace_id || trace.id,
+    }
+
     insertTraceStmt.run({
         $id: trace.id,
         $timestamp: trace.timestamp,
-        $duration_ms: trace.duration_ms || null,
+        $duration_ms: trace.duration_ms ?? null,
         $provider: trace.provider || null,
         $model: trace.model || null,
         $prompt_tokens: trace.prompt_tokens || 0,
@@ -441,38 +533,14 @@ export function insertTrace(trace: Trace) {
         $agent_name: trace.agent_name || null,
     })
 
-    const count = getTraceCount()
-    if (count > MAX_TRACES) {
-        deleteOverflowStmt.run({ $limit: MAX_TRACES })
-    }
+    pruneTraces(trace.trace_id!)
 
-    // Trigger hook for real-time updates
-    if (onInsertTrace) {
-        const summary: TraceSummary = {
-            id: trace.id,
-            timestamp: trace.timestamp,
-            duration_ms: trace.duration_ms || null,
-            model: trace.model || null,
-            total_tokens: trace.total_tokens || 0,
-            estimated_cost: trace.estimated_cost || 0,
-            status: trace.status || null,
-            trace_id: trace.trace_id || trace.id,
-            parent_id: trace.parent_id || null,
-            span_type: trace.span_type || 'llm',
-            span_name: trace.span_name || null,
-            service_name: trace.service_name || null,
-        }
-        try {
-            onInsertTrace(summary)
-        } catch {
-            // Don't let hook errors break insertion
-        }
-    }
+    traceSubscriptions.emit(trace)
 }
 
 export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters } = {}) {
     const where: string[] = []
-    const params: Record<string, unknown> = {}
+    const params: Record<string, string | number> = {}
 
     if (filters.model) {
         where.push('model = $model')
@@ -524,8 +592,14 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
         params.$provider = filters.provider
     }
 
+    if (filters.trace_id) {
+        where.push('trace_id = $trace_id')
+        params.$trace_id = filters.trace_id
+    }
     if (filters.session_id) {
-        where.push('session_id = $session_id')
+        where.push(
+            `COALESCE(trace_id,id) IN (${SESSION_MEMBERSHIP} SELECT trace_id FROM membership WHERE session_id = $session_id)`,
+        )
         params.$session_id = filters.session_id
     }
 
@@ -600,8 +674,12 @@ export function getStats() {
             model,
             COUNT(*) as count,
             COALESCE(SUM(total_tokens), 0) as tokens,
+            COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0) as completion_tokens,
+            AVG(CASE WHEN span_type = 'llm' AND duration_ms >= 0 THEN duration_ms END) as avg_latency,
             COALESCE(SUM(estimated_cost), 0) as cost
         FROM traces
+        WHERE model IS NOT NULL
         GROUP BY model
         ORDER BY count DESC
     `,
@@ -637,24 +715,29 @@ export interface SessionSummary {
     service_name: string | null
 }
 
+// A root annotation wins; otherwise the earliest annotated span owns the logical trace.
+// The ID tie-breaker makes conflicting annotations deterministic independent of arrival order.
+const SESSION_MEMBERSHIP = `WITH membership AS (
+    SELECT trace_id, session_id FROM (
+        SELECT COALESCE(trace_id, id) AS trace_id, session_id,
+            ROW_NUMBER() OVER (PARTITION BY COALESCE(trace_id, id)
+                ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, timestamp, id) AS position
+        FROM traces WHERE session_id IS NOT NULL
+    ) WHERE position = 1
+)`
+
 export function getSessions({ limit = 50, offset = 0 } = {}) {
     return db
         .query(
-            `
-        SELECT
-            session_id,
-            MIN(timestamp) AS first_seen,
-            MAX(timestamp) AS last_seen,
-            COUNT(DISTINCT trace_id) AS trace_count,
-            COALESCE(SUM(estimated_cost), 0) AS total_cost,
-            COALESCE(SUM(total_tokens), 0) AS total_tokens,
-            (SELECT agent_name FROM traces t2 WHERE t2.session_id = traces.session_id AND agent_name IS NOT NULL LIMIT 1) AS agent_name,
-            (SELECT service_name FROM traces t3 WHERE t3.session_id = traces.session_id AND service_name IS NOT NULL LIMIT 1) AS service_name
-        FROM traces
-        WHERE session_id IS NOT NULL
-        GROUP BY session_id
-        ORDER BY last_seen DESC
-        LIMIT $limit OFFSET $offset
+            `${SESSION_MEMBERSHIP}
+        SELECT m.session_id, MIN(t.timestamp) AS first_seen,
+            MAX(t.timestamp + COALESCE(t.duration_ms, 0)) AS last_seen,
+            COUNT(DISTINCT m.trace_id) AS trace_count,
+            COALESCE(SUM(t.estimated_cost), 0) AS total_cost,
+            COALESCE(SUM(t.total_tokens), 0) AS total_tokens,
+            MAX(t.agent_name) AS agent_name, MAX(t.service_name) AS service_name
+        FROM traces t JOIN membership m ON COALESCE(t.trace_id,t.id) = m.trace_id
+        GROUP BY m.session_id ORDER BY last_seen DESC LIMIT $limit OFFSET $offset
     `,
         )
         .all({ $limit: limit, $offset: offset }) as SessionSummary[]
@@ -663,29 +746,25 @@ export function getSessions({ limit = 50, offset = 0 } = {}) {
 export function getSessionTraces(session_id: string) {
     return db
         .query(
-            `
-        SELECT
-            trace_id,
-            MIN(timestamp) AS started_at,
-            MAX(timestamp + COALESCE(duration_ms, 0)) AS ended_at,
-            COALESCE(SUM(estimated_cost), 0) AS cost,
-            COALESCE(SUM(total_tokens), 0) AS tokens,
-            COUNT(*) AS span_count,
-            MAX(CASE WHEN status >= 400 THEN 1 ELSE 0 END) AS has_error
-        FROM traces
-        WHERE session_id = $session_id
-        GROUP BY trace_id
-        ORDER BY started_at ASC
+            `${SESSION_MEMBERSHIP}
+        SELECT m.trace_id, MIN(t.timestamp) AS started_at,
+            MAX(t.timestamp + COALESCE(t.duration_ms,0)) AS ended_at,
+            COALESCE(SUM(t.estimated_cost),0) AS cost, COALESCE(SUM(t.total_tokens),0) AS tokens,
+            COUNT(*) AS span_count, MAX(CASE WHEN t.status >= 400 THEN 1 ELSE 0 END) AS has_error,
+            COALESCE((SELECT id FROM traces root WHERE COALESCE(root.trace_id,root.id)=m.trace_id AND root.parent_id IS NULL ORDER BY timestamp,id LIMIT 1), MIN(t.id)) AS root_span_id
+        FROM traces t JOIN membership m ON COALESCE(t.trace_id,t.id)=m.trace_id
+        WHERE m.session_id=$session_id GROUP BY m.trace_id ORDER BY started_at ASC
     `,
         )
         .all({ $session_id: session_id })
 }
 
 export function getSessionCount(): number {
-    const r = db
-        .query('SELECT COUNT(DISTINCT session_id) AS cnt FROM traces WHERE session_id IS NOT NULL')
-        .get() as { cnt: number }
-    return r.cnt
+    return (
+        db
+            .query(`${SESSION_MEMBERSHIP} SELECT COUNT(DISTINCT session_id) AS cnt FROM membership`)
+            .get() as { cnt: number }
+    ).cnt
 }
 
 // Log functions
@@ -711,27 +790,12 @@ export function insertLog(log: Log) {
         deleteLogOverflowStmt.run({ $limit: MAX_LOGS })
     }
 
-    if (onInsertLog) {
-        const summary: LogSummary = {
-            id: log.id,
-            timestamp: log.timestamp,
-            severity_text: log.severity_text || null,
-            event_name: log.event_name || null,
-            service_name: log.service_name || null,
-            trace_id: log.trace_id || null,
-            body: typeof log.body === 'string' ? log.body.slice(0, 200) : null,
-        }
-        try {
-            onInsertLog(summary)
-        } catch {
-            // Don't let hook errors break insertion
-        }
-    }
+    logSubscriptions.emit(log)
 }
 
 export function getLogs({ limit = 50, offset = 0, filters = {} as LogFilters } = {}) {
     const where: string[] = []
-    const params: Record<string, unknown> = {}
+    const params: Record<string, string | number> = {}
 
     if (filters.service_name) {
         where.push('service_name = $service_name')
@@ -817,7 +881,7 @@ export function getLogCount(filters: Partial<LogFilters> = {}) {
     }
 
     const where: string[] = []
-    const params: Record<string, unknown> = {}
+    const params: Record<string, string | number> = {}
 
     if (filters.service_name) {
         where.push('service_name = $service_name')
@@ -830,7 +894,7 @@ export function getLogCount(filters: Partial<LogFilters> = {}) {
     }
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
-    const result = db.query(`SELECT COUNT(*) as cnt FROM logs ${whereSql}`).get(params) as {
+    const result = db.query(`SELECT COUNT(*) as cnt FROM logs ${whereSql}`).get({ ...params }) as {
         cnt: number
     }
     return result.cnt
@@ -879,27 +943,12 @@ export function insertMetric(metric: Metric) {
         deleteMetricOverflowStmt.run({ $limit: MAX_METRICS })
     }
 
-    if (onInsertMetric) {
-        const summary: MetricSummary = {
-            id: metric.id,
-            timestamp: metric.timestamp,
-            name: metric.name,
-            metric_type: metric.metric_type || 'gauge',
-            value_int: metric.value_int,
-            value_double: metric.value_double,
-            service_name: metric.service_name || null,
-        }
-        try {
-            onInsertMetric(summary)
-        } catch {
-            // Don't let hook errors break insertion
-        }
-    }
+    metricSubscriptions.emit(metric)
 }
 
 export function getMetrics({ limit = 50, offset = 0, filters = {} as MetricFilters } = {}) {
     const where: string[] = []
-    const params: Record<string, unknown> = {}
+    const params: Record<string, string | number> = {}
 
     if (filters.name) {
         where.push('name = $name')
@@ -963,7 +1012,7 @@ export function getMetricCount(filters: Partial<MetricFilters> = {}) {
     }
 
     const where: string[] = []
-    const params: Record<string, unknown> = {}
+    const params: Record<string, string | number> = {}
 
     if (filters.name) {
         where.push('name = $name')
@@ -975,38 +1024,55 @@ export function getMetricCount(filters: Partial<MetricFilters> = {}) {
         params.$service_name = filters.service_name
     }
 
+    if (filters.metric_type) {
+        where.push('metric_type = $metric_type')
+        params.$metric_type = filters.metric_type
+    }
+    if (filters.date_from != null) {
+        where.push('timestamp >= $date_from')
+        params.$date_from = filters.date_from
+    }
+    if (filters.date_to != null) {
+        where.push('timestamp <= $date_to')
+        params.$date_to = filters.date_to
+    }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
-    const result = db.query(`SELECT COUNT(*) as cnt FROM metrics ${whereSql}`).get(params) as {
+    const result = db
+        .query(`SELECT COUNT(*) as cnt FROM metrics ${whereSql}`)
+        .get({ ...params }) as {
         cnt: number
     }
     return result.cnt
 }
 
-export function getMetricsSummary(filters: { date_from?: number; date_to?: number } = {}) {
-    const fromTs = filters.date_from || 0
-    const toTs = filters.date_to || Date.now()
-
+export function getMetricsSummary(filters: MetricFilters = {}) {
+    const where = ['timestamp >= $fromTs', 'timestamp <= $toTs']
+    const params: Record<string, string | number> = {
+        $fromTs: filters.date_from ?? 0,
+        $toTs: filters.date_to ?? Date.now(),
+    }
+    for (const field of ['name', 'service_name', 'metric_type'] as const) {
+        if (filters[field]) {
+            where.push(`${field} = $${field}`)
+            params[`$${field}`] = filters[field]
+        }
+    }
     return db
         .query(
             `
-        SELECT 
-            name,
-            service_name,
-            metric_type,
+        SELECT name, service_name, metric_type,
             COUNT(*) as data_points,
-            MIN(timestamp) as first_seen,
-            MAX(timestamp) as last_seen,
+            MIN(timestamp) as first_seen, MAX(timestamp) as last_seen,
             SUM(value_int) as sum_int,
-            AVG(value_double) as avg_double,
-            MAX(value_int) as max_int,
-            MIN(value_int) as min_int
+            AVG(COALESCE(value_double, value_int)) as avg_value,
+            SUM(COALESCE(value_double, value_int)) as sum_value
         FROM metrics
-        WHERE timestamp >= $fromTs AND timestamp <= $toTs
-        GROUP BY name, service_name
+        WHERE ${where.join(' AND ')}
+        GROUP BY name, service_name, metric_type
         ORDER BY data_points DESC
     `,
         )
-        .all({ $fromTs: fromTs, $toTs: toTs })
+        .all(params)
 }
 
 export function getTokenUsage() {
@@ -1187,6 +1253,8 @@ export function getDailyStats({ days = 30 } = {}) {
             CAST(timestamp / $bucketSize AS INTEGER) * $bucketSize as bucket,
             strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch') as date,
             SUM(total_tokens) as tokens,
+            SUM(prompt_tokens) as prompt_tokens,
+            SUM(completion_tokens) as completion_tokens,
             SUM(estimated_cost) as cost,
             COUNT(*) as requests
         FROM traces
@@ -1212,6 +1280,8 @@ export function getDailyStats({ days = 30 } = {}) {
                 bucket,
                 date: formatDateLabel(bucket, 'day'),
                 tokens: 0,
+                prompt_tokens: 0,
+                completion_tokens: 0,
                 cost: 0,
                 requests: 0,
             })

@@ -71,25 +71,21 @@
     <div class="stats-bar" data-testid="stats-bar">
       <div class="stat" data-testid="stat-traces">
         <span class="stat-value" data-testid="total-requests"
-          >{stats.total_requests > 0 ? formatNumber(stats.total_requests) : '-'}</span
+          >{formatNumber(stats.total_requests)}</span
         >
         <span class="stat-label">Traces</span>
       </div>
       <div class="stat" data-testid="stat-tokens">
-        <span class="stat-value" data-testid="total-tokens"
-          >{stats.total_tokens > 0 ? formatNumber(stats.total_tokens) : '-'}</span
+        <span class="stat-value" data-testid="total-tokens">{formatNumber(stats.total_tokens)}</span
         >
         <span class="stat-label">Tokens</span>
       </div>
       <div class="stat" data-testid="stat-cost">
-        <span class="stat-value" data-testid="total-cost"
-          >{stats.total_cost > 0 ? formatCost(stats.total_cost) : '-'}</span
-        >
+        <span class="stat-value" data-testid="total-cost">{formatCost(stats.total_cost)}</span>
         <span class="stat-label">Cost</span>
       </div>
       <div class="stat" data-testid="stat-latency">
-        <span class="stat-value" data-testid="avg-latency"
-          >{stats.avg_duration > 0 ? formatLatency(stats.avg_duration) : '-'}</span
+        <span class="stat-value" data-testid="avg-latency">{formatLatency(stats.avg_duration)}</span
         >
         <span class="stat-label">Avg Latency</span>
       </div>

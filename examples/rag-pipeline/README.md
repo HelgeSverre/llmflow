@@ -37,29 +37,29 @@ agent-task (trace)
 1. Start LLMFlow from the project root:
 
    ```bash
-   npm start
+   bun run start
    ```
 
 2. Install dependencies:
 
    ```bash
-   npm install
+   bun install
    ```
 
 3. Run the example:
 
    ```bash
-   npm start
+   bun run start
    ```
 
-4. View traces at [http://localhost:3000](http://localhost:3000)
+4. View traces at [http://localhost:1337](http://localhost:1337)
 
 ## Key Code
 
 ### Creating a trace with nested spans
 
 ```javascript
-import { trace, span, wrapOpenAI } from '../../sdk/index.js'
+import { trace, span, wrapOpenAI } from '../../packages/sdk/index.js'
 import OpenAI from 'openai'
 
 // Wrap OpenAI client to auto-inject trace headers
@@ -115,7 +115,7 @@ await trace(
 ### Using wrapOpenAI for automatic header injection
 
 ```javascript
-import { wrapOpenAI } from '../../sdk/index.js';
+import { wrapOpenAI } from '../../packages/sdk/index.js';
 
 const openai = wrapOpenAI(new OpenAI({
     baseURL: 'http://localhost:8080/v1'
@@ -128,7 +128,7 @@ await openai.chat.completions.create({ ... });
 ### Manual header injection
 
 ```javascript
-import { currentTraceHeaders } from '../../sdk/index.js';
+import { currentTraceHeaders } from '../../packages/sdk/index.js';
 
 await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -152,7 +152,7 @@ await openai.chat.completions.create({
 
 ## Viewing Traces
 
-1. Open [http://localhost:3000](http://localhost:3000)
+1. Open [http://localhost:1337](http://localhost:1337)
 2. Find traces named "rag-query" or "agent-task"
 3. Click to view the span tree
 4. Each span shows:

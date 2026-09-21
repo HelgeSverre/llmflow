@@ -27,14 +27,14 @@
 4. Restart LLMFlow:
 
    ```bash
-   npm start
+   bun run start
    ```
 
 5. Make some LLM requests through the proxy
 
 6. View traces:
    - **Opik UI**: http://localhost:5173
-   - **LLMFlow Dashboard**: http://localhost:3000
+   - **LLMFlow Dashboard**: http://localhost:1337
 
 ## Comet Cloud
 

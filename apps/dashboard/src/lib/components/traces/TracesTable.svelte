@@ -45,7 +45,7 @@
       <tr>
         <td colspan="8"
           ><EmptyState
-            message="No traces found. Send requests through the proxy on port 8080"
+            message="No traces found. Send requests through the proxy or ingest OTLP spans."
           /></td
         >
       </tr>
@@ -69,15 +69,9 @@
           </td>
           <td data-testid="trace-name">{trace.span_name || trace.service_name || '-'}</td>
           <td data-testid="trace-model">{trace.model || '-'}</td>
-          <td data-testid="trace-tokens"
-            >{trace.total_tokens ? formatNumber(trace.total_tokens) : '-'}</td
-          >
-          <td data-testid="trace-cost"
-            >{trace.estimated_cost ? formatCost(trace.estimated_cost) : '-'}</td
-          >
-          <td data-testid="trace-latency"
-            >{trace.duration_ms ? formatLatency(trace.duration_ms) : '-'}</td
-          >
+          <td data-testid="trace-tokens">{formatNumber(trace.total_tokens)}</td>
+          <td data-testid="trace-cost">{formatCost(trace.estimated_cost)}</td>
+          <td data-testid="trace-latency">{formatLatency(trace.duration_ms)}</td>
           <td data-testid="trace-status">
             {#if trace.error}
               <span class="status-error">Error</span>

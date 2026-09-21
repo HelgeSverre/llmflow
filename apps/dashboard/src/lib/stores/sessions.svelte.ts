@@ -15,6 +15,7 @@ export interface SessionDetail {
   session_id: string
   traces: Array<{
     trace_id: string
+    root_span_id: string
     started_at: number
     ended_at: number
     cost: number
@@ -28,24 +29,31 @@ export interface SessionDetail {
 export const sessionsState = $state({
   list: [] as SessionSummary[],
   total: 0,
+  limit: 50,
+  offset: 0,
   selected: null as SessionDetail | null,
   loading: false,
   error: null as string | null,
 })
 
-export async function loadSessions(limit = 50, offset = 0) {
+let listRequest = 0
+export async function loadSessions(limit = sessionsState.limit, offset = sessionsState.offset) {
+  const request = ++listRequest
   sessionsState.loading = true
   try {
     const r = await api.get<{ sessions: SessionSummary[]; total: number }>(
       `/api/sessions?limit=${limit}&offset=${offset}`,
     )
+    if (request !== listRequest) return
+    sessionsState.limit = limit
+    sessionsState.offset = offset
     sessionsState.list = r.sessions
     sessionsState.total = r.total
     sessionsState.error = null
   } catch (e) {
-    sessionsState.error = (e as Error).message
+    if (request === listRequest) sessionsState.error = (e as Error).message
   } finally {
-    sessionsState.loading = false
+    if (request === listRequest) sessionsState.loading = false
   }
 }
 
