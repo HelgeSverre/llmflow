@@ -19,26 +19,23 @@
     clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => {
       timelineFilters.q = value
-      loadTimeline()
     }, 300)
   }
 
   function handleToolChange(e: Event) {
     timelineFilters.tool = (e.target as HTMLInputElement).value
-    loadTimeline()
   }
 
   function handleTypeChange(e: Event) {
     timelineFilters.type = (e.target as HTMLSelectElement).value
-    loadTimeline()
   }
 
   function handleDateChange(e: Event) {
     timelineFilters.dateRange = (e.target as HTMLSelectElement).value
-    loadTimeline()
   }
 
   function handleClear() {
+    clearTimeout(debounceTimer)
     searchInput = ''
     clearFilters()
   }

@@ -57,14 +57,18 @@ export async function loadSessions(limit = sessionsState.limit, offset = session
   }
 }
 
+let detailRequest = 0
 export async function loadSession(id: string) {
+  const request = ++detailRequest
   sessionsState.loading = true
   try {
-    sessionsState.selected = await api.get<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`)
+    const detail = await api.get<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`)
+    if (request !== detailRequest) return
+    sessionsState.selected = detail
     sessionsState.error = null
   } catch (e) {
-    sessionsState.error = (e as Error).message
+    if (request === detailRequest) sessionsState.error = (e as Error).message
   } finally {
-    sessionsState.loading = false
+    if (request === detailRequest) sessionsState.loading = false
   }
 }

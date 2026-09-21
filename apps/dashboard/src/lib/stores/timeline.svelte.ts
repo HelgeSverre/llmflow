@@ -118,7 +118,6 @@ export function clearFilters() {
   timelineFilters.tool = ''
   timelineFilters.type = ''
   timelineFilters.dateRange = ''
-  loadTimeline()
 }
 
 export function initTimelineSync() {
