@@ -1,7 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { flushSync, mount, unmount } from 'svelte'
 vi.mock('$lib/api/client', () => ({ api: { get: vi.fn(async () => []) } }))
-vi.mock('$lib/stores/websocket.svelte', () => ({ onMessage: vi.fn(() => vi.fn()) }))
+vi.mock('$lib/stores/websocket.svelte', () => ({
+  connectionStatus: { value: 'connected' },
+  onMessage: vi.fn(() => vi.fn()),
+}))
 import { api } from '$lib/api/client'
 import { onMessage } from '$lib/stores/websocket.svelte'
 import { tabState } from '$lib/stores/tabs.svelte'

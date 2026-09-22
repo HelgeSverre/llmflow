@@ -18,6 +18,9 @@ export interface SpanRow {
   start_time: number
   duration_ms: number | null
   span_type?: string
+  error: unknown
+  status: unknown
+  has_child_error: unknown
   expanded: boolean
   hasChildren: boolean
   xPx: number // left offset within waterfall canvas
@@ -112,6 +115,9 @@ export class TraceViewport {
         start_time: s.start_time,
         duration_ms: s.duration_ms,
         span_type: s.span_type,
+        error: s.error,
+        status: s.status,
+        has_child_error: s.has_child_error,
         hasChildren: node.children.length > 0,
         expanded: this.#expanded.has(s.id),
         xPx: (s.start_time - root) * pxPerMs,

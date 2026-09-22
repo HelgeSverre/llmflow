@@ -103,9 +103,10 @@ test.describe('Logs Tab', () => {
         expect(count).toBeGreaterThan(0)
     })
 
-    test('log detail panel exists', async ({ page }) => {
-        // Detail panel should exist
+    test('log detail panel opens only after selection', async ({ page }) => {
         const panel = page.locator('#logDetailPanel')
+        await expect(panel).toHaveCount(0)
+        await page.getByTestId('log-row').first().click()
         await expect(panel).toBeVisible()
     })
 

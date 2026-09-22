@@ -6,14 +6,11 @@
     selectTimelineItem,
     relatedLogs,
   } from '$lib/stores/timeline.svelte'
-  import type { TraceDetail, Trace } from '$lib/stores/traces.svelte'
+  import type { TraceDetail } from '$lib/stores/traces.svelte'
   import type { Log } from '$lib/stores/logs.svelte'
-  import { selectTrace } from '$lib/stores/traces.svelte'
-  import { setTab } from '$lib/stores/tabs.svelte'
-  import { api } from '$lib/api/client'
   import SpanDetailPanel from '../trace-viewer/SpanDetailPanel.svelte'
 
-  let linkError = $state('')
+  import CorrelationActions from '../shared/CorrelationActions.svelte'
   const detail = $derived(
     selectedItem.value?.type === 'trace' ? (selectedItemData.value as TraceDetail | null) : null,
   )
@@ -35,23 +32,6 @@
         }
       : null,
   )
-
-  async function openTrace(traceId: string) {
-    linkError = ''
-    try {
-      const rows = await api.get<Trace[]>(
-        `/api/traces?trace_id=${encodeURIComponent(traceId)}&limit=1`,
-      )
-      if (!rows.length) {
-        linkError = 'No captured spans for this trace.'
-        return
-      }
-      setTab('traces')
-      await selectTrace(rows[0].id)
-    } catch {
-      linkError = 'Could not load this trace.'
-    }
-  }
 </script>
 
 <div class="panel-right" data-testid="timeline-detail-panel">
@@ -78,10 +58,7 @@
     {:else if log}
       <section>
         <h3>{log.severity_text || 'Log'}</h3>
-        {#if log.trace_id}<button onclick={() => openTrace(log.trace_id!)}
-            >Open trace {log.trace_id}</button
-          >{/if}
-        {#if linkError}<p role="alert">{linkError}</p>{/if}
+        <CorrelationActions traceId={log.trace_id} spanId={log.span_id} />
         <h3>Body</h3>
         <pre data-testid="log-body">{log.body ?? 'No body captured.'}</pre>
         <h3>Attributes</h3>

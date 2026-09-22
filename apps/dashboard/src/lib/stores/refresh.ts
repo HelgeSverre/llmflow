@@ -31,10 +31,9 @@ const refreshers: Record<Tab, () => Promise<unknown>> = {
       selectedTraceId.value ? selectTrace(selectedTraceId.value) : undefined,
     ]),
   sessions: () =>
-    Promise.all([
-      loadSessions(),
-      sessionsState.selected ? loadSession(sessionsState.selected.session_id) : undefined,
-    ]),
+    sessionsState.view === 'detail' && sessionsState.selectedId
+      ? loadSession(sessionsState.selectedId)
+      : loadSessions(),
   logs: () =>
     Promise.all([
       loadLogs(),

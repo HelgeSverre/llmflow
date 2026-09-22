@@ -19,10 +19,13 @@ export interface TraceTree {
 
 export function flattenTraceTree(nodes: TraceTreeSpan[]): SpanInput[] {
   const spans: SpanInput[] = []
+  const failed = (node: TraceTreeSpan): boolean =>
+    !!node.error || Number(node.status) >= 400 || node.children.some(failed)
   const walk = (node: TraceTreeSpan) => {
     const { children, timestamp, span_name, ...detail } = node
     spans.push({
       ...detail,
+      has_child_error: children.some(failed),
       id: node.id,
       parent_id: node.parent_id ?? undefined,
       name: span_name || node.id,

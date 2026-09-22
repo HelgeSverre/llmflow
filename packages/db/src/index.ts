@@ -549,9 +549,9 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
 
     if (filters.status) {
         if (filters.status === 'error') {
-            where.push('status >= 400')
+            where.push("(status >= 400 OR COALESCE(error, '') != '')")
         } else if (filters.status === 'success') {
-            where.push('status < 400')
+            where.push("(COALESCE(status, 0) < 400 AND COALESCE(error, '') = '')")
         }
     }
 
@@ -625,7 +625,12 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
             prompt_tokens, completion_tokens, total_tokens,
             estimated_cost, status, error, trace_id, parent_id,
             span_type, span_name, service_name,
-            session_id, conversation_id, agent_name
+            session_id, conversation_id, agent_name,
+            EXISTS (WITH RECURSIVE descendants(id) AS (
+                SELECT child.id FROM traces child WHERE child.parent_id = traces.id
+                UNION SELECT child.id FROM traces child JOIN descendants d ON child.parent_id = d.id
+            ) SELECT 1 FROM traces failed JOIN descendants d ON failed.id = d.id
+                WHERE failed.status >= 400 OR COALESCE(failed.error, '') != '') AS has_child_error
         FROM traces
         ${whereSql}
         ORDER BY timestamp DESC
@@ -667,24 +672,7 @@ export function getStats() {
         )
         .get() as Record<string, number>
 
-    const models = db
-        .query(
-            `
-        SELECT
-            model,
-            COUNT(*) as count,
-            COALESCE(SUM(total_tokens), 0) as tokens,
-            COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
-            COALESCE(SUM(completion_tokens), 0) as completion_tokens,
-            AVG(CASE WHEN span_type = 'llm' AND duration_ms >= 0 THEN duration_ms END) as avg_latency,
-            COALESCE(SUM(estimated_cost), 0) as cost
-        FROM traces
-        WHERE model IS NOT NULL
-        GROUP BY model
-        ORDER BY count DESC
-    `,
-        )
-        .all()
+    const models = getModelStats()
 
     const avg_duration = row.total_requests > 0 ? row.total_duration / row.total_requests : 0
 
@@ -726,7 +714,7 @@ const SESSION_MEMBERSHIP = `WITH membership AS (
     ) WHERE position = 1
 )`
 
-export function getSessions({ limit = 50, offset = 0 } = {}) {
+export function getSessions({ limit = 50, offset = 0, q = '' } = {}) {
     return db
         .query(
             `${SESSION_MEMBERSHIP}
@@ -737,10 +725,12 @@ export function getSessions({ limit = 50, offset = 0 } = {}) {
             COALESCE(SUM(t.total_tokens), 0) AS total_tokens,
             MAX(t.agent_name) AS agent_name, MAX(t.service_name) AS service_name
         FROM traces t JOIN membership m ON COALESCE(t.trace_id,t.id) = m.trace_id
-        GROUP BY m.session_id ORDER BY last_seen DESC LIMIT $limit OFFSET $offset
+        GROUP BY m.session_id
+        HAVING m.session_id LIKE $q OR MAX(CASE WHEN t.span_name LIKE $q OR t.agent_name LIKE $q OR t.service_name LIKE $q THEN 1 ELSE 0 END) = 1
+        ORDER BY last_seen DESC LIMIT $limit OFFSET $offset
     `,
         )
-        .all({ $limit: limit, $offset: offset }) as SessionSummary[]
+        .all({ $limit: limit, $offset: offset, $q: `%${q}%` }) as SessionSummary[]
 }
 
 export function getSessionTraces(session_id: string) {
@@ -750,7 +740,10 @@ export function getSessionTraces(session_id: string) {
         SELECT m.trace_id, MIN(t.timestamp) AS started_at,
             MAX(t.timestamp + COALESCE(t.duration_ms,0)) AS ended_at,
             COALESCE(SUM(t.estimated_cost),0) AS cost, COALESCE(SUM(t.total_tokens),0) AS tokens,
-            COUNT(*) AS span_count, MAX(CASE WHEN t.status >= 400 THEN 1 ELSE 0 END) AS has_error,
+            COUNT(*) AS span_count, MAX(CASE WHEN t.status >= 400 OR COALESCE(t.error, '') != '' THEN 1 ELSE 0 END) AS has_error,
+            (SELECT id FROM traces failed WHERE COALESCE(failed.trace_id,failed.id)=m.trace_id AND (failed.status >= 400 OR COALESCE(failed.error, '') != '') ORDER BY timestamp,id LIMIT 1) AS error_span_id,
+            (SELECT span_name FROM traces named WHERE COALESCE(named.trace_id,named.id)=m.trace_id ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END,timestamp,id LIMIT 1) AS name,
+            MAX(t.service_name) AS service_name,
             COALESCE((SELECT id FROM traces root WHERE COALESCE(root.trace_id,root.id)=m.trace_id AND root.parent_id IS NULL ORDER BY timestamp,id LIMIT 1), MIN(t.id)) AS root_span_id
         FROM traces t JOIN membership m ON COALESCE(t.trace_id,t.id)=m.trace_id
         WHERE m.session_id=$session_id GROUP BY m.trace_id ORDER BY started_at ASC
@@ -759,11 +752,16 @@ export function getSessionTraces(session_id: string) {
         .all({ $session_id: session_id })
 }
 
-export function getSessionCount(): number {
+export function getSessionCount(q = ''): number {
     return (
         db
-            .query(`${SESSION_MEMBERSHIP} SELECT COUNT(DISTINCT session_id) AS cnt FROM membership`)
-            .get() as { cnt: number }
+            .query(
+                `${SESSION_MEMBERSHIP} SELECT COUNT(*) AS cnt FROM (
+        SELECT m.session_id FROM traces t JOIN membership m ON COALESCE(t.trace_id,t.id)=m.trace_id
+        GROUP BY m.session_id HAVING m.session_id LIKE $q OR MAX(CASE WHEN t.span_name LIKE $q OR t.agent_name LIKE $q OR t.service_name LIKE $q THEN 1 ELSE 0 END) = 1
+    )`,
+            )
+            .get({ $q: `%${q}%` }) as { cnt: number }
     ).cnt
 }
 
@@ -1060,7 +1058,7 @@ export function getMetricsSummary(filters: MetricFilters = {}) {
     return db
         .query(
             `
-        SELECT name, service_name, metric_type,
+        SELECT name, service_name, metric_type, unit,
             COUNT(*) as data_points,
             MIN(timestamp) as first_seen, MAX(timestamp) as last_seen,
             SUM(value_int) as sum_int,
@@ -1068,7 +1066,7 @@ export function getMetricsSummary(filters: MetricFilters = {}) {
             SUM(COALESCE(value_double, value_int)) as sum_value
         FROM metrics
         WHERE ${where.join(' AND ')}
-        GROUP BY name, service_name, metric_type
+        GROUP BY name, service_name, metric_type, unit
         ORDER BY data_points DESC
     `,
         )
@@ -1297,3 +1295,36 @@ export function close() {
 
 // Export constants
 export { DB_PATH, DATA_DIR }
+
+export function getModelStats(from = 0, to = Date.now()) {
+    return db
+        .query(
+            `
+        SELECT
+            model,
+            COUNT(*) as count,
+            COALESCE(SUM(total_tokens), 0) as tokens,
+            COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0) as completion_tokens,
+            AVG(CASE WHEN span_type = 'llm' AND duration_ms >= 0 THEN duration_ms END) as avg_latency,
+            COALESCE(SUM(estimated_cost), 0) as cost
+        FROM traces
+        WHERE model IS NOT NULL AND timestamp >= $from AND timestamp <= $to
+        GROUP BY model
+        ORDER BY count DESC
+    `,
+        )
+        .all({ $from: from, $to: to })
+}
+
+export function getServices() {
+    return (
+        db
+            .query(
+                `SELECT service_name FROM traces WHERE service_name IS NOT NULL
+        UNION SELECT service_name FROM logs WHERE service_name IS NOT NULL
+        UNION SELECT service_name FROM metrics WHERE service_name IS NOT NULL ORDER BY service_name`,
+            )
+            .all() as { service_name: string }[]
+    ).map((row) => row.service_name)
+}

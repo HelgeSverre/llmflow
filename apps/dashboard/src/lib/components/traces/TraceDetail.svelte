@@ -1,4 +1,7 @@
 <script lang="ts">
+  import RequestView from '../shared/RequestView.svelte'
+  import { tracesDetailState } from '$lib/stores/traces.svelte'
+
   import SpanWaterfall from '$lib/components/trace-viewer/SpanWaterfall.svelte'
   import SpanDetailPanel from '$lib/components/trace-viewer/SpanDetailPanel.svelte'
   import { selectedTrace, selectedTraceId, selectTrace } from '$lib/stores/traces.svelte'
@@ -31,7 +34,7 @@
   // Reset span selection when the trace changes so we don't keep an id pointing into the old trace.
   $effect(() => {
     selectedTraceId.value
-    selectedId = null
+    selectedId = selectedTraceId.value
   })
 
   const viewportSpans = $derived(flattenTraceTree(selectedTrace.value?.spans ?? []))
@@ -39,42 +42,53 @@
 </script>
 
 <div class="panel-right trace-panel" data-testid="traces-detail-panel">
-  {#if selectedTrace.value}
-    <div class="replay-bar">
-      <button class="btn-secondary" disabled={replaying} onclick={replay}
-        >{replaying ? 'Replaying…' : 'Replay request'}</button
-      >
-      <span>Runs a new provider request using the server’s configured credentials.</span>
-      {#if replayError}<p role="alert">{replayError}</p>{/if}
-    </div>
-  {/if}
-  {#if selectedTrace.value?.partial}
-    <p class="partial-notice">
-      Partial trace — some spans were evicted or have not arrived. Totals cover retained spans.
-    </p>
-  {/if}
-  <div class="trace-detail">
-    {#if selectedTrace.value && viewportSpans.length > 0}
-      <div class="waterfall-pane">
-        <SpanWaterfall
-          spans={viewportSpans}
-          traceId={selectedTraceId.value ?? undefined}
-          onSelect={(id) => (selectedId = id)}
-        />
-      </div>
-      <div class="detail-pane">
-        <SpanDetailPanel span={selectedSpan} />
-      </div>
-    {:else}
-      <div class="empty-state">
-        {#if !selectedTrace.value}
-          <p>Select a trace to view spans</p>
-        {:else}
-          <p>No spans found</p>
-        {/if}
+  <RequestView
+    state={tracesDetailState}
+    retry={() => selectedTraceId.value && selectTrace(selectedTraceId.value)}
+  >
+    {#if selectedTrace.value}
+      <div class="replay-bar">
+        <button
+          class="btn-secondary"
+          disabled={replaying || !!selectedSpan?.replay_unavailable_reason}
+          onclick={replay}>{replaying ? 'Replaying…' : 'Replay request'}</button
+        >
+        <span
+          >{selectedSpan?.replay_unavailable_reason ||
+            'Runs a new provider request using the server’s configured credentials.'}</span
+        >
+        {#if replayError}<p role="alert">{replayError}</p>{/if}
       </div>
     {/if}
-  </div>
+    {#if selectedTrace.value?.partial}
+      <p class="partial-notice">
+        Partial trace — some spans were evicted or have not arrived. Totals cover retained spans.
+      </p>
+    {/if}
+    <div class="trace-detail">
+      {#if selectedTrace.value && viewportSpans.length > 0}
+        <div class="waterfall-pane">
+          <SpanWaterfall
+            spans={viewportSpans}
+            {selectedId}
+            traceId={selectedTraceId.value ?? undefined}
+            onSelect={(id) => (selectedId = id)}
+          />
+        </div>
+        <div class="detail-pane">
+          <SpanDetailPanel span={selectedSpan} />
+        </div>
+      {:else}
+        <div class="empty-state">
+          {#if !selectedTrace.value}
+            <p>Select a trace to view spans</p>
+          {:else}
+            <p>No spans found</p>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  </RequestView>
 </div>
 
 <style>
@@ -104,10 +118,10 @@
     min-height: 0;
   }
 
-  @container (max-width: 760px) {
+  @container (max-width: 1000px) {
     .trace-detail {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-rows: minmax(100px, 30%) minmax(0, 1fr);
     }
   }
 

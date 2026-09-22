@@ -76,7 +76,7 @@ test('metric rows and cards display measured integers, decimals, histograms and 
         ['counter', '10,000'],
         ['gauge', '3'],
         ['zero', '0'],
-        ['histogram', '60'],
+        ['histogram', '60 observations'],
     ]) {
         await expect(
             cards.filter({ hasText: prefix + '-' + suffix }).locator('.metric-card-value'),
@@ -169,8 +169,8 @@ test('unknown and zero span durations remain distinct in the table, tree and det
         const span = page.getByRole('treeitem', { name: prefix + duration, exact: true })
         await expect(span.locator('.duration-col')).toHaveText(label)
         await span.click()
-        await expect(page.locator('.detail-panel .meta')).toContainText(label)
+        await expect(page.locator('.detail-panel .meta').first()).toContainText(label)
         if (duration === null)
-            await expect(page.locator('.detail-panel .meta')).not.toContainText('0ms')
+            await expect(page.locator('.detail-panel .meta').first()).not.toContainText('0ms')
     }
 })

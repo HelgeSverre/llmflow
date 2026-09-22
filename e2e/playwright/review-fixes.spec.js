@@ -67,7 +67,11 @@ test('Sessions opens the selected root span using canonical tab navigation', asy
     })
     expect(response.ok()).toBe(true)
     await page.goto('/#sessions')
-    await page.locator('.sessions-table tr').filter({ hasText: session }).click()
+    await page
+        .locator('.sessions-table tr')
+        .filter({ hasText: session })
+        .getByRole('button')
+        .click()
     await page.locator('.session-detail .trace-list button').first().click()
     await expect(page).toHaveURL(/#traces$/)
     await expect(page.getByTestId('tab-traces')).toHaveClass(/active/)
@@ -141,7 +145,9 @@ test('Metrics filters affect cards and rows and live gauges preserve correct ave
     ).toHaveText('0')
     await page.getByTestId('metrics-name-filter').selectOption(`${service}-counter`)
     await expect(page.locator('.metric-card')).toHaveCount(0)
-    await expect(page.getByTestId('metrics-body')).toContainText('No metrics found')
+    await expect(page.locator('.tab-content.active')).toContainText(
+        'No results match these filters',
+    )
     await page.getByTestId('metrics-clear-filters').click()
     await expect(page.locator('.metric-card').first()).toBeVisible()
 })
@@ -218,7 +224,7 @@ test('Timeline correlates real trace IDs, filters custom services, and renders m
         },
     })
     await page.goto('/#timeline')
-    await page.getByTestId('timeline-tool-filter').fill(service)
+    await page.getByTestId('timeline-tool-filter').selectOption(service)
     await expect(page.locator('.timeline-item')).toHaveCount(2)
     await page.locator('.timeline-item').filter({ hasText: 'Readable conversation' }).click()
     await expect(page.getByTestId('related-logs')).toContainText('Correlated timeline log')
@@ -235,7 +241,7 @@ test('Timeline correlates real trace IDs, filters custom services, and renders m
     })
     await page.locator('.timeline-item').filter({ hasText: 'Correlated timeline log' }).click()
     await expect(detail.getByTestId('log-body')).toHaveText('Correlated timeline log')
-    await detail.getByRole('button', { name: `Open trace ${traceId}` }).click()
+    await detail.getByRole('button', { name: 'Open trace', exact: true }).click()
     await expect(page).toHaveURL(/#traces$/)
     await expect(
         page.getByRole('treeitem', { name: 'Readable conversation', exact: true }),
@@ -275,7 +281,7 @@ test('Sessions can open an older session beyond the first fifty', async ({ page,
         path: '.backlog/assets/images/fixed-session-pagination.png',
         fullPage: true,
     })
-    await page.locator('.sessions-table tr').filter({ hasText: target }).click()
+    await page.locator('.sessions-table tr').filter({ hasText: target }).getByRole('button').click()
     await expect(page.locator('.session-detail')).toContainText(target)
 })
 

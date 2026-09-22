@@ -3,7 +3,7 @@ import { safeJson } from '@llmflow/db'
 import path from 'path'
 import fs from 'fs'
 import { forwardProxyRequest } from './proxy'
-import { replayTrace } from './replay'
+import { replayTrace, replayUnavailableReason } from './replay'
 import { trustedWebSocketOrigin } from './websocket-origin'
 
 import { registry } from '@llmflow/providers'
@@ -382,9 +382,16 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             return Response.json(stats)
         }
 
+        if (pathname === '/api/services' && method === 'GET') return Response.json(db.getServices())
+
         // Models
         if (pathname === '/api/models' && method === 'GET') {
-            const stats = db.getStats()
+            const stats = {
+                models: db.getModelStats(
+                    Number(url.searchParams.get('date_from') || 0),
+                    Number(url.searchParams.get('date_to') || Date.now()),
+                ),
+            }
             const models = (
                 (stats.models || []) as Array<{
                     model: string
@@ -413,6 +420,8 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             const offset = Number(url.searchParams.get('offset') || '0')
 
             const filters: db.TraceFilters = {}
+            if (url.searchParams.get('service_name'))
+                filters.service_name = url.searchParams.get('service_name')!
             if (url.searchParams.get('model')) filters.model = url.searchParams.get('model')!
             if (url.searchParams.get('status')) filters.status = url.searchParams.get('status')!
             if (url.searchParams.get('q')) filters.q = url.searchParams.get('q')!
@@ -459,6 +468,7 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
                 trace: {
                     id: t.id,
                     trace_id: t.trace_id,
+                    session_id: t.session_id,
                     span_name: t.span_name,
                     span_type: t.span_type,
                     service_name: t.service_name,
@@ -505,6 +515,7 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             type ParsedSpan = Record<string, unknown> & { children: ParsedSpan[] }
             const parsedSpans: ParsedSpan[] = spans.map((s) => ({
                 ...s,
+                replay_unavailable_reason: replayUnavailableReason(s),
                 request_headers: safeJson(s.request_headers, {}),
                 request_body: safeJson(s.request_body, {}),
                 response_headers: safeJson(s.response_headers, {}),
@@ -564,8 +575,8 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             const limit = Number(url.searchParams.get('limit') || '50')
             const offset = Number(url.searchParams.get('offset') || '0')
             return Response.json({
-                sessions: db.getSessions({ limit, offset }),
-                total: db.getSessionCount(),
+                sessions: db.getSessions({ limit, offset, q: url.searchParams.get('q') || '' }),
+                total: db.getSessionCount(url.searchParams.get('q') || ''),
             })
         }
 
@@ -598,6 +609,8 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
         if (pathname === '/api/timeline' && method === 'GET') {
             const limit = Number(url.searchParams.get('limit') || '100')
             const filters: db.TraceFilters = {}
+            if (url.searchParams.get('service_name'))
+                filters.service_name = url.searchParams.get('service_name')!
             if (url.searchParams.get('q')) filters.q = url.searchParams.get('q')!
             if (url.searchParams.get('tool')) filters.service_name = url.searchParams.get('tool')!
             if (url.searchParams.get('date_from'))
@@ -643,8 +656,17 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
                         id: l.id,
                         type: 'log',
                         timestamp: l.timestamp,
-                        title: l.event_name || (l.body as string)?.slice(0, 50) || 'Log',
-                        subtitle: l.service_name,
+                        title:
+                            (typeof l.body === 'string'
+                                ? l.body === 'null'
+                                    ? ''
+                                    : l.body
+                                : l.body == null
+                                  ? ''
+                                  : JSON.stringify(l.body)) ||
+                            l.event_name ||
+                            'No message captured',
+                        subtitle: l.body && l.body !== 'null' ? l.event_name : null,
                         service_name: l.service_name,
                         tool: l.service_name,
                         severity_text: l.severity_text,

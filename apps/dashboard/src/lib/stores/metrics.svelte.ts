@@ -1,3 +1,4 @@
+import { createLoadState } from './load-state.svelte'
 import { onMessage } from './websocket.svelte'
 import { api } from '$lib/api/client'
 import { tabState } from './tabs.svelte'
@@ -15,6 +16,9 @@ export interface Metric {
 }
 
 export interface MetricSummary {
+  unit?: string
+  first_seen?: number
+  last_seen?: number
   name: string
   metric_type: string
   service_name?: string
@@ -57,11 +61,14 @@ function metricQuery() {
   return params
 }
 
+export const metricsState = createLoadState()
+
 export async function loadMetrics() {
   if (tabState.current !== 'metrics') return
 
+  const request = ++listRequest
+  metricsState.loading = true
   try {
-    const request = ++listRequest
     const params = metricQuery()
     params.set('limit', '100')
 
@@ -69,24 +76,35 @@ export async function loadMetrics() {
     if (request !== listRequest) return
     metrics.length = 0
     metrics.push(...(data.metrics || []))
+    metricsState.loaded = true
+    metricsState.error = ''
   } catch (e) {
-    console.error('Failed to load metrics:', e)
+    if (request === listRequest) metricsState.error = 'Could not load metrics.'
+  } finally {
+    if (request === listRequest) metricsState.loading = false
   }
 }
+
+export const metricSummaryState = createLoadState()
 
 export async function loadMetricsSummary() {
   if (tabState.current !== 'metrics') return
 
+  const request = ++summaryRequest
+  metricSummaryState.loading = true
   try {
-    const request = ++summaryRequest
     const params = metricQuery()
     params.set('aggregation', 'summary')
     const data = await api.get<{ summary: MetricSummary[] }>(`/api/metrics?${params}`)
     if (request !== summaryRequest) return
     metricsSummary.length = 0
     metricsSummary.push(...(data.summary || []))
+    metricSummaryState.loaded = true
+    metricSummaryState.error = ''
   } catch (e) {
-    console.error('Failed to load metrics summary:', e)
+    if (request === summaryRequest) metricSummaryState.error = 'Could not load metric summaries.'
+  } finally {
+    if (request === summaryRequest) metricSummaryState.loading = false
   }
 }
 

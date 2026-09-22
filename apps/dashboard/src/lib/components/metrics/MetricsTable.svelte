@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { metricFilters, clearFilters } from '$lib/stores/metrics.svelte'
   import { metrics, type Metric } from '$lib/stores/metrics.svelte'
-  import { formatTime } from '$lib/utils/format'
+  import { formatTimestamp, formatTime } from '$lib/utils/format'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
 
   function formatValue(m: Metric): string {
@@ -17,34 +18,37 @@
   }
 </script>
 
-<table data-testid="metrics-table">
-  <thead>
-    <tr>
-      <th>Time</th>
-      <th>Type</th>
-      <th>Name</th>
-      <th>Value</th>
-      <th>Service</th>
-    </tr>
-  </thead>
-  <tbody data-testid="metrics-body">
-    {#if metrics.length === 0}
+{#if metrics.length === 0}
+  {#if Object.values(metricFilters).some(Boolean)}<EmptyState
+      message="No results match these filters."
+    /><button class="btn-secondary" onclick={clearFilters}>Clear filters</button>
+  {:else}<EmptyState message="No metrics found. Send OTLP metrics to /v1/metrics" />{/if}
+{:else}
+  <table data-testid="metrics-table">
+    <thead>
       <tr>
-        <td colspan="5"
-          ><EmptyState message="No metrics found. Send OTLP metrics to /v1/metrics" /></td
-        >
+        <th>Time</th>
+        <th>Type</th>
+        <th>Name</th>
+        <th>Value</th>
+        <th>Service</th>
       </tr>
-    {:else}
+    </thead>
+    <tbody data-testid="metrics-body">
       {#each metrics as metric (metric.id)}
-        <tr class="trace-row">
-          <td>{formatTime(metric.timestamp)}</td>
+        <tr class="metric-row">
+          <td title={formatTimestamp(metric.timestamp)}>{formatTime(metric.timestamp)}</td>
           <td>
             <span class="metric-badge metric-{metric.metric_type || 'gauge'}">
               {metric.metric_type || 'gauge'}
             </span>
           </td>
           <td>{metric.name}</td>
-          <td><span class="metric-value">{formatValue(metric)}</span></td>
+          <td
+            ><span class="metric-value"
+              >{formatValue(metric)}{metric.unit ? ` ${metric.unit}` : ''}</span
+            ></td
+          >
           <td>
             {#if metric.service_name}
               <span class="service-badge">{metric.service_name}</span>
@@ -54,6 +58,6 @@
           </td>
         </tr>
       {/each}
-    {/if}
-  </tbody>
-</table>
+    </tbody>
+  </table>
+{/if}

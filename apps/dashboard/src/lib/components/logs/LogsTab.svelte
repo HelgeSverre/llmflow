@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { connectionStatus } from '$lib/stores/websocket.svelte'
+  import { selectedLogId, clearSelection } from '$lib/stores/logs.svelte'
+  import { logs } from '$lib/stores/logs.svelte'
+  import InvestigationLayout from '../shared/InvestigationLayout.svelte'
+  import RequestView from '$lib/components/shared/RequestView.svelte'
+  import { logsState } from '$lib/stores/logs.svelte'
   import { onMount } from 'svelte'
   import { createDebounce } from '$lib/utils/debounce'
   import LogsTable from './LogsTable.svelte'
@@ -14,6 +20,9 @@
   import { tabState } from '$lib/stores/tabs.svelte'
 
   let searchInput = $state('')
+  $effect(() => {
+    searchInput = logFilters.q
+  })
   const searchDebounce = createDebounce(300)
 
   function handleSearchInput(e: Event) {
@@ -67,6 +76,7 @@
   <input
     type="text"
     id="logSearchInput"
+    aria-label="Search logs"
     data-testid="logs-search"
     placeholder="Search logs... (press /)"
     value={searchInput}
@@ -74,6 +84,7 @@
   />
   <select
     id="logServiceFilter"
+    aria-label="Service"
     data-testid="logs-service-filter"
     value={logFilters.service_name}
     onchange={handleServiceChange}
@@ -85,6 +96,7 @@
   </select>
   <select
     id="logEventFilter"
+    aria-label="Event"
     data-testid="logs-event-filter"
     value={logFilters.event_name}
     onchange={handleEventChange}
@@ -96,6 +108,7 @@
   </select>
   <select
     id="logSeverityFilter"
+    aria-label="Severity"
     data-testid="logs-severity-filter"
     value={logFilters.severity_min == null ? '' : String(logFilters.severity_min)}
     onchange={handleSeverityChange}
@@ -112,13 +125,21 @@
     data-testid="logs-clear-filters"
     onclick={handleClear}
   >
-    Clear
+    Clear filters
   </button>
 </div>
 
-<div class="split-layout">
-  <div class="panel-left">
-    <LogsTable />
-  </div>
-  <LogDetail />
+<div class="view-status">
+  <span
+    >{logs.length} results · latest 100 matching records · Filters apply to this view · {connectionStatus.value ===
+    'connected'
+      ? 'Live'
+      : 'Disconnected · use Refresh'}</span
+  ><button class="btn-secondary" onclick={loadLogs}>Refresh</button>
 </div>
+<RequestView state={logsState} retry={loadLogs}>
+  <InvestigationLayout selected={!!selectedLogId.value} close={clearSelection}>
+    {#snippet list()}<LogsTable />{/snippet}
+    {#snippet detail()}<LogDetail />{/snippet}
+  </InvestigationLayout>
+</RequestView>

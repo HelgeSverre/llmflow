@@ -66,7 +66,7 @@ test('sessions refresh on activation and live updates include selected-session d
     const session = `qa-session-${crypto.randomUUID()}`
     const id = crypto.randomUUID()
     await page.goto('/#sessions')
-    await expect(page.getByRole('navigation', { name: 'Session pages' })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Search sessions' })).toBeVisible()
     await page.getByRole('button', { name: 'Timeline', exact: true }).click()
     await sendSpan(request, {
         id,
@@ -81,7 +81,7 @@ test('sessions refresh on activation and live updates include selected-session d
     await sendSpan(request, { id: crypto.randomUUID(), session_id: liveSession })
     await expect(page.getByText(liveSession, { exact: true })).toBeVisible()
     await page.getByText(session, { exact: true }).click()
-    await expect(page.locator('.session-detail .summary')).toContainText('1 spans')
+    await expect(page.locator('.session-detail .summary')).toContainText('1 span')
     await sendSpan(request, {
         id: crypto.randomUUID(),
         trace_id: id,

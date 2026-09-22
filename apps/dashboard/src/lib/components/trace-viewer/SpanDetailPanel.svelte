@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import Messages from './Messages.svelte'
-  import { formatLatency } from '$lib/utils/format'
+  import { formatLatency, formatExactCost, formatTimestamp } from '$lib/utils/format'
 
   interface Props {
     span: Record<string, unknown> | null
@@ -10,6 +11,19 @@
 
   type TabKey = 'attributes' | 'input' | 'output' | 'request' | 'response'
   let activeTab = $state<TabKey>('attributes')
+  let preferredTab = $state<TabKey | null>(null)
+  $effect(() => {
+    if (!span) return
+    const current = span
+    untrack(() => {
+      activeTab =
+        preferredTab && !isEmpty(tabContent(current, preferredTab))
+          ? preferredTab
+          : ((['input', 'output', 'request', 'response', 'attributes'] as TabKey[]).find(
+              (tab) => !isEmpty(tabContent(current, tab)),
+            ) ?? 'attributes')
+    })
+  })
   const activeBody = $derived(span ? tabContent(span, activeTab) : null)
 
   // gen_ai-style spans carry `input`/`output`; HTTP-proxy spans carry `request_body`/`response_body`
@@ -67,18 +81,24 @@
     <header>
       <div class="name">{span.name}</div>
       <div class="meta">
+        {#if span.error || Number(span.status) >= 400}<span class="failure-badge">Error</span
+          >{:else if span.has_child_error}<span class="failure-badge">Child error</span>{/if}
         <span>{span.span_type ?? '—'}</span>
         <span>·</span>
         <span>{formatLatency(span.duration_ms as number | null)}</span>
         {#if span.estimated_cost != null}
           <span>·</span>
-          <span>${(span.estimated_cost as number).toFixed(4)}</span>
+          <span>{formatExactCost(span.estimated_cost as number)}</span>
         {/if}
         {#if span.total_tokens != null}
           <span>·</span>
           <span>{span.total_tokens} tok</span>
         {/if}
       </div>
+      {#if span.error}<p role="status">{String(span.error)}</p>{/if}
+      {#if span.timestamp != null || span.start_time != null}<p class="meta">
+          {formatTimestamp(Number(span.timestamp ?? span.start_time))}
+        </p>{/if}
     </header>
     <nav class="tabs">
       {#each ['attributes', 'input', 'output', 'request', 'response'] as tab}
@@ -86,7 +106,11 @@
         <button
           class:active={activeTab === tab}
           class:muted={isEmpty(content)}
-          onclick={() => (activeTab = tab as TabKey)}
+          aria-current={activeTab === tab ? 'page' : undefined}
+          onclick={() => {
+            preferredTab = tab as TabKey
+            activeTab = tab as TabKey
+          }}
         >
           {tab}
         </button>
@@ -137,6 +161,7 @@
     margin-top: 4px;
     display: flex;
     gap: 6px;
+    flex-wrap: wrap;
   }
   .tabs {
     flex-shrink: 0;

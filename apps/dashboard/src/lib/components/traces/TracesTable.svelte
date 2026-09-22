@@ -1,6 +1,13 @@
 <script lang="ts">
+  import { traceFilters, clearFilters } from '$lib/stores/traces.svelte'
   import { traces, selectedTraceId, selectTrace, type Trace } from '$lib/stores/traces.svelte'
-  import { formatTime, formatNumber, formatCost, formatLatency } from '$lib/utils/format'
+  import {
+    formatTimestamp,
+    formatTime,
+    formatNumber,
+    formatCost,
+    formatLatency,
+  } from '$lib/utils/format'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
 
   function getSpanTypeClass(type?: string): string {
@@ -27,29 +34,28 @@
   }
 </script>
 
-<table data-testid="traces-table">
-  <thead>
-    <tr>
-      <th>Time</th>
-      <th>Type</th>
-      <th>Name</th>
-      <th>Model</th>
-      <th>Tokens</th>
-      <th>Cost</th>
-      <th>Latency</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody id="tracesBody" data-testid="traces-body">
-    {#if traces.length === 0}
+{#if traces.length === 0}
+  {#if Object.values(traceFilters).some(Boolean)}<EmptyState
+      message="No results match these filters."
+    /><button class="btn-secondary" onclick={clearFilters}>Clear filters</button>
+  {:else}<EmptyState
+      message="No traces found. Send requests through the proxy or ingest OTLP spans."
+    />{/if}
+{:else}
+  <table data-testid="traces-table">
+    <thead>
       <tr>
-        <td colspan="8"
-          ><EmptyState
-            message="No traces found. Send requests through the proxy or ingest OTLP spans."
-          /></td
-        >
+        <th>Time</th>
+        <th>Type</th>
+        <th>Name</th>
+        <th>Model</th>
+        <th>Tokens</th>
+        <th>Cost</th>
+        <th>Latency</th>
+        <th>Status</th>
       </tr>
-    {:else}
+    </thead>
+    <tbody id="tracesBody" data-testid="traces-body">
       {#each traces as trace (trace.id)}
         <tr
           class="trace-row"
@@ -61,7 +67,9 @@
           tabindex="0"
           role="button"
         >
-          <td data-testid="trace-time">{formatTime(trace.timestamp)}</td>
+          <td data-testid="trace-time" title={formatTimestamp(trace.timestamp)}
+            >{formatTime(trace.timestamp)}</td
+          >
           <td data-testid="trace-type">
             <span class="span-badge span-{getSpanTypeClass(trace.span_type)}">
               {trace.span_type || 'LLM'}
@@ -77,12 +85,14 @@
               <span class="status-error">Error</span>
             {:else if trace.status && trace.status >= 400}
               <span class="status-error">{trace.status}</span>
+            {:else if trace.has_child_error}
+              <span class="failure-badge">Child error</span>
             {:else}
               <span class="status-success">OK</span>
             {/if}
           </td>
         </tr>
       {/each}
-    {/if}
-  </tbody>
-</table>
+    </tbody>
+  </table>
+{/if}

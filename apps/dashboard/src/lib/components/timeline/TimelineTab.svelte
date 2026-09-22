@@ -1,4 +1,11 @@
 <script lang="ts">
+  import { connectionStatus } from '$lib/stores/websocket.svelte'
+  import { selectedItem, clearSelection } from '$lib/stores/timeline.svelte'
+  import { services, loadServices } from '$lib/stores/services.svelte'
+  import { timelineItems } from '$lib/stores/timeline.svelte'
+  import InvestigationLayout from '../shared/InvestigationLayout.svelte'
+  import RequestView from '$lib/components/shared/RequestView.svelte'
+  import { timelineState } from '$lib/stores/timeline.svelte'
   import { onMount } from 'svelte'
   import { createDebounce } from '$lib/utils/debounce'
   import TimelineList from './TimelineList.svelte'
@@ -12,6 +19,9 @@
   import { tabState } from '$lib/stores/tabs.svelte'
 
   let searchInput = $state('')
+  $effect(() => {
+    searchInput = timelineFilters.q
+  })
   const searchDebounce = createDebounce(300)
 
   function handleSearchInput(e: Event) {
@@ -41,6 +51,7 @@
   }
 
   onMount(() => {
+    loadServices()
     const unsubscribe = initTimelineSync()
     return () => {
       unsubscribe()
@@ -59,21 +70,25 @@
   <input
     type="text"
     id="timelineSearchInput"
+    aria-label="Search timeline"
     data-testid="timeline-search"
     placeholder="Search timeline... (press /)"
     value={searchInput}
     oninput={handleSearchInput}
   />
-  <input
+  <select
     id="toolFilter"
     data-testid="timeline-tool-filter"
     aria-label="Service"
-    placeholder="Service name (exact)"
     value={timelineFilters.tool}
-    oninput={handleToolChange}
-  />
+    onchange={handleToolChange}
+    ><option value="">All Services</option>{#each services.values as service}<option value={service}
+        >{service}</option
+      >{/each}</select
+  >
   <select
     id="timelineTypeFilter"
+    aria-label="Type"
     data-testid="timeline-type-filter"
     value={timelineFilters.type}
     onchange={handleTypeChange}
@@ -84,6 +99,7 @@
   </select>
   <select
     id="timelineDateFilter"
+    aria-label="Time range"
     data-testid="timeline-date-filter"
     value={timelineFilters.dateRange}
     onchange={handleDateChange}
@@ -99,13 +115,21 @@
     data-testid="timeline-clear-filters"
     onclick={handleClear}
   >
-    Clear
+    Clear filters
   </button>
 </div>
 
-<div class="split-layout">
-  <div class="panel-left">
-    <TimelineList />
-  </div>
-  <TimelineDetail />
+<div class="view-status">
+  <span
+    >{timelineItems.length} results · latest 100 matching records · Filters apply to this view · {connectionStatus.value ===
+    'connected'
+      ? 'Live'
+      : 'Disconnected · use Refresh'}</span
+  ><button class="btn-secondary" onclick={loadTimeline}>Refresh</button>
 </div>
+<RequestView state={timelineState} retry={loadTimeline}>
+  <InvestigationLayout selected={!!selectedItem.value} close={clearSelection}>
+    {#snippet list()}<TimelineList />{/snippet}
+    {#snippet detail()}<TimelineDetail />{/snippet}
+  </InvestigationLayout>
+</RequestView>

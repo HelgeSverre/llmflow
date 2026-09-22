@@ -249,6 +249,8 @@ the bundled `dist/server.js` in npm installations (source in an unbuilt checkout
 
 ---
 
+For filtering, trace inspection, session navigation and value conventions, see the [dashboard guide](docs/guides/dashboard.md).
+
 ## Advanced Features
 
 For advanced usage, see the [docs/](docs/) folder:

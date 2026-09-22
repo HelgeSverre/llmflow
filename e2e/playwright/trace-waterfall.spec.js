@@ -127,9 +127,11 @@ for (const width of [1440, 1000, 390]) {
         await page.screenshot({ path: testInfo.outputPath(`trace-${width}-dark.png`) })
 
         // Switching traces must discard the old descendants and selection.
+        await page.getByRole('button', { name: 'Back to list', exact: false }).click()
+        await page.getByTestId('traces-search').fill('E2E Search Target')
         await page.locator('[data-trace-id="trace-e2e-search-hit"]').click()
         await expect(panel.getByRole('treeitem')).toHaveCount(1)
-        await expect(panel.locator('.detail-panel')).toHaveText('Select a span to see its details.')
+        await expect(panel.locator('.detail-panel .name')).toHaveText('E2E Search Target')
     })
 }
 

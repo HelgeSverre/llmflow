@@ -39,6 +39,7 @@
         data-testid="theme-toggle"
         onclick={toggleTheme}
         title="Toggle dark mode"
+        aria-label="Toggle dark mode"
       >
         <svg
           class="icon-moon"
@@ -69,11 +70,12 @@
       </button>
     </div>
     <div class="stats-bar" data-testid="stats-bar">
+      <span class="scope-label">All time · all services</span>
       <div class="stat" data-testid="stat-traces">
         <span class="stat-value" data-testid="total-requests"
           >{formatNumber(stats.total_requests)}</span
         >
-        <span class="stat-label">Traces</span>
+        <span class="stat-label">Spans</span>
       </div>
       <div class="stat" data-testid="stat-tokens">
         <span class="stat-value" data-testid="total-tokens">{formatNumber(stats.total_tokens)}</span

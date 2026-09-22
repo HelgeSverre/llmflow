@@ -1,3 +1,4 @@
+import { createLoadState } from './load-state.svelte'
 import type { Log } from './logs.svelte'
 import type { TraceDetail } from './traces.svelte'
 import { api } from '$lib/api/client'
@@ -18,7 +19,7 @@ export interface TimelineItem {
   tokens?: number
   cost?: number
   severity_text?: string
-  data?: unknown
+  data?: Record<string, unknown>
 }
 
 export interface TimelineFilters {
@@ -59,10 +60,13 @@ function getDateRange(range: string): number | null {
 }
 
 let listRequest = 0
+export const timelineState = createLoadState()
+
 export async function loadTimeline() {
   if (tabState.current !== 'timeline') return
   const request = ++listRequest
 
+  timelineState.loading = true
   try {
     const params = new URLSearchParams({ limit: '100' })
     if (timelineFilters.q) params.set('q', timelineFilters.q)
@@ -76,8 +80,12 @@ export async function loadTimeline() {
     if (request !== listRequest) return
     timelineItems.length = 0
     timelineItems.push(...(data || []))
+    timelineState.loaded = true
+    timelineState.error = ''
   } catch (e) {
-    console.error('Failed to load timeline:', e)
+    if (request === listRequest) timelineState.error = 'Could not load timeline.'
+  } finally {
+    if (request === listRequest) timelineState.loading = false
   }
 }
 

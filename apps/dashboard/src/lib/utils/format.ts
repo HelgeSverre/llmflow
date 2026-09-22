@@ -37,3 +37,15 @@ export function formatLatency(ms: number | null | undefined): string {
   if (ms < 1000) return Math.round(ms) + 'ms'
   return (ms / 1000).toFixed(1) + 's'
 }
+
+export function formatExactCost(value: number | null | undefined): string {
+  if (value == null) return '—'
+  if (value !== 0 && Math.abs(value) < 0.00000001) return '<$0.00000001'
+  return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+}
+export function formatTimestamp(value: number): string {
+  return new Date(value).toLocaleString('en-US', { timeZoneName: 'short' })
+}
+export function plural(value: number, noun: string): string {
+  return `${value.toLocaleString()} ${noun}${value === 1 ? '' : 's'}`
+}

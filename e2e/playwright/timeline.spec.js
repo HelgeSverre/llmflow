@@ -45,9 +45,11 @@ test.describe('Timeline Tab', () => {
         expect(content).toBeDefined()
     })
 
-    test('service filter accepts arbitrary names', async ({ page }) => {
-        await page.getByRole('textbox', { name: 'Service', exact: true }).fill('custom-service')
-        await expect(page.getByTestId('timeline-tool-filter')).toHaveValue('custom-service')
+    test('service filter offers captured service names', async ({ page }) => {
+        await page
+            .getByRole('combobox', { name: 'Service', exact: true })
+            .selectOption('timeline-test')
+        await expect(page.getByTestId('timeline-tool-filter')).toHaveValue('timeline-test')
     })
 
     test('type filter shows only traces', async ({ page }) => {

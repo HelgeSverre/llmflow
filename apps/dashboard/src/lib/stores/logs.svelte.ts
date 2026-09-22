@@ -1,3 +1,4 @@
+import { createLoadState } from './load-state.svelte'
 import { api } from '$lib/api/client'
 import { onMessage } from './websocket.svelte'
 import { tabState } from './tabs.svelte'
@@ -43,8 +44,11 @@ export const filterOptions = $state<FilterOptions>({
 })
 
 let listRequest = 0
+export const logsState = createLoadState()
+
 export async function loadLogs() {
   const request = ++listRequest
+  logsState.loading = true
   try {
     const params = new URLSearchParams({ limit: '100' })
     if (logFilters.q) params.set('q', logFilters.q)
@@ -56,8 +60,12 @@ export async function loadLogs() {
     if (request !== listRequest) return
     logs.length = 0
     logs.push(...(data.logs || []))
+    logsState.loaded = true
+    logsState.error = ''
   } catch (e) {
-    if (request === listRequest) console.error('Failed to load logs:', e)
+    if (request === listRequest) logsState.error = 'Could not load logs.'
+  } finally {
+    if (request === listRequest) logsState.loading = false
   }
 }
 
@@ -72,18 +80,26 @@ export async function loadFilterOptions() {
 }
 
 let selectionRequest = 0
+export const logsDetailState = createLoadState()
+
 export async function selectLog(id: string) {
   const request = ++selectionRequest
   selectedLogId.value = id
   selectedLog.value = null
+  logsDetailState.loading = true
+  logsDetailState.loaded = false
+  logsDetailState.error = ''
   try {
     const log = await api.get<Log>(`/api/logs/${encodeURIComponent(id)}`)
     if (request !== selectionRequest) return
     selectedLog.value = log
+    logsDetailState.loaded = true
   } catch (e) {
     if (request !== selectionRequest) return
-    console.error('Failed to load log:', e)
+    if (request === selectionRequest) logsDetailState.error = 'Could not load this log.'
     selectedLog.value = null
+  } finally {
+    if (request === selectionRequest) logsDetailState.loading = false
   }
 }
 

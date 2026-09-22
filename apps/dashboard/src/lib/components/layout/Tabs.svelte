@@ -12,9 +12,10 @@
   }
 </script>
 
-<div class="tabs" data-testid="tabs">
+<nav aria-label="Dashboard views" class="tabs" data-testid="tabs">
   {#each validTabs as tab}
     <button
+      aria-current={tabState.current === tab ? 'page' : undefined}
       class="tab"
       class:active={tabState.current === tab}
       data-testid="tab-{tab}"
@@ -23,4 +24,4 @@
       {tabLabels[tab]}
     </button>
   {/each}
-</div>
+</nav>

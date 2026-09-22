@@ -11,10 +11,9 @@
   import SessionList from './SessionList.svelte'
   import SessionDetail from './SessionDetail.svelte'
 
-  let view = $state<'list' | 'detail'>('list')
-
   function refresh() {
-    if (view === 'detail' && sessionsState.selectedId) void loadSession(sessionsState.selectedId)
+    if (sessionsState.view === 'detail' && sessionsState.selectedId)
+      void loadSession(sessionsState.selectedId)
     else void loadSessions()
   }
 
@@ -24,10 +23,6 @@
     if (tabState.current === 'sessions') untrack(refresh)
   })
 
-  function openSession(_id: string) {
-    view = 'detail'
-  }
-
   function openTrace(traceId: string) {
     setTab('traces')
     void selectTrace(traceId)
@@ -35,13 +30,33 @@
 </script>
 
 <div class="sessions-tab">
-  {#if view === 'list'}
-    <SessionList onSelect={openSession} />
+  {#if sessionsState.view === 'list'}
+    <div class="filter-bar">
+      <input
+        type="text"
+        aria-label="Search sessions"
+        placeholder="Search session, trace name, agent or service"
+        value={sessionsState.q}
+        oninput={(event) => {
+          sessionsState.q = event.currentTarget.value
+          void loadSessions(50, 0)
+        }}
+      /><button
+        class="btn-secondary"
+        onclick={() => {
+          sessionsState.q = ''
+          void loadSessions(50, 0)
+        }}>Clear filters</button
+      ><button class="btn-secondary" onclick={refresh}>Refresh</button><span
+        >All time · updates live while open</span
+      >
+    </div>
+    <SessionList />
   {:else}
     <button
       class="back"
       onclick={() => {
-        view = 'list'
+        sessionsState.view = 'list'
         void loadSessions()
       }}>← back to sessions</button
     >
@@ -60,6 +75,6 @@
     padding: 8px 16px;
     cursor: pointer;
     font-size: 12px;
-    color: var(--muted);
+    color: var(--text-tertiary);
   }
 </style>

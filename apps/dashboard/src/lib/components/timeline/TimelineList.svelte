@@ -1,11 +1,13 @@
 <script lang="ts">
   import {
+    timelineFilters,
+    clearFilters,
     timelineItems,
     selectedItem,
     selectTimelineItem,
     type TimelineItem,
   } from '$lib/stores/timeline.svelte'
-  import { formatTime, formatLatency, formatCost } from '$lib/utils/format'
+  import { formatTimestamp, formatTime, formatLatency, formatCost } from '$lib/utils/format'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
 
   function getTypeClass(type: string): string {
@@ -33,7 +35,12 @@
 
 <div class="timeline-list" data-testid="timeline-list">
   {#if timelineItems.length === 0}
-    <EmptyState message="No timeline items. Send requests through the proxy or OTLP endpoints." />
+    {#if Object.values(timelineFilters).some(Boolean)}<EmptyState
+        message="No results match these filters."
+      /><button class="btn-secondary" onclick={clearFilters}>Clear filters</button
+      >{:else}<EmptyState
+        message="No timeline items. Send requests through the proxy or OTLP endpoints."
+      />{/if}
   {:else}
     {#each timelineItems as item (item.id + item.type)}
       <div
@@ -47,10 +54,14 @@
       >
         <div class="timeline-item-header">
           <span class="span-badge span-{getTypeClass(item.type)}">{item.type}</span>
-          <span class="timeline-item-time">{formatTime(item.timestamp)}</span>
+          <span class="timeline-item-time" title={formatTimestamp(item.timestamp)}
+            >{formatTime(item.timestamp)}</span
+          >
         </div>
+        {#if item.data?.error || Number(item.status) >= 400}<span class="failure-badge">Error</span
+          >{:else if item.data?.has_child_error}<span class="failure-badge">Child error</span>{/if}
         <div class="timeline-item-title">{item.title}</div>
-        {#if item.subtitle}
+        {#if item.subtitle && item.subtitle !== item.service_name}
           <div class="timeline-item-subtitle">{item.subtitle}</div>
         {/if}
         <div class="timeline-item-meta">
@@ -106,6 +117,9 @@
   }
 
   .timeline-item-title {
+    max-height: 3.9em;
+    line-height: 1.3;
+    overflow: hidden;
     overflow-wrap: anywhere;
     font-weight: 500;
     font-size: 13px;

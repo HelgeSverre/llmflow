@@ -1,9 +1,12 @@
+import { createLoadState } from './load-state.svelte'
 import { api } from '$lib/api/client'
 import { onMessage } from './websocket.svelte'
 import { tabState } from './tabs.svelte'
 import type { TraceTree, TraceTreeSpan } from '$lib/trace/tree'
 
 export interface Trace {
+  has_child_error?: boolean
+  session_id?: string
   trace_id?: string
   input?: unknown
   output?: unknown
@@ -45,6 +48,9 @@ export interface TraceFilters {
   q: string
   model: string
   status: string
+  service_name: string
+  dateFrom?: number
+  dateTo?: number
   dateRange: string
 }
 
@@ -59,6 +65,7 @@ export const traceFilters = $state<TraceFilters>({
   q: '',
   model: '',
   status: '',
+  service_name: '',
   dateRange: '',
 })
 export const filterOptions = $state<TraceFilterOptions>({
@@ -85,25 +92,38 @@ function getDateRange(range: string): number | null {
 
 let listGeneration = 0
 
+export const tracesState = createLoadState()
+
 export async function loadTraces() {
   const generation = ++listGeneration
   if (tabState.current !== 'traces') return
 
+  tracesState.loading = true
   try {
     const params = new URLSearchParams({ limit: '50' })
     if (traceFilters.q) params.set('q', traceFilters.q)
     if (traceFilters.model) params.set('model', traceFilters.model)
     if (traceFilters.status) params.set('status', traceFilters.status)
 
-    const from = getDateRange(traceFilters.dateRange)
+    const from =
+      traceFilters.dateRange === 'custom'
+        ? traceFilters.dateFrom
+        : getDateRange(traceFilters.dateRange)
+    if (traceFilters.service_name) params.set('service_name', traceFilters.service_name)
+    if (traceFilters.dateRange === 'custom' && traceFilters.dateTo)
+      params.set('date_to', String(traceFilters.dateTo))
     if (from) params.set('date_from', String(from))
 
     const data = await api.get<Trace[]>(`/api/traces?${params}`)
     if (generation !== listGeneration || tabState.current !== 'traces') return
     traces.length = 0
     traces.push(...(data || []))
+    tracesState.loaded = true
+    tracesState.error = ''
   } catch (e) {
-    console.error('Failed to load traces:', e)
+    if (generation === listGeneration) tracesState.error = 'Could not load traces.'
+  } finally {
+    if (generation === listGeneration) tracesState.loading = false
   }
 }
 
@@ -118,10 +138,15 @@ export async function loadFilterOptions() {
 
 let selectionGeneration = 0
 
+export const tracesDetailState = createLoadState()
+
 export async function selectTrace(id: string) {
   const generation = ++selectionGeneration
   selectedTraceId.value = id
   selectedTrace.value = null
+  tracesDetailState.loading = true
+  tracesDetailState.loaded = false
+  tracesDetailState.error = ''
   try {
     const [detail, tree] = await Promise.all([
       api.get<TraceDetail>(`/api/traces/${id}`),
@@ -129,9 +154,12 @@ export async function selectTrace(id: string) {
     ])
     if (selectionGeneration !== generation) return
     selectedTrace.value = { ...detail, spans: tree.spans, partial: tree.trace?.partial }
+    tracesDetailState.loaded = true
   } catch (e) {
-    console.error('Failed to load trace:', e)
+    if (selectionGeneration === generation) tracesDetailState.error = 'Could not load this trace.'
     if (selectionGeneration === generation) selectedTrace.value = null
+  } finally {
+    if (selectionGeneration === generation) tracesDetailState.loading = false
   }
 }
 
@@ -146,6 +174,9 @@ export function clearFilters() {
   traceFilters.model = ''
   traceFilters.status = ''
   traceFilters.dateRange = ''
+  traceFilters.service_name = ''
+  traceFilters.dateFrom = undefined
+  traceFilters.dateTo = undefined
   loadTraces()
 }
 

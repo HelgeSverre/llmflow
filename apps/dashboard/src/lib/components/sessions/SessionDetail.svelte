@@ -1,43 +1,64 @@
 <script lang="ts">
-  import { sessionsState } from '$lib/stores/sessions.svelte'
+  import CopyButton from '../shared/CopyButton.svelte'
+  import { formatTime, formatTimestamp, formatExactCost, plural } from '$lib/utils/format'
+  import { sessionsState, loadSession } from '$lib/stores/sessions.svelte'
 
   interface Props {
     onOpenTrace: (traceId: string) => void
   }
 
   let { onOpenTrace }: Props = $props()
-
-  function fmt(ms: number) {
-    return new Date(ms).toLocaleTimeString()
-  }
 </script>
 
+{#if sessionsState.error}<p role="alert">
+    {sessionsState.error}<button
+      class="btn-secondary"
+      onclick={() => sessionsState.selectedId && loadSession(sessionsState.selectedId)}
+      >Retry</button
+    >
+  </p>{/if}
 {#if sessionsState.selected}
   <div class="session-detail">
     <header>
-      <h2>Session <span class="mono">{sessionsState.selected.session_id}</span></h2>
+      <h2>
+        {sessionsState.selected.traces[0]?.name ||
+          sessionsState.selected.traces[0]?.service_name ||
+          'Session'}
+      </h2>
+      <p class="mono">Session {sessionsState.selected.session_id}</p>
+      <CopyButton value={sessionsState.selected.session_id} label="session ID" />
       <div class="summary">
-        {sessionsState.selected.traces.length} traces ·
-        {sessionsState.selected.summary.spans} spans ·
-        {sessionsState.selected.summary.tokens.toLocaleString()} tokens · ${sessionsState.selected.summary.cost.toFixed(
-          4,
+        {plural(sessionsState.selected.traces.length, 'trace')} ·
+        {plural(sessionsState.selected.summary.spans, 'span')} ·
+        {plural(sessionsState.selected.summary.tokens, 'token')} · {formatExactCost(
+          sessionsState.selected.summary.cost,
         )}
         {#if sessionsState.selected.summary.errors > 0}
-          · <span class="error">{sessionsState.selected.summary.errors} errors</span>
-        {/if}
+          · <span class="error"
+            >{plural(sessionsState.selected.summary.errors, 'trace')} with errors</span
+          >{/if}
       </div>
     </header>
     <ol class="trace-list">
       {#each sessionsState.selected.traces as t (t.trace_id)}
         <li>
           <button type="button" onclick={() => onOpenTrace(t.root_span_id)}>
-            <span class="time">{fmt(t.started_at)}</span>
-            <span class="trace-id mono">{t.trace_id.slice(0, 8)}…</span>
-            <span class="spans">{t.span_count} spans</span>
-            <span class="cost">${t.cost.toFixed(4)}</span>
+            <span class="time" title={formatTimestamp(t.started_at)}
+              >{formatTime(t.started_at)}</span
+            >
+            <span class="trace-id mono">{t.name || t.service_name || t.trace_id}</span>
+            <span>{t.service_name || 'Service not supplied'}</span>
+            <span class="spans">{plural(t.span_count, 'span')}</span>
+            <span class="cost">{formatExactCost(t.cost)}</span>
             {#if t.has_error}
               <span class="err">error</span>{/if}
           </button>
+          <div class="trace-actions">
+            <CopyButton value={t.trace_id} label="trace ID" />{#if t.error_span_id}<button
+                class="btn-secondary"
+                onclick={() => onOpenTrace(t.error_span_id!)}>View failed span</button
+              >{/if}
+          </div>
         </li>
       {/each}
     </ol>
@@ -47,6 +68,16 @@
 {/if}
 
 <style>
+  header h2,
+  .trace-id {
+    overflow-wrap: anywhere;
+  }
+  .trace-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px;
+  }
   .session-detail {
     padding: 16px;
     font-family: inherit;
@@ -67,14 +98,14 @@
     padding: 0;
     margin-top: 16px;
   }
-  .trace-list button {
+  .trace-list > li > button {
     width: 100%;
     border: 0;
     background: transparent;
     color: inherit;
     text-align: left;
     display: grid;
-    grid-template-columns: 80px 100px 1fr 80px auto;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     padding: 8px;
     cursor: pointer;

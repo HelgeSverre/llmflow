@@ -51,6 +51,8 @@
       <span class="caret-spacer"></span>
     {/if}
     <span class="span-name" title={row.name}>{row.name}</span>
+    {#if row.error || Number(row.status) >= 400}<span class="failure-badge">Error</span
+      >{:else if row.has_child_error}<span class="failure-badge">Child error</span>{/if}
     <span class="span-type">{row.span_type ?? ''}</span>
   </div>
   <div class="bar-col">
@@ -98,7 +100,14 @@
     display: inline-block;
     width: 16px;
   }
+  @container (max-width: 500px) {
+    .span-type {
+      display: none;
+    }
+  }
   .span-name {
+    min-width: 0;
+    flex: 1;
     font-family: var(--font-mono, ui-monospace, monospace);
     white-space: nowrap;
     text-overflow: ellipsis;

@@ -19,72 +19,9 @@ const credentials: Record<string, string[]> = {
 export async function replayTrace(id: string, signal: AbortSignal): Promise<Response> {
     const trace = db.getTraceById(id) as Record<string, unknown> | null
     if (!trace) return Response.json({ error: 'Trace not found' }, { status: 404 })
-    const path = String(trace.request_path || '')
-    const body = safeJson(trace.request_body, null) as Record<string, unknown> | null
-    if (
-        trace.request_method !== 'POST' ||
-        !path.startsWith('/') ||
-        path.startsWith('/passthrough/')
-    ) {
-        return Response.json(
-            {
-                error: 'Replay supports captured POST requests through the normalized provider proxy. Native passthrough and telemetry-only spans cannot be replayed.',
-            },
-            { status: 400 },
-        )
-    }
-    if (
-        !body ||
-        typeof body !== 'object' ||
-        Array.isArray(body) ||
-        !Object.keys(body).length ||
-        body._truncated
-    ) {
-        return Response.json(
-            {
-                error: 'The request body is missing or incomplete. Capture the original request through the proxy again.',
-            },
-            { status: 400 },
-        )
-    }
-    const url = new URL(path, 'http://localhost')
-    if ([...url.searchParams.values()].includes('[REDACTED]')) {
-        return Response.json(
-            {
-                error: 'The captured URL contains redacted parameters. Replay this request from the original client with fresh parameters.',
-            },
-            { status: 400 },
-        )
-    }
-    const stored = safeJson(trace.request_headers, {}) as Record<string, string>
-    const headers = new Headers({ 'content-type': 'application/json' })
-    for (const name of [
-        'x-llmflow-provider',
-        'x-azure-resource',
-        'x-llmflow-azure-resource',
-        'anthropic-version',
-        'anthropic-beta',
-        'openai-organization',
-        'openai-project',
-    ]) {
-        if (stored[name] && stored[name] !== '[REDACTED]') headers.set(name, stored[name])
-    }
-    const { provider } = registry.resolve({
-        path: url.pathname,
-        headers: Object.fromEntries(headers),
-    })
-    if (provider.name !== 'ollama') {
-        const variables = credentials[provider.name]
-        const key = variables?.map((name) => process.env[name]).find(Boolean)
-        if (!key)
-            return Response.json(
-                {
-                    error: `Set ${variables?.join(' or ') || 'the provider API key'} in the LLMFlow server environment and restart to replay this request.`,
-                },
-                { status: 400 },
-            )
-        headers.set('authorization', `Bearer ${key}`)
-    }
+    const prepared = prepareReplay(trace)
+    if ('error' in prepared) return Response.json({ error: prepared.error }, { status: 400 })
+    const { url, body, headers } = prepared
     const traceId = crypto.randomUUID().replaceAll('-', '')
     headers.set('x-trace-id', traceId)
     const request = new Request(url, {
@@ -110,4 +47,70 @@ export async function replayTrace(id: string, signal: AbortSignal): Promise<Resp
             { status: 502 },
         )
     return Response.json({ id: rows[0].id })
+}
+
+function prepareReplay(trace: Record<string, unknown>) {
+    const path = String(trace.request_path || '')
+    const body = safeJson(trace.request_body, null) as Record<string, unknown> | null
+    if (
+        trace.request_method !== 'POST' ||
+        !path.startsWith('/') ||
+        path.startsWith('/passthrough/')
+    ) {
+        return {
+            error: 'Replay supports captured POST requests through the normalized provider proxy. Native passthrough and telemetry-only spans cannot be replayed.',
+        }
+    }
+    if (
+        !body ||
+        typeof body !== 'object' ||
+        Array.isArray(body) ||
+        !Object.keys(body).length ||
+        body._truncated
+    ) {
+        return {
+            error: 'The request body is missing or incomplete. Capture the original request through the proxy again.',
+        }
+    }
+    const url = new URL(path, 'http://localhost')
+    if ([...url.searchParams.values()].includes('[REDACTED]')) {
+        return {
+            error: 'The captured URL contains redacted parameters. Replay this request from the original client with fresh parameters.',
+        }
+    }
+    const stored = safeJson(trace.request_headers, {}) as Record<string, string>
+    const headers = new Headers({ 'content-type': 'application/json' })
+    for (const name of [
+        'x-llmflow-provider',
+        'x-azure-resource',
+        'x-llmflow-azure-resource',
+        'anthropic-version',
+        'anthropic-beta',
+        'openai-organization',
+        'openai-project',
+    ]) {
+        if (stored[name] && stored[name] !== '[REDACTED]') headers.set(name, stored[name])
+    }
+    const { provider } = registry.resolve({
+        path: url.pathname,
+        headers: Object.fromEntries(headers),
+    })
+    if (provider.name !== 'ollama') {
+        const variables = credentials[provider.name]
+        const key = variables?.map((name) => process.env[name]).find(Boolean)
+        if (!key)
+            return {
+                error: `Set ${variables?.join(' or ') || 'the provider API key'} in the LLMFlow server environment and restart to replay this request.`,
+            }
+        headers.set('authorization', `Bearer ${key}`)
+    }
+    return { url, body, headers }
+}
+export function replayUnavailableReason(trace: Record<string, unknown>): string | null {
+    try {
+        const prepared = prepareReplay(trace)
+        return 'error' in prepared ? prepared.error! : null
+    } catch {
+        return 'The captured request is malformed and cannot be replayed.'
+    }
 }

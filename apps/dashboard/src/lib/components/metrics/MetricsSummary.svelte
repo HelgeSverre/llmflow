@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { metricsSummary, type MetricSummary } from '$lib/stores/metrics.svelte'
+  import { metricsSummary, metricFilters, type MetricSummary } from '$lib/stores/metrics.svelte'
 
   function formatMetricValue(m: MetricSummary): string {
     const value =
@@ -15,7 +15,7 @@
 
 {#if metricsSummary.length > 0}
   <div class="metrics-summary" data-testid="metrics-summary">
-    {#each metricsSummary.slice(0, 8) as m (JSON.stringify( [m.name, m.service_name, m.metric_type], ))}
+    {#each metricsSummary.slice(0, 8) as m (JSON.stringify( [m.name, m.service_name, m.metric_type, m.unit], ))}
       <div class="metric-card">
         <div class="metric-card-header">
           <span class="metric-card-name" title={m.name}>{m.name}</span>
@@ -23,17 +23,29 @@
             >{m.metric_type || 'gauge'}</span
           >
         </div>
-        <div class="metric-card-value">{formatMetricValue(m)}</div>
+        <div class="metric-card-value">
+          {formatMetricValue(m)}
+          {m.metric_type === 'histogram' ? 'observations' : m.unit || ''}
+        </div>
         <div class="metric-card-meta">
           <span
             >{m.metric_type === 'histogram'
               ? 'Observations'
               : m.metric_type === 'gauge'
                 ? 'Average'
-                : 'Total'} · {m.data_points} data points</span
+                : 'Sum of recorded values'} · {m.data_points} data points</span
           >
+          <span>All time · {m.unit ? `unit: ${m.unit}` : 'unit not supplied'}</span>
           <span>{m.service_name || 'unknown'}</span>
         </div>
+        <button
+          class="btn-secondary"
+          onclick={() => {
+            metricFilters.name = m.name
+            metricFilters.service_name = m.service_name || ''
+            metricFilters.metric_type = m.metric_type
+          }}>View measurements</button
+        >
       </div>
     {/each}
   </div>

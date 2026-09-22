@@ -7,6 +7,7 @@ test('Timeline filters fetch once and Clear cancels pending search', async ({ pa
         queries.push(new URL(route.request().url()).searchParams)
         await route.fulfill({ json: [] })
     })
+    await page.route('**/api/services', (route) => route.fulfill({ json: ['custom-service'] }))
     await page.goto('/#timeline')
     await expect.poll(() => queries.length).toBe(1)
     await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'))
@@ -23,7 +24,7 @@ test('Timeline filters fetch once and Clear cancels pending search', async ({ pa
         (query) => expect(query.get('type')).toBe('log'),
     )
     await change(
-        () => page.getByTestId('timeline-tool-filter').fill('custom-service'),
+        () => page.getByTestId('timeline-tool-filter').selectOption('custom-service'),
         (query) => expect(query.get('tool')).toBe('custom-service'),
     )
     await change(

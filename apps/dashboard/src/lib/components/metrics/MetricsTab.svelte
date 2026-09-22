@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { connectionStatus } from '$lib/stores/websocket.svelte'
+  import { metrics } from '$lib/stores/metrics.svelte'
+  import RequestView from '$lib/components/shared/RequestView.svelte'
+  import { metricsState, metricSummaryState } from '$lib/stores/metrics.svelte'
   import { onMount } from 'svelte'
   import MetricsSummary from './MetricsSummary.svelte'
   import MetricsTable from './MetricsTable.svelte'
@@ -45,6 +49,7 @@
 <div class="filter-bar" data-testid="metrics-filters">
   <select
     id="metricNameFilter"
+    aria-label="Metric"
     data-testid="metrics-name-filter"
     value={metricFilters.name}
     onchange={handleNameChange}
@@ -56,6 +61,7 @@
   </select>
   <select
     id="metricServiceFilter"
+    aria-label="Service"
     data-testid="metrics-service-filter"
     value={metricFilters.service_name}
     onchange={handleServiceChange}
@@ -67,6 +73,7 @@
   </select>
   <select
     id="metricTypeFilter"
+    aria-label="Type"
     data-testid="metrics-type-filter"
     value={metricFilters.metric_type}
     onchange={handleTypeChange}
@@ -82,13 +89,30 @@
     data-testid="metrics-clear-filters"
     onclick={handleClear}
   >
-    Clear
+    Clear filters
   </button>
 </div>
 
-<div class="metrics-layout">
-  <MetricsSummary />
-  <div class="metrics-table-container">
-    <MetricsTable />
-  </div>
+<div class="view-status">
+  <span
+    >{metrics.length} results · latest 100 matching records · Filters apply to this view · All time ·
+    {connectionStatus.value === 'connected' ? 'Live' : 'Disconnected · use Refresh'}</span
+  ><button
+    class="btn-secondary"
+    onclick={() => {
+      loadMetrics()
+      loadMetricsSummary()
+      loadFilterOptions()
+    }}>Refresh</button
+  >
 </div>
+<RequestView state={metricsState} retry={loadMetrics}>
+  <div class="metrics-layout">
+    <RequestView state={metricSummaryState} retry={loadMetricsSummary}
+      ><MetricsSummary /></RequestView
+    >
+    <div class="metrics-table-container">
+      <MetricsTable />
+    </div>
+  </div>
+</RequestView>

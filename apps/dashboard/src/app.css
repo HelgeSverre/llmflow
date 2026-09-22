@@ -1164,3 +1164,143 @@ pre {
     flex-wrap: wrap;
   }
 }
+
+/* Preserve the list while giving inspection enough room to read. */
+.request-notice,
+.view-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.request-notice {
+  border: 1px solid var(--error);
+}
+.request-progress {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+}
+.view-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.failure-badge {
+  color: var(--error);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 1px 4px;
+  white-space: nowrap;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.investigation:not(.has-selection) > .panel-left {
+  width: 100% !important;
+  max-width: none;
+  resize: none;
+  flex: 1;
+}
+.inspector {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.inspector > .panel-right {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+.back-to-list {
+  align-self: flex-start;
+  margin: 8px;
+  flex-shrink: 0;
+}
+.investigation.has-selection > .panel-left {
+  width: 32%;
+  min-width: 280px;
+}
+.investigation.has-selection .panel-left table thead {
+  display: none;
+}
+.investigation.has-selection .panel-left table tbody {
+  display: block;
+}
+.investigation.has-selection .panel-left table tr {
+  display: flex;
+  flex-wrap: wrap;
+}
+.investigation.has-selection .panel-left table tr {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-primary);
+}
+.investigation.has-selection .panel-left table td {
+  display: inline-block;
+  border: 0;
+  width: auto;
+  padding: 4px;
+}
+.investigation.has-selection .panel-left table td:nth-child(3) {
+  display: block;
+  font-weight: 600;
+  order: -1;
+  width: 100%;
+}
+.investigation.has-selection .panel-left table td:nth-child(n + 4):not(:last-child) {
+  display: none;
+}
+:where(button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+@media (max-width: 900px) {
+  .investigation.has-selection > .panel-left {
+    display: none;
+  }
+  .investigation {
+    flex-direction: column;
+  }
+  .investigation:not(.has-selection) > .panel-left {
+    max-height: none;
+    min-width: 0;
+  }
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+  .filter-bar input,
+  .filter-bar select {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .sessions-table {
+    table-layout: fixed;
+  }
+  .sessions-table td,
+  .sessions-table th {
+    overflow-wrap: anywhere;
+    padding: 6px;
+  }
+  .sessions-table th:nth-child(4),
+  .sessions-table td:nth-child(4) {
+    display: none;
+  }
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.investigation.has-selection [data-testid='logs-table'] td:last-child {
+  order: -2;
+  width: 100%;
+  font-weight: 600;
+}
+.investigation.has-selection [data-testid='logs-table'] td:nth-child(3) {
+  order: 0;
+  width: auto;
+  font-weight: 400;
+}

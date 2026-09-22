@@ -1,0 +1,18 @@
+LLMFlow
+18
+TRACES
+8.4K
+TOKENS
+$0.06
+COST
+907ms
+AVG LATENCY
+Timeline
+Traces
+Sessions
+Logs
+Metrics
+Models
+Analytics
+No model data yet. Send requests through the proxy to see model statistics.
+["Failed to load resource: net::ERR_FAILED","Failed to load trace filter options: TypeError: Failed to fetch\n    at Object.get (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:2:5911)\n    at ta (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:2:9108)\n    at http://127.0.0.1:49217/assets/index-BLY1_Bja.js:4:25726\n    at mr (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:27229)\n    at http://127.0.0.1:49217/assets/index-BLY1_Bja.js:2:5034\n    at cr (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:25145)\n    at dr (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:26229)\n    at xt (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:9974)\n    at #_ (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:5891)\n    at e.flush (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:7361)","Failed to load resource: net::ERR_FAILED","Failed to load models: TypeError: Failed to fetch\n    at Object.get (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:2:5911)\n    at Ia (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:2:13149)\n    at http://127.0.0.1:49217/assets/index-BLY1_Bja.js:4:38348\n    at mr (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:27229)\n    at http://127.0.0.1:49217/assets/index-BLY1_Bja.js:2:5034\n    at cr (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:25145)\n    at dr (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:26229)\n    at xt (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:9974)\n    at #_ (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:5891)\n    at e.flush (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:7361)","Failed to load resource: net::ERR_FAILED","Failed to load models: TypeError: Failed to fetch\n    at Object.get (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:2:5911)\n    at Ia (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:2:13149)\n    at http://127.0.0.1:49217/assets/index-BLY1_Bja.js:4:38385\n    at cr (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:25145)\n    at dr (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:26229)\n    at xt (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:9974)\n    at #_ (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:5891)\n    at e.flush (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:7361)\n    at Array.<anonymous> (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:9055)\n    at p (http://127.0.0.1:49217/assets/index-BLY1_Bja.js:1:1040)"]

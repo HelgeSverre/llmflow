@@ -6,10 +6,11 @@
   interface Props {
     spans: SpanInput[]
     traceId?: string
+    selectedId?: string | null
     onSelect?: (id: string | null) => void
   }
 
-  let { spans, traceId, onSelect }: Props = $props()
+  let { spans, traceId, selectedId, onSelect }: Props = $props()
 
   const ROW_HEIGHT_PX = 28
   const OVERSCAN = 8
@@ -33,6 +34,10 @@
       if (selected !== viewport.selectedId) onSelect?.(viewport.selectedId)
       if (reset && scrollEl) scrollEl.scrollTop = scrollTop = 0
     })
+  })
+
+  $effect(() => {
+    viewport.select(selectedId ?? null)
   })
 
   $effect(() => {
@@ -112,6 +117,15 @@
     overflow-y: auto;
     position: relative;
     font-family: inherit;
+  }
+  @container (max-width: 500px) {
+    .waterfall {
+      --waterfall-columns: minmax(160px, 60%) minmax(0, 1fr) 52px;
+      --waterfall-gap: 4px;
+    }
+    .axis-mid {
+      display: none;
+    }
   }
   .time-axis {
     position: sticky;

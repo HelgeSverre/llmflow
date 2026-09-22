@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { logFilters, clearFilters } from '$lib/stores/logs.svelte'
   import { logs, selectedLogId, selectLog, type Log } from '$lib/stores/logs.svelte'
-  import { formatTime } from '$lib/utils/format'
+  import { formatTimestamp, formatTime } from '$lib/utils/format'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
 
   function getSeverityClass(severityText?: string): string {
@@ -26,22 +27,23 @@
   }
 </script>
 
-<table data-testid="logs-table">
-  <thead>
-    <tr>
-      <th>Time</th>
-      <th>Severity</th>
-      <th>Service</th>
-      <th>Event</th>
-      <th>Body</th>
-    </tr>
-  </thead>
-  <tbody id="logsBody" data-testid="logs-body">
-    {#if logs.length === 0}
+{#if logs.length === 0}
+  {#if Object.values(logFilters).some(Boolean)}<EmptyState
+      message="No results match these filters."
+    /><button class="btn-secondary" onclick={clearFilters}>Clear filters</button>
+  {:else}<EmptyState message="No logs found. Send OTLP logs to /v1/logs" />{/if}
+{:else}
+  <table data-testid="logs-table">
+    <thead>
       <tr>
-        <td colspan="5"><EmptyState message="No logs found. Send OTLP logs to /v1/logs" /></td>
+        <th>Time</th>
+        <th>Severity</th>
+        <th>Service</th>
+        <th>Event</th>
+        <th>Body</th>
       </tr>
-    {:else}
+    </thead>
+    <tbody id="logsBody" data-testid="logs-body">
       {#each logs as log (log.id)}
         <tr
           class="trace-row"
@@ -78,6 +80,6 @@
           </td>
         </tr>
       {/each}
-    {/if}
-  </tbody>
-</table>
+    </tbody>
+  </table>
+{/if}

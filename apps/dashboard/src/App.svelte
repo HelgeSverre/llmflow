@@ -99,9 +99,6 @@
       } else if (tabState.current === 'logs') {
         rows = Array.from(document.querySelectorAll('[data-testid="logs-body"] .trace-row'))
         currentSelected = document.querySelector('[data-testid="logs-body"] .trace-row.selected')
-      } else if (tabState.current === 'metrics') {
-        rows = Array.from(document.querySelectorAll('[data-testid="metrics-body"] .trace-row'))
-        currentSelected = document.querySelector('[data-testid="metrics-body"] .trace-row.selected')
       } else {
         return
       }

@@ -81,13 +81,12 @@ test.describe('Traces Tab', () => {
             .waitFor({ state: 'visible', timeout: 5000 })
             .catch(() => {})
 
-        // All visible status cells should show success (2xx)
+        // Successful spans can still report failures in their descendants.
         const statusSpans = page.locator('[data-testid="trace-status"] span')
         const count = await statusSpans.count()
 
         for (let i = 0; i < count; i++) {
-            const className = await statusSpans.nth(i).getAttribute('class')
-            expect(className).toContain('status-success')
+            await expect(statusSpans.nth(i)).toHaveText(/^(OK|Child error)$/)
         }
     })
 
