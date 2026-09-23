@@ -11,6 +11,12 @@ labels:
   - docs
 milestone: m-0
 dependencies:
+  - TASK-90
+  - TASK-94
+  - TASK-78
+  - TASK-87
+  - TASK-75
+  - TASK-104
   - TASK-105
 references:
   - README.md

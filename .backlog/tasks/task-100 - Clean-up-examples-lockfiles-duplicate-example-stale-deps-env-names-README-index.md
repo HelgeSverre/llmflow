@@ -11,6 +11,8 @@ labels:
   - examples
 milestone: m-0
 dependencies:
+  - TASK-84
+  - TASK-94
   - TASK-105
 references:
   - examples/README.md
