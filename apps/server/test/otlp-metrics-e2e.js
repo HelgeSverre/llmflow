@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * End-to-End Test for OTLP Metrics Integration
  *
@@ -9,7 +7,7 @@
  * 3. Verify dashboard API returns correct data
  * 4. Test aggregation and filtering
  *
- * Run: node test/otlp-metrics-e2e.js
+ * Run: bun test --isolate apps/server/test/legacy-scripts.test.ts
  * Requires: LLMFlow server running on 127.0.0.1:1337
  */
 

@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Analytics Unit Tests
  *

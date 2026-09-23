@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Provider End-to-End Tests
  *
@@ -10,7 +8,7 @@
  *   bun run test:live
  *
  * Or test specific providers:
- *   PROVIDERS=openai,anthropic node test/providers-e2e.js
+ *   PROVIDERS=openai,anthropic bun run test:live
  *
  * Environment variables:
  *   OPENAI_API_KEY     - For OpenAI tests

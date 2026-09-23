@@ -4,13 +4,13 @@ This folder contains example configurations for integrating LLMFlow with popular
 
 ## Quick Reference
 
-| Backend                 | Docker Compose | Script | Description                     |
-| ----------------------- | -------------- | ------ | ------------------------------- |
-| [Jaeger](./jaeger/)     | ✅             | ✅     | Open-source distributed tracing |
-| [Phoenix](./phoenix/)   | ✅             | ✅     | Arize's LLM observability       |
-| [Langfuse](./langfuse/) | ✅             | ✅     | LLM monitoring & prompts        |
-| [Helicone](./helicone/) | -              | ✅     | LLM cost tracking               |
-| [Opik](./opik/)         | ✅             | ✅     | Comet experiment tracking       |
+| Backend                 | Docker Compose | Description                     |
+| ----------------------- | -------------- | ------------------------------- |
+| [Jaeger](./jaeger/)     | ✅             | Open-source distributed tracing |
+| [Phoenix](./phoenix/)   | ✅             | Arize's LLM observability       |
+| [Langfuse](./langfuse/) | ✅             | LLM monitoring & prompts        |
+| [Helicone](./helicone/) | -              | LLM cost tracking               |
+| [Opik](./opik/)         | ✅             | Comet experiment tracking       |
 
 ## Setup
 
@@ -35,10 +35,12 @@ This folder contains example configurations for integrating LLMFlow with popular
    OTLP_EXPORT_ENDPOINT=http://localhost:4318/v1/traces
    ```
 
-4. Run example:
+4. Send some traffic through LLMFlow, for example with the [RAG pipeline example](../rag-pipeline/):
 
    ```bash
-   node test.js
+   cd examples/rag-pipeline  # from the project root
+   bun install
+   bun run start
    ```
 
 5. View traces:

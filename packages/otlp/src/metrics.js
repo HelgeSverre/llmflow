@@ -10,7 +10,6 @@
  * - Token usage and cost metrics extraction
  */
 
-const uuidv4 = () => crypto.randomUUID()
 const db = require('@llmflow/db')
 
 /**
@@ -74,7 +73,7 @@ function processSum(metric, resourceAttrs, scopeInfo) {
         const { value_int, value_double } = extractValue(dp)
 
         results.push({
-            id: uuidv4(),
+            id: crypto.randomUUID(),
             timestamp: nanoToMs(dp.timeUnixNano) ?? Date.now(),
             name: metric.name,
             description: metric.description || null,
@@ -124,7 +123,7 @@ function processGauge(metric, resourceAttrs, scopeInfo) {
         const { value_int, value_double } = extractValue(dp)
 
         results.push({
-            id: uuidv4(),
+            id: crypto.randomUUID(),
             timestamp: nanoToMs(dp.timeUnixNano) ?? Date.now(),
             name: metric.name,
             description: metric.description || null,
@@ -165,7 +164,7 @@ function processHistogram(metric, resourceAttrs, scopeInfo) {
         }
 
         results.push({
-            id: uuidv4(),
+            id: crypto.randomUUID(),
             timestamp: nanoToMs(dp.timeUnixNano) ?? Date.now(),
             name: metric.name,
             description: metric.description || null,

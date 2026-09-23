@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Passthrough Mode End-to-End Tests
  *

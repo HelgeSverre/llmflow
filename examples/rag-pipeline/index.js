@@ -20,7 +20,7 @@
  * Prerequisites:
  *   1. Start LLMFlow: cd ../.. && bun run start
  *   2. Set your OpenAI API key in .env at project root
- *   3. Run: node index.js (from this directory)
+ *   3. Run: bun run start (from this directory)
  */
 
 import { trace, span, wrapOpenAI } from '../../packages/sdk/index.js'

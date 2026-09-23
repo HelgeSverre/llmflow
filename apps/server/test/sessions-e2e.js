@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * End-to-End Test for Session Correlation
  *
