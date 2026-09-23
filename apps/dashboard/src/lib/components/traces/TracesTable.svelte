@@ -8,19 +8,8 @@
     formatCost,
     formatLatency,
   } from '$lib/utils/format'
+  import { spanType } from '$lib/utils/badges'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
-
-  function getSpanTypeClass(type?: string): string {
-    if (!type) return 'custom'
-    const t = type.toLowerCase()
-    if (t.includes('llm')) return 'llm'
-    if (t.includes('agent')) return 'agent'
-    if (t.includes('chain')) return 'chain'
-    if (t.includes('tool')) return 'tool'
-    if (t.includes('retrieval')) return 'retrieval'
-    if (t.includes('embedding')) return 'embedding'
-    return 'trace'
-  }
 
   function handleRowClick(trace: Trace) {
     selectTrace(trace.id)
@@ -71,7 +60,7 @@
             >{formatTime(trace.timestamp)}</td
           >
           <td data-testid="trace-type">
-            <span class="span-badge span-{getSpanTypeClass(trace.span_type)}">
+            <span class="span-badge span-{spanType(trace.span_type)}">
               {trace.span_type || 'LLM'}
             </span>
           </td>

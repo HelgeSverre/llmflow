@@ -1,26 +1,26 @@
-import { tabState, type Tab } from './tabs.svelte'
-import { loadTimeline } from './timeline.svelte'
+import { tabState, type Tab } from './stores/tabs.svelte'
+import { loadTimeline } from './stores/timeline.svelte'
 import {
   loadTraces,
   loadFilterOptions as loadTraceFilters,
   selectTrace,
   selectedTraceId,
-} from './traces.svelte'
-import { loadSessions, loadSession, sessionsState } from './sessions.svelte'
+} from './stores/traces.svelte'
+import { loadSessions, loadSession, sessionsState } from './stores/sessions.svelte'
 import {
   loadLogs,
   loadFilterOptions as loadLogFilters,
   selectLog,
   selectedLogId,
-} from './logs.svelte'
+} from './stores/logs.svelte'
 import {
   loadMetrics,
   loadMetricsSummary,
   loadFilterOptions as loadMetricFilters,
-} from './metrics.svelte'
-import { loadModels } from './models.svelte'
-import { loadAnalytics } from './analytics.svelte'
-import { loadStats } from './stats.svelte'
+} from './stores/metrics.svelte'
+import { loadModels } from './stores/models.svelte'
+import { loadAnalytics } from './stores/analytics.svelte'
+import { loadStats } from './stores/stats.svelte'
 
 const refreshers: Record<Tab, () => Promise<unknown>> = {
   timeline: loadTimeline,

@@ -2,18 +2,8 @@
   import { logFilters, clearFilters } from '$lib/stores/logs.svelte'
   import { logs, selectedLogId, selectLog, type Log } from '$lib/stores/logs.svelte'
   import { formatTimestamp, formatTime } from '$lib/utils/format'
+  import { severity } from '$lib/utils/badges'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
-
-  function getSeverityClass(severityText?: string): string {
-    if (!severityText) return 'info'
-    const s = severityText.toLowerCase()
-    if (s.includes('fatal')) return 'fatal'
-    if (s.includes('error')) return 'error'
-    if (s.includes('warn')) return 'warn'
-    if (s.includes('debug')) return 'debug'
-    if (s.includes('trace')) return 'trace'
-    return 'info'
-  }
 
   function handleRowClick(log: Log) {
     selectLog(log.id)
@@ -57,7 +47,7 @@
         >
           <td data-testid="log-time">{formatTime(log.timestamp)}</td>
           <td data-testid="log-severity">
-            <span class="severity-badge severity-{getSeverityClass(log.severity_text)}">
+            <span class="severity-badge severity-{severity(log.severity_text)}">
               {log.severity_text || 'INFO'}
             </span>
           </td>

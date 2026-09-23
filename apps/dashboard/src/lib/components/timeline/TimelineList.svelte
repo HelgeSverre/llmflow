@@ -8,18 +8,8 @@
     type TimelineItem,
   } from '$lib/stores/timeline.svelte'
   import { formatTimestamp, formatTime, formatLatency, formatCost } from '$lib/utils/format'
+  import { severity, spanType } from '$lib/utils/badges'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
-
-  function getTypeClass(type: string): string {
-    switch (type) {
-      case 'trace':
-        return 'llm'
-      case 'log':
-        return 'chain'
-      default:
-        return 'custom'
-    }
-  }
 
   function handleItemClick(item: TimelineItem) {
     selectTimelineItem(item)
@@ -53,7 +43,11 @@
         role="button"
       >
         <div class="timeline-item-header">
-          <span class="span-badge span-{getTypeClass(item.type)}">{item.type}</span>
+          <span
+            class="span-badge span-{item.type === 'log'
+              ? 'chain'
+              : spanType(item.data?.span_type as string | undefined)}">{item.type}</span
+          >
           <span class="timeline-item-time" title={formatTimestamp(item.timestamp)}
             >{formatTime(item.timestamp)}</span
           >
@@ -75,7 +69,7 @@
             <span class="timeline-meta-item">{formatCost(item.cost)}</span>
           {/if}
           {#if item.severity_text}
-            <span class="severity-badge severity-{item.severity_text.toLowerCase()}"
+            <span class="severity-badge severity-{severity(item.severity_text)}"
               >{item.severity_text}</span
             >
           {/if}

@@ -1,4 +1,4 @@
-import { createLoadState } from './load-state.svelte'
+import { createLoadState } from '$lib/load-state.svelte'
 import { onMessage } from './websocket.svelte'
 import { api } from '$lib/api/client'
 import { tabState } from './tabs.svelte'

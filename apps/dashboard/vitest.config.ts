@@ -1,16 +1,14 @@
-import { defineConfig } from 'vitest/config'
-import path from 'node:path'
-import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { defineConfig, mergeConfig } from 'vitest/config'
+import viteConfig from './vite.config'
 
-export default defineConfig({
-  plugins: [svelte()],
-  resolve: {
-    alias: { $lib: path.resolve(__dirname, 'src/lib') },
-    conditions: ['browser'],
-  },
-  test: {
-    environment: 'jsdom',
-    include: ['src/**/*.test.ts'],
-    globals: false,
-  },
-})
+export default mergeConfig(
+  viteConfig,
+  defineConfig({
+    resolve: { conditions: ['browser'] },
+    test: {
+      environment: 'jsdom',
+      include: ['src/**/*.test.ts'],
+      globals: false,
+    },
+  }),
+)

@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "bun ../../scripts/dev.ts dashboard",
     "build": "vite build",
-    "preview": "vite preview",
     "typecheck": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest"
