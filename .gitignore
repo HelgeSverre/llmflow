@@ -8,6 +8,7 @@ npm-debug.log
 **/.vscode/
 *.log
 **/.claude-config/
+.claude/worktrees/
 test-results/
 test-data/
 playwright-report/
