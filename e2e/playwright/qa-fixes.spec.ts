@@ -132,11 +132,11 @@ test('Timeline details show failed requests and Retry recovers without stale err
     await sendSpan(request, { id, span_name: name, input: { text: 'retry success' } })
     await sendSpan(request, { id: otherId, span_name: otherName })
     await page.goto('/#timeline')
-    await page.route(`**/api/traces/${id}`, (route) => route.abort())
+    await page.route(`**/api/spans/${id}`, (route) => route.abort())
     await page.getByRole('button', { name: new RegExp(name) }).click()
     await expect(page.getByRole('alert')).toHaveText('Could not load details.')
     await expect(page.getByText('Loading details…')).toHaveCount(0)
-    await page.unroute(`**/api/traces/${id}`)
+    await page.unroute(`**/api/spans/${id}`)
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByRole('button', { name: 'input', exact: true })).toBeVisible()
     await expect(page.getByRole('alert')).toHaveCount(0)
@@ -144,7 +144,7 @@ test('Timeline details show failed requests and Retry recovers without stale err
     const gate = new Promise((resolve) => {
         release = resolve
     })
-    await page.route(`**/api/traces/${id}`, async (route) => {
+    await page.route(`**/api/spans/${id}`, async (route) => {
         await gate
         await route.abort()
     })

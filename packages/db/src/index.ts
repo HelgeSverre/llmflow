@@ -6,7 +6,7 @@ import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
 
 const DATA_DIR = config.dataDir
 const DB_PATH = config.dbPath
-const MAX_TRACES = config.maxTraces
+const MAX_SPANS = config.maxSpans
 const MAX_LOGS = config.maxLogs
 const MAX_METRICS = config.maxMetrics
 
@@ -37,7 +37,7 @@ export function safeJson<T>(raw: unknown, fallback: T): T {
     }
 }
 
-// The JSON-encoded columns of a traces row and the value each gets when missing or malformed.
+// The JSON-encoded columns of a spans row and the value each gets when missing or malformed.
 const TRACE_JSON_COLUMNS: Record<string, unknown> = {
     request_headers: {},
     request_body: {},
@@ -49,7 +49,7 @@ const TRACE_JSON_COLUMNS: Record<string, unknown> = {
     tags: [],
 }
 
-/** A traces row with its JSON columns decoded; every endpoint that returns span detail uses it. */
+/** A spans row with its JSON columns decoded; every endpoint that returns span detail uses it. */
 export function parseTraceRow<T extends Record<string, unknown>>(row: T): T {
     const parsed: Record<string, unknown> = { ...row }
     for (const [column, fallback] of Object.entries(TRACE_JSON_COLUMNS))
@@ -61,7 +61,7 @@ migrate(db)
 
 // Prepared statements using bun:sqlite query()
 const insertTraceStmt = db.query(`
-    INSERT INTO traces (
+    INSERT INTO spans (
         id, timestamp, duration_ms,
         provider, model,
         prompt_tokens, completion_tokens, total_tokens,
@@ -91,10 +91,10 @@ function pruneTraces(insertedTraceId: string) {
                 span_count: number
             }
         ).span_count
-    while (count() > MAX_TRACES) {
+    while (count() > MAX_SPANS) {
         const oversized = db
             .query('SELECT trace_id FROM trace_groups WHERE trace_id=? AND span_count>?')
-            .get(insertedTraceId, MAX_TRACES)
+            .get(insertedTraceId, MAX_SPANS)
         const oldest =
             oversized ||
             db
@@ -106,10 +106,10 @@ function pruneTraces(insertedTraceId: string) {
         const id = (oldest as { trace_id: string }).trace_id
         db.transaction(() => {
             db.query('INSERT OR REPLACE INTO evicted_traces VALUES(?,?)').run(id, Date.now())
-            db.query('DELETE FROM traces WHERE COALESCE(trace_id,id)=?').run(id)
+            db.query('DELETE FROM spans WHERE COALESCE(trace_id,id)=?').run(id)
             db.query(
                 'DELETE FROM evicted_traces WHERE trace_id NOT IN (SELECT trace_id FROM evicted_traces ORDER BY evicted_at DESC LIMIT ?)',
-            ).run(MAX_TRACES)
+            ).run(MAX_SPANS)
         })()
     }
 }
@@ -187,14 +187,14 @@ function subscriptions<T>() {
         },
     }
 }
-const traceSubscriptions = subscriptions<Trace>()
+const traceSubscriptions = subscriptions<Span>()
 const logSubscriptions = subscriptions<Log>()
 const metricSubscriptions = subscriptions<Metric>()
-export const subscribeTraces = traceSubscriptions.subscribe
+export const subscribeSpans = traceSubscriptions.subscribe
 export const subscribeLogs = logSubscriptions.subscribe
 export const subscribeMetrics = metricSubscriptions.subscribe
 
-export function traceSummary(trace: Trace): TraceSummary {
+export function spanSummary(trace: Span): SpanSummary {
     return {
         id: trace.id,
         timestamp: trace.timestamp,
@@ -240,7 +240,7 @@ export function metricSummary(metric: Metric): MetricSummary {
 }
 
 // Types
-export interface Trace {
+export interface Span {
     id: string
     timestamp: number
     duration_ms?: number | null
@@ -273,7 +273,7 @@ export interface Trace {
     agent_name?: string | null
 }
 
-export interface TraceSummary {
+export interface SpanSummary {
     id: string
     timestamp: number
     duration_ms: number | null
@@ -345,7 +345,7 @@ export interface MetricSummary {
     service_name: string | null
 }
 
-export interface TraceFilters {
+export interface SpanFilters {
     trace_id?: string
     model?: string
     status?: string
@@ -376,8 +376,8 @@ export interface MetricFilters {
     date_to?: number
 }
 
-// Trace functions
-export function insertTrace(trace: Trace) {
+// Span functions
+export function insertSpan(trace: Span) {
     trace = {
         ...trace,
         request_headers: sanitizeHeaders(trace.request_headers),
@@ -424,7 +424,7 @@ export function insertTrace(trace: Trace) {
     traceSubscriptions.emit(trace)
 }
 
-export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters } = {}) {
+export function getSpans({ limit = 50, offset = 0, filters = {} as SpanFilters } = {}) {
     const where: string[] = []
     const params: Record<string, string | number> = {}
 
@@ -493,11 +493,11 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
             span_type, span_name, service_name,
             session_id, conversation_id, agent_name,
             EXISTS (WITH RECURSIVE descendants(id) AS (
-                SELECT child.id FROM traces child WHERE child.parent_id = traces.id
-                UNION SELECT child.id FROM traces child JOIN descendants d ON child.parent_id = d.id
-            ) SELECT 1 FROM traces failed JOIN descendants d ON failed.id = d.id
+                SELECT child.id FROM spans child WHERE child.parent_id = spans.id
+                UNION SELECT child.id FROM spans child JOIN descendants d ON child.parent_id = d.id
+            ) SELECT 1 FROM spans failed JOIN descendants d ON failed.id = d.id
                 WHERE failed.status >= 400 OR COALESCE(failed.error, '') != '') AS has_child_error
-        FROM traces
+        FROM spans
         ${whereSql}
         ORDER BY timestamp DESC
         LIMIT $limit OFFSET $offset
@@ -511,7 +511,7 @@ export function getSpansByTraceId(traceId: string) {
         .query(
             `
         SELECT *
-        FROM traces
+        FROM spans
         WHERE trace_id = $traceId
         ORDER BY timestamp ASC
     `,
@@ -519,8 +519,8 @@ export function getSpansByTraceId(traceId: string) {
         .all({ $traceId: traceId })
 }
 
-export function getTraceById(id: string) {
-    return db.query('SELECT * FROM traces WHERE id = $id').get({ $id: id })
+export function getSpanById(id: string) {
+    return db.query('SELECT * FROM spans WHERE id = $id').get({ $id: id })
 }
 
 export function getStats() {
@@ -533,7 +533,7 @@ export function getStats() {
             COALESCE(SUM(estimated_cost), 0) as total_cost,
             COALESCE(SUM(duration_ms), 0) as total_duration_ms,
             SUM(CASE WHEN status >= 400 THEN 1 ELSE 0 END) as error_count
-        FROM traces
+        FROM spans
     `,
         )
         .get() as Record<string, number>
@@ -543,8 +543,8 @@ export function getStats() {
     return { ...row, avg_duration_ms }
 }
 
-export function getTraceCount() {
-    const result = db.query('SELECT COUNT(*) as cnt FROM traces').get() as { cnt: number }
+export function getSpanCount() {
+    const result = db.query('SELECT COUNT(*) as cnt FROM spans').get() as { cnt: number }
     return result.cnt
 }
 
@@ -566,7 +566,7 @@ const SESSION_MEMBERSHIP = `WITH membership AS (
         SELECT COALESCE(trace_id, id) AS trace_id, session_id,
             ROW_NUMBER() OVER (PARTITION BY COALESCE(trace_id, id)
                 ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, timestamp, id) AS position
-        FROM traces WHERE session_id IS NOT NULL
+        FROM spans WHERE session_id IS NOT NULL
     ) WHERE position = 1
 )`
 
@@ -580,7 +580,7 @@ export function getSessions({ limit = 50, offset = 0, q = '' } = {}) {
             COALESCE(SUM(t.estimated_cost), 0) AS total_cost,
             COALESCE(SUM(t.total_tokens), 0) AS total_tokens,
             MAX(t.agent_name) AS agent_name, MAX(t.service_name) AS service_name
-        FROM traces t JOIN membership m ON COALESCE(t.trace_id,t.id) = m.trace_id
+        FROM spans t JOIN membership m ON COALESCE(t.trace_id,t.id) = m.trace_id
         GROUP BY m.session_id
         HAVING m.session_id LIKE $q OR MAX(CASE WHEN t.span_name LIKE $q OR t.agent_name LIKE $q OR t.service_name LIKE $q THEN 1 ELSE 0 END) = 1
         ORDER BY last_seen DESC LIMIT $limit OFFSET $offset
@@ -597,11 +597,11 @@ export function getSessionTraces(session_id: string) {
             MAX(t.timestamp + COALESCE(t.duration_ms,0)) AS ended_at,
             COALESCE(SUM(t.estimated_cost),0) AS cost, COALESCE(SUM(t.total_tokens),0) AS tokens,
             COUNT(*) AS span_count, MAX(CASE WHEN t.status >= 400 OR COALESCE(t.error, '') != '' THEN 1 ELSE 0 END) AS has_error,
-            (SELECT id FROM traces failed WHERE COALESCE(failed.trace_id,failed.id)=m.trace_id AND (failed.status >= 400 OR COALESCE(failed.error, '') != '') ORDER BY timestamp,id LIMIT 1) AS error_span_id,
-            (SELECT span_name FROM traces named WHERE COALESCE(named.trace_id,named.id)=m.trace_id ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END,timestamp,id LIMIT 1) AS name,
+            (SELECT id FROM spans failed WHERE COALESCE(failed.trace_id,failed.id)=m.trace_id AND (failed.status >= 400 OR COALESCE(failed.error, '') != '') ORDER BY timestamp,id LIMIT 1) AS error_span_id,
+            (SELECT span_name FROM spans named WHERE COALESCE(named.trace_id,named.id)=m.trace_id ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END,timestamp,id LIMIT 1) AS name,
             MAX(t.service_name) AS service_name,
-            COALESCE((SELECT id FROM traces root WHERE COALESCE(root.trace_id,root.id)=m.trace_id AND root.parent_id IS NULL ORDER BY timestamp,id LIMIT 1), MIN(t.id)) AS root_span_id
-        FROM traces t JOIN membership m ON COALESCE(t.trace_id,t.id)=m.trace_id
+            COALESCE((SELECT id FROM spans root WHERE COALESCE(root.trace_id,root.id)=m.trace_id AND root.parent_id IS NULL ORDER BY timestamp,id LIMIT 1), MIN(t.id)) AS root_span_id
+        FROM spans t JOIN membership m ON COALESCE(t.trace_id,t.id)=m.trace_id
         WHERE m.session_id=$session_id GROUP BY m.trace_id ORDER BY started_at ASC
     `,
         )
@@ -613,7 +613,7 @@ export function getSessionCount(q = ''): number {
         db
             .query(
                 `${SESSION_MEMBERSHIP} SELECT COUNT(*) AS cnt FROM (
-        SELECT m.session_id FROM traces t JOIN membership m ON COALESCE(t.trace_id,t.id)=m.trace_id
+        SELECT m.session_id FROM spans t JOIN membership m ON COALESCE(t.trace_id,t.id)=m.trace_id
         GROUP BY m.session_id HAVING m.session_id LIKE $q OR MAX(CASE WHEN t.span_name LIKE $q OR t.agent_name LIKE $q OR t.service_name LIKE $q THEN 1 ELSE 0 END) = 1
     )`,
             )
@@ -971,7 +971,7 @@ export function getCostByService({ days = 30 } = {}) {
             SUM(completion_tokens) as completion_tokens,
             COUNT(*) as request_count,
             AVG(duration_ms) as avg_duration_ms
-        FROM traces
+        FROM spans
         WHERE timestamp >= $fromTs
         GROUP BY provider, service_name
         ORDER BY total_cost DESC
@@ -998,7 +998,7 @@ export function getDailyStats({ days = 30 } = {}) {
             SUM(completion_tokens) as completion_tokens,
             SUM(estimated_cost) as cost,
             COUNT(*) as request_count
-        FROM traces
+        FROM spans
         WHERE timestamp >= $fromTs
         GROUP BY bucket
         ORDER BY bucket ASC
@@ -1042,7 +1042,7 @@ export function getServices() {
     return (
         db
             .query(
-                `SELECT service_name FROM traces WHERE service_name IS NOT NULL
+                `SELECT service_name FROM spans WHERE service_name IS NOT NULL
         UNION SELECT service_name FROM logs WHERE service_name IS NOT NULL
         UNION SELECT service_name FROM metrics WHERE service_name IS NOT NULL ORDER BY service_name`,
             )
@@ -1105,7 +1105,7 @@ export function getModelAggregates({
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
             COALESCE(SUM(estimated_cost), 0) AS total_cost,
             AVG(CASE WHEN span_type = 'llm' AND duration_ms >= 0 THEN duration_ms END) AS avg_duration_ms
-        FROM traces
+        FROM spans
         WHERE model IS NOT NULL AND timestamp >= $from AND ($to IS NULL OR timestamp <= $to)
         GROUP BY model
         ORDER BY ${order} DESC

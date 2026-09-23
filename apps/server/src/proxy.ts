@@ -133,7 +133,7 @@ export async function forwardProxyRequest(
         try {
             const prompt = usage.prompt_tokens ?? 0,
                 completion = usage.completion_tokens ?? 0
-            db.insertTrace({
+            db.insertSpan({
                 ...context,
                 timestamp: started,
                 duration_ms: Date.now() - started,

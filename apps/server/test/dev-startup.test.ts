@@ -139,7 +139,7 @@ test.skipIf(!Bun.which('just'))(
                 expect(demo.child.exitCode).toBe(0)
             }
             expect(
-                ((await (await fetch(backend.url + '/api/traces')).json()) as unknown[]).length,
+                ((await (await fetch(backend.url + '/api/spans')).json()) as unknown[]).length,
             ).toBeGreaterThan(0)
             const status = f.launch(['just', 'status'])
             await waitFor(() => status.child.exitCode !== null, 'status did not finish')

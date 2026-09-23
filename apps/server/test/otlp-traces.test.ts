@@ -122,7 +122,7 @@ describe('OpenLLMetry-style ingestion', () => {
         expect(result.status).toBe(200)
         expect(result.data.partialSuccess).toBeFalsy()
 
-        const stored = await api(`/api/traces/${simpleSpanId}`)
+        const stored = await api(`/api/spans/${simpleSpanId}`)
         expect(stored.status).toBe(200)
         expect(stored.data.trace?.id).toBe(simpleSpanId)
     })
@@ -142,7 +142,7 @@ describe('OpenLLMetry-style ingestion', () => {
         )
         expect(result.status).toBe(200)
 
-        const span = await api(`/api/traces/${llmSpanId}`)
+        const span = await api(`/api/spans/${llmSpanId}`)
         expect(span.status).toBe(200)
         expect(span.data.trace).toMatchObject({
             model: 'gpt-4o-mini',
@@ -191,7 +191,7 @@ describe('OpenLLMetry-style ingestion', () => {
         )
         expect(result.status).toBe(200)
 
-        const tree = await api(`/api/traces/${rootSpanId}/tree`)
+        const tree = await api(`/api/spans/${rootSpanId}/tree`)
         expect(tree.status).toBe(200)
         expect(tree.data.trace?.span_count).toBe(3)
         const root = tree.data.spans?.find((span: any) => span.id === rootSpanId)
@@ -207,13 +207,13 @@ describe('OpenLLMetry-style ingestion', () => {
     })
 
     test('ingested spans appear in the list and the model filter', async () => {
-        const list = await api('/api/traces?limit=10')
+        const list = await api('/api/spans?limit=10')
         expect(list.status).toBe(200)
         expect(Array.isArray(list.data)).toBe(true)
         const ids = list.data.map((trace: any) => trace.id)
         expect(ids).toEqual(expect.arrayContaining([simpleSpanId, llmSpanId, rootSpanId]))
 
-        const filtered = await api('/api/traces?model=gpt-4o-mini')
+        const filtered = await api('/api/spans?model=gpt-4o-mini')
         expect(filtered.status).toBe(200)
         expect(filtered.data.map((trace: any) => trace.id)).toContain(llmSpanId)
     })
@@ -264,7 +264,7 @@ describe('GenAI semantic conventions', () => {
         expect(result.status).toBe(200)
 
         const pick = async (id: string) => {
-            const { trace } = (await api(`/api/traces/${id}`)).data
+            const { trace } = (await api(`/api/spans/${id}`)).data
             return {
                 model: trace?.model,
                 prompt_tokens: trace?.prompt_tokens,
@@ -311,7 +311,7 @@ describe('GenAI semantic conventions', () => {
             }),
         )
 
-        const tree = await api(`/api/traces/${id}/tree`)
+        const tree = await api(`/api/spans/${id}/tree`)
         const span = tree.data.spans?.find((row: any) => row.id === id)
         expect(span?.attributes).toMatchObject({
             cache_creation_input_tokens: 25,
@@ -385,7 +385,7 @@ describe('GenAI semantic conventions', () => {
 
         const actual: Record<string, string> = {}
         for (const operation of operations) {
-            const tree = await api(`/api/traces/${operation.spanId}/tree`)
+            const tree = await api(`/api/spans/${operation.spanId}/tree`)
             const row = tree.data.spans?.find((span: any) => span.id === operation.spanId)
             actual[operation.op] = row?.span_type
         }

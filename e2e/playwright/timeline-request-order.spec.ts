@@ -51,7 +51,9 @@ for (const tab of ['traces', 'logs']) {
     test(`${tab} Clear cancels pending search before it can reapply`, async ({ page }) => {
         await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
         const queries: URLSearchParams[] = []
-        await page.route(`**/api/${tab}?*`, async (route) => {
+        // The Traces tab lists spans, so it calls /api/spans.
+        const endpoint = tab === 'traces' ? 'spans' : tab
+        await page.route(`**/api/${endpoint}?*`, async (route) => {
             queries.push(new URL(route.request().url()).searchParams)
             await route.fulfill({ json: tab === 'logs' ? { logs: [] } : [] })
         })

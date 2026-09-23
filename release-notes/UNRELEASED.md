@@ -20,6 +20,12 @@ a `models` array; use `GET /api/models`.
 
 ## Renamed (breaking)
 
+- Spans API: `/api/traces` is now `/api/spans` (`GET /api/spans`, `GET /api/spans/:id`,
+  `GET /api/spans/:id/tree`, `POST /api/spans/:id/replay`; `POST /api/spans` is unchanged).
+  The proxy `/health` reports `spans` instead of `traces`. The database table is renamed from
+  `traces` to `spans` by a migration on first start.
+- `MAX_TRACES` is now `MAX_SPANS` (it always counted span rows); the old name is still read when
+  the new one is unset.
 - API JSON: `total_requests`, `requests` and `count` are now `request_count`; `avg_duration`
   and `avg_latency` are now `avg_duration_ms` (`/api/stats`, `stats_update`, `/api/models`,
   `/api/analytics`). `/api/analytics` returns `by_service` instead of `by_tool`. Timeline items

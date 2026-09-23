@@ -353,10 +353,10 @@ test('normalized responses preserve upstream retry and request headers without h
 test('configured deadline terminates stalled upstream and persists one failure', async () => {
     mode = 'stall'
     process.env.PROXY_TIMEOUT_MS = '30'
-    const before = db.getTraceCount()
+    const before = db.getSpanCount()
     const response = await send('/plain/v1/chat/completions', false)
     expect(response.status).toBe(504)
-    expect(db.getTraceCount()).toBe(before + 1)
+    expect(db.getSpanCount()).toBe(before + 1)
     process.env.PROXY_TIMEOUT_MS = '30000'
 })
 test('an initial response longer than Bun default idle timeout remains usable', async () => {

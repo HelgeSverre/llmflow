@@ -28,7 +28,7 @@ const seed: [provider: string, model: string, cost: number, age: number][] = [
     ['gemini', 'gemini-2.0-flash', 0.05, 10 * DAY],
 ]
 seed.forEach(([provider, model, cost, age], index) => {
-    db.insertTrace({
+    db.insertSpan({
         id: `analytics-${index}`,
         timestamp: now - age,
         provider,

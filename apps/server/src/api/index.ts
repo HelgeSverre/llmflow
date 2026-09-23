@@ -6,11 +6,11 @@ import { overviewRoutes } from './overview'
 import { match, type Route } from './router'
 import { sessionRoutes } from './sessions'
 import { timelineRoutes } from './timeline'
-import { traceRoutes } from './traces'
+import { spanRoutes } from './spans'
 
 const routes: Route[] = [
     ...overviewRoutes,
-    ...traceRoutes,
+    ...spanRoutes,
     ...sessionRoutes,
     ...timelineRoutes,
     ...logRoutes,

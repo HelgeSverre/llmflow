@@ -5,7 +5,7 @@ import { PROVIDER_KEY_VARIABLES, providerApiKey } from '@llmflow/providers/crede
 import { forwardProxyRequest } from './proxy'
 
 export async function replayTrace(id: string, signal: AbortSignal): Promise<Response> {
-    const trace = db.getTraceById(id) as Record<string, unknown> | null
+    const trace = db.getSpanById(id) as Record<string, unknown> | null
     if (!trace) return Response.json({ error: 'Trace not found' }, { status: 404 })
     const prepared = prepareReplay(trace)
     if ('error' in prepared) return Response.json({ error: prepared.error }, { status: 400 })

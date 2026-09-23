@@ -87,7 +87,7 @@ async function seed(request: APIRequestContext) {
 
 for (const [tab, endpoint, content] of [
     ['timeline', '/api/timeline', '.timeline-item'],
-    ['traces', '/api/traces', '[data-testid="trace-row"]'],
+    ['traces', '/api/spans', '[data-testid="trace-row"]'],
     ['logs', '/api/logs', '[data-testid="log-row"]'],
     ['metrics', '/api/metrics', '.metric-row'],
     ['models', '/api/models', '.model-card'],
@@ -120,7 +120,7 @@ test('failed child is visible in lists, waterfall and keyboard session navigatio
     request,
 }) => {
     const ids = await seed(request)
-    const list = await (await request.get(`/api/traces?q=Design%20investigation%20root`)).json()
+    const list = await (await request.get(`/api/spans?q=Design%20investigation%20root`)).json()
     expect(list.find((row: { id: string }) => row.id === ids.root).has_child_error).toBe(1)
     await page.goto('/#traces')
     const root = page.locator(`[data-trace-id="${ids.root}"]`)
@@ -208,8 +208,7 @@ test('model drill-down uses the exact aggregate time window and sorting', async 
     await page.getByRole('combobox', { name: 'Sort models' }).selectOption('cost')
     const traceResponse = page.waitForResponse(
         (r) =>
-            r.url().includes('/api/traces?') &&
-            new URL(r.url()).searchParams.get('model') === model,
+            r.url().includes('/api/spans?') && new URL(r.url()).searchParams.get('model') === model,
     )
     await card.getByRole('button', { name: 'View traces' }).click()
     const traces = await traceResponse
@@ -286,7 +285,7 @@ for (const width of [1440, 1280, 800, 390]) {
                 const search = page.getByTestId(`${tab}-search`)
                 const filtered = page.waitForResponse(
                     (r) =>
-                        new URL(r.url()).pathname === `/api/${tab}` &&
+                        new URL(r.url()).pathname === `/api/${tab === 'traces' ? 'spans' : tab}` &&
                         new URL(r.url()).searchParams.has('q'),
                 )
                 await search.fill(tab === 'traces' ? 'Design investigation root' : ids.key)
@@ -528,7 +527,7 @@ test('empty datasets hide headers and paging and filtered emptiness offers recov
     await expect(page.locator('.sessions-tab')).toContainText('session.id')
     await expect(page.locator('.sessions-table')).toHaveCount(0)
     await expect(page.getByRole('navigation', { name: 'Session pages' })).toHaveCount(0)
-    await page.route('**/api/traces?**', (route) => route.fulfill({ json: [] }))
+    await page.route('**/api/spans?**', (route) => route.fulfill({ json: [] }))
     await page.getByTestId('tab-traces').click()
     await expect(page.locator('.tab-content.active')).toContainText(
         'Send requests through the proxy',

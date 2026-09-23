@@ -1,4 +1,4 @@
-// Spans and traces: list, detail, span tree, replay, and span creation for the SDK.
+// Spans: list, detail, the tree of the trace a span belongs to, replay, and creation (SDK).
 import * as db from '@llmflow/db'
 import { parseTraceRow } from '@llmflow/db'
 import { DEFAULT_SERVICE_NAME } from '@llmflow/shared/config'
@@ -47,7 +47,7 @@ function traceDetail(row: Row) {
 }
 
 function traceTree(id: string) {
-    const root = db.getTraceById(id) as Row | null
+    const root = db.getSpanById(id) as Row | null
     if (!root) return notFound('Span')
     const traceId = (root.trace_id as string) || id
     const spans = db.getSpansByTraceId(traceId) as Row[]
@@ -96,7 +96,7 @@ async function createSpan(req: Request) {
         (body.duration_ms as number | undefined) ??
         (body.end_time ? (body.end_time as number) - startTime : null)
     const traceId = (body.trace_id as string) || id
-    db.insertTrace({
+    db.insertSpan({
         id,
         timestamp: startTime,
         duration_ms: duration ?? undefined,
@@ -131,12 +131,12 @@ async function createSpan(req: Request) {
     return Response.json({ id, trace_id: traceId }, { status: 201 })
 }
 
-export const traceRoutes: Route[] = [
+export const spanRoutes: Route[] = [
     [
         'GET',
-        '/api/traces',
+        '/api/spans',
         (_req, url) => {
-            const filters = queryFilters<db.TraceFilters>(url, {
+            const filters = queryFilters<db.SpanFilters>(url, {
                 service_name: 'text',
                 model: 'text',
                 status: 'text',
@@ -148,12 +148,12 @@ export const traceRoutes: Route[] = [
                 session_id: 'text',
                 conversation_id: 'text',
             })
-            return Response.json(db.getTraces({ ...page(url), filters }))
+            return Response.json(db.getSpans({ ...page(url), filters }))
         },
     ],
     [
         'POST',
-        /^\/api\/traces\/([^/]+)\/replay$/,
+        /^\/api\/spans\/([^/]+)\/replay$/,
         async (req, _url, [id]) => {
             try {
                 return await replayTrace(id!, req.signal)
@@ -168,12 +168,12 @@ export const traceRoutes: Route[] = [
     ],
     [
         'GET',
-        /^\/api\/traces\/([^/]+)$/,
+        /^\/api\/spans\/([^/]+)$/,
         (_req, _url, [id]) => {
-            const trace = db.getTraceById(id!) as Row | null
+            const trace = db.getSpanById(id!) as Row | null
             return trace ? Response.json(traceDetail(trace)) : notFound('Trace')
         },
     ],
-    ['GET', /^\/api\/traces\/([^/]+)\/tree$/, (_req, _url, [id]) => traceTree(id!)],
+    ['GET', /^\/api\/spans\/([^/]+)\/tree$/, (_req, _url, [id]) => traceTree(id!)],
     ['POST', '/api/spans', (req) => createSpan(req)],
 ]

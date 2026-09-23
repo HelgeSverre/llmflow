@@ -58,7 +58,7 @@ A volume still mounted at `/root/.llmflow` is ignored: the server reads `DATA_DI
 | `PROXY_HOST`     | `0.0.0.0`            | Proxy bind address inside the container     |
 | `DATA_DIR`       | `/home/bun/.llmflow` | SQLite + WAL directory                      |
 | `DB_PATH`        | `$DATA_DIR/data.db`  | Override the SQLite file path               |
-| `MAX_TRACES`     | `10000`              | Trace-retention cap (older traces pruned)   |
+| `MAX_SPANS`      | `10000`              | Span-retention cap (oldest traces pruned)   |
 
 Provider API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and so on) are read from the container environment; pass them with `-e` or `--env-file`.
 

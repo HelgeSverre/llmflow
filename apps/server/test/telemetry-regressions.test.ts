@@ -141,7 +141,7 @@ test('JSON/protobuf with identity/gzip persist all three signals and exact IDs/t
                     ).toBeDefined()
                 else expect(await response.json()).toEqual({})
                 if (signal === 'trace') {
-                    const row: any = db.getTraceById(id)
+                    const row: any = db.getSpanById(id)
                     expect(row.trace_id).toBe('11223344556677889900112233445566')
                     expect(row.timestamp).toBe(1750000000123)
                     expect(row.duration_ms).toBe(1)
@@ -196,13 +196,13 @@ test('multiple subscribers and exporter receive complete records while websocket
     received.length = 0
     expect(initExportHooks(db)).toBe(stop)
     let calls = 0
-    const unsubscribe = db.subscribeTraces(() => {
+    const unsubscribe = db.subscribeSpans(() => {
         calls++
     })
-    const bad = db.subscribeTraces(() => {
+    const bad = db.subscribeSpans(() => {
         throw new Error('subscriber failure')
     })
-    const asyncBad = db.subscribeTraces(async () => {
+    const asyncBad = db.subscribeSpans(async () => {
         throw new Error('async subscriber failure')
     })
     const messages: any[] = []
@@ -214,7 +214,7 @@ test('multiple subscribers and exporter receive complete records while websocket
         socket.onerror = reject
     })
     socket.onmessage = (event) => messages.push(JSON.parse(String(event.data)))
-    db.insertTrace({
+    db.insertSpan({
         id: 'abcdef1234567890',
         trace_id: 'abcdef1234567890abcdef1234567890',
         timestamp: Date.now(),
@@ -279,7 +279,7 @@ test('multiple subscribers and exporter receive complete records while websocket
     expect(hist.max).toBe(3)
     expect(messages.filter((x) => x.type === 'new_trace')).toHaveLength(1)
     expect(messages.find((x) => x.type === 'new_log').payload.body.length).toBeLessThanOrEqual(200)
-    expect(JSON.stringify([db.getTraceById('abcdef1234567890'), messages, received])).not.toContain(
+    expect(JSON.stringify([db.getSpanById('abcdef1234567890'), messages, received])).not.toContain(
         'test-secret',
     )
 })
@@ -301,7 +301,7 @@ test.skipIf(!process.env.LLMFLOW_PYTHON)(
             child.exited,
         ])
         expect({ code, errors }).toEqual({ code: 0, errors: '' })
-        expect(db.getTraceById(output.trim())).toMatchObject({
+        expect(db.getSpanById(output.trim())).toMatchObject({
             span_name: 'python-protobuf-gzip',
             model: 'python-fixture',
         })
@@ -446,7 +446,7 @@ test('recursive AnyValue attributes survive JSON and protobuf ingestion for ever
             expect(response.status).toBe(200)
             const row: any =
                 signal === 'trace'
-                    ? db.getTraceById(id)
+                    ? db.getSpanById(id)
                     : signal === 'logs'
                       ? db.getLogs({ limit: 100 }).find((row: any) => row.body === id)
                       : db.getMetrics({ limit: 100 }).find((row: any) => row.name === id)

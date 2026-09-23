@@ -31,7 +31,7 @@ test('live arrivals obey combined model, status, date and body search filters', 
     await expect(page.getByTestId('trace-row')).toContainText('matching-before')
     const updated = page.waitForResponse(
         (response) =>
-            response.url().includes('/api/traces?') &&
+            response.url().includes('/api/spans?') &&
             response.url().includes('q=') &&
             response.status() === 200,
     )

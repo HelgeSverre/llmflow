@@ -50,7 +50,7 @@ export async function expectTraceLogged(dashboardUrl: string, provider: string) 
     const deadline = Date.now() + 2000
     let providers: string[] = []
     while (Date.now() < deadline) {
-        const traces = (await (await fetch(`${dashboardUrl}/api/traces?limit=50`)).json()) as any[]
+        const traces = (await (await fetch(`${dashboardUrl}/api/spans?limit=50`)).json()) as any[]
         providers = traces.map((trace) => trace.provider)
         if (providers.includes(provider)) return
         await Bun.sleep(50)

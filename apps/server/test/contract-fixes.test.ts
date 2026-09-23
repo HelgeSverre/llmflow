@@ -31,7 +31,7 @@ test('direct span correlation survives persistence and session/filter APIs', asy
         agent_name: 'agent',
         trace_count: 1,
     })
-    const rows = await get('/api/traces?session_id=session&conversation_id=conversation')
+    const rows = await get('/api/spans?session_id=session&conversation_id=conversation')
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
         id: 'row',
@@ -72,7 +72,7 @@ test('OTLP timing distinguishes unknown, reversed, equal and measured intervals'
                 },
             ],
         })
-        const tree = await get(`/api/traces/${id}/tree`)
+        const tree = await get(`/api/spans/${id}/tree`)
         const expected = index < 3 ? null : index === 3 ? 0 : 15
         expect(tree.spans[0].duration_ms).toBe(expected)
         expect(tree.trace.duration_ms).toBe(expected)
@@ -208,40 +208,40 @@ test('replay uses fresh configured credentials and stores a separate streaming r
             messages: [{ role: 'user', content: 'hello' }],
         },
     }
-    db.insertTrace(original)
-    const before = db.getTraceById(original.id)
+    db.insertSpan(original)
+    const before = db.getSpanById(original.id)
     try {
         delete process.env.OPENAI_API_KEY
-        const missing = await fetch(new URL('/api/traces/replay-original/replay', server.url), {
+        const missing = await fetch(new URL('/api/spans/replay-original/replay', server.url), {
             method: 'POST',
         })
         expect(missing.status).toBe(400)
         expect(await missing.text()).toContain('OPENAI_API_KEY')
         process.env.OPENAI_API_KEY = 'fresh-fixture-key'
-        const replay = await post('/api/traces/replay-original/replay', {})
+        const replay = await post('/api/spans/replay-original/replay', {})
         expect(replay.id).not.toBe(original.id)
         expect(authorization).toBe('Bearer fresh-fixture-key')
         expect(received).toEqual(original.request_body)
-        const stored = db.getTraceById(replay.id) as any
+        const stored = db.getSpanById(replay.id) as any
         expect(stored.total_tokens).toBe(5)
         expect(stored.estimated_cost).toBeGreaterThan(0)
         expect(JSON.parse(stored.response_body).choices[0].message.content).toBe('replayed')
-        expect(db.getTraceById(original.id)).toEqual(before)
+        expect(db.getSpanById(original.id)).toEqual(before)
         heavy = true
-        const toolReplay = await post('/api/traces/replay-original/replay', {})
-        const toolTrace = db.getTraceById(toolReplay.id) as any
+        const toolReplay = await post('/api/spans/replay-original/replay', {})
+        const toolTrace = db.getSpanById(toolReplay.id) as any
         const capture = JSON.parse(toolTrace.response_body)
         expect(capture._truncated).toBe(true)
         expect(capture.choices[0].message.tool_calls.length).toBe(1024)
         expect(toolTrace.total_tokens).toBe(5)
         expect(toolTrace.estimated_cost).toBeGreaterThan(0)
-        db.insertTrace({
+        db.insertSpan({
             ...original,
             id: 'incomplete-request',
             request_body: { _truncated: true },
         })
         const incomplete = await fetch(
-            new URL('/api/traces/incomplete-request/replay', server.url),
+            new URL('/api/spans/incomplete-request/replay', server.url),
             { method: 'POST' },
         )
         expect(incomplete.status).toBe(400)

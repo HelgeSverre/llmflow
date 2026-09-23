@@ -27,8 +27,8 @@ function broadcast(data: unknown) {
     }
 }
 
-db.subscribeTraces((record) => {
-    const trace = db.traceSummary(record)
+db.subscribeSpans((record) => {
+    const trace = db.spanSummary(record)
     broadcast({ type: 'new_span', payload: trace })
     if (!trace.parent_id) broadcast({ type: 'new_trace', payload: trace })
     const now = Date.now()

@@ -7,16 +7,16 @@ vocabulary and the decisions that other documents and code reviews rely on.
 
 One name per concept, in code, API JSON, environment variables and docs:
 
-| Concept | Name | Notes |
-| --- | --- | --- |
-| One recorded operation (LLM call, tool call, agent step, …) | span | Stored in the `spans` table; `GET /api/spans`. |
-| All spans that share a `trace_id` | trace | The dashboard's Traces view lists traces by their root span. |
-| The application that produced a record | `service_name` | Never "tool". `unknown_service` when the source names none. |
-| Number of requests or spans in an aggregate | `request_count` | |
-| Average duration | `avg_duration_ms` | Durations are `duration_ms`. |
-| The upstream LLM API | `provider` | Identical for translated and passthrough calls. |
-| Forwarding a provider's own API format unchanged | passthrough | `/passthrough/<provider>/*`. |
-| Client environment variables | `LLMFLOW_URL`, `LLMFLOW_PROXY_URL` | Dashboard/API and proxy base URLs. |
+| Concept                                                     | Name                               | Notes                                                        |
+| ----------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------ |
+| One recorded operation (LLM call, tool call, agent step, …) | span                               | Stored in the `spans` table; `GET /api/spans`.               |
+| All spans that share a `trace_id`                           | trace                              | The dashboard's Traces view lists traces by their root span. |
+| The application that produced a record                      | `service_name`                     | Never "tool". `unknown_service` when the source names none.  |
+| Number of requests or spans in an aggregate                 | `request_count`                    |                                                              |
+| Average duration                                            | `avg_duration_ms`                  | Durations are `duration_ms`.                                 |
+| The upstream LLM API                                        | `provider`                         | Identical for translated and passthrough calls.              |
+| Forwarding a provider's own API format unchanged            | passthrough                        | `/passthrough/<provider>/*`.                                 |
+| Client environment variables                                | `LLMFLOW_URL`, `LLMFLOW_PROXY_URL` | Dashboard/API and proxy base URLs.                           |
 
 API JSON uses snake_case only. Millisecond settings end in `_MS`. The default host is `127.0.0.1`.
 

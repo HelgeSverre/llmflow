@@ -114,7 +114,7 @@ export async function loadTraces() {
       params.set('date_to', String(traceFilters.dateTo))
     if (from) params.set('date_from', String(from))
 
-    const data = await api.get<Trace[]>(`/api/traces?${params}`)
+    const data = await api.get<Trace[]>(`/api/spans?${params}`)
     if (generation !== listGeneration || tabState.current !== 'traces') return
     traces.length = 0
     traces.push(...(data || []))
@@ -149,8 +149,8 @@ export async function selectTrace(id: string) {
   tracesDetailState.error = ''
   try {
     const [detail, tree] = await Promise.all([
-      api.get<TraceDetail>(`/api/traces/${id}`),
-      api.get<TraceTree>(`/api/traces/${id}/tree`),
+      api.get<TraceDetail>(`/api/spans/${id}`),
+      api.get<TraceTree>(`/api/spans/${id}/tree`),
     ])
     if (selectionGeneration !== generation) return
     selectedTrace.value = { ...detail, spans: tree.spans, partial: tree.trace?.partial }

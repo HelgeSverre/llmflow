@@ -296,7 +296,7 @@ test('Replay opens a separate streaming trace from the local provider fixture', 
     page,
     request,
 }) => {
-    const before = await (await request.get('/api/traces/replay-browser-fixture')).json()
+    const before = await (await request.get('/api/spans/replay-browser-fixture')).json()
     await page.goto('/#traces')
     await page.getByTestId('traces-search').fill('replay browser request')
     await page
@@ -319,7 +319,7 @@ test('Replay opens a separate streaming trace from the local provider fixture', 
         .getByRole('button', { name: 'response', exact: true })
         .click()
     await expect(page.getByTestId('traces-detail-panel')).toContainText('Local replay result')
-    expect(await (await request.get('/api/traces/replay-browser-fixture')).json()).toEqual(before)
+    expect(await (await request.get('/api/spans/replay-browser-fixture')).json()).toEqual(before)
     await page.screenshot({
         path: test.info().outputPath('fixed-replay-result.png'),
         fullPage: true,

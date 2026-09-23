@@ -26,7 +26,7 @@ async function route(req: Request, url: URL, port: number): Promise<Response> {
             status: 'ok',
             service: 'proxy',
             port,
-            traces: db.getTraceCount(),
+            spans: db.getSpanCount(),
             uptime: process.uptime(),
             providers: registry.list().map((p: { name: string }) => p.name),
         })

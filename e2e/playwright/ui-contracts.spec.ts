@@ -88,7 +88,7 @@ test('metric rows and cards display measured integers, decimals, histograms and 
 test('keyboard shortcuts refresh the active tab and reach all seven tabs', async ({ page }) => {
     const tabs = [
         ['timeline', '/api/timeline?'],
-        ['traces', '/api/traces?'],
+        ['traces', '/api/spans?'],
         ['sessions', '/api/sessions?'],
         ['logs', '/api/logs?'],
         ['metrics', '/api/metrics?'],

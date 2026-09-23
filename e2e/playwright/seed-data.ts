@@ -50,7 +50,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
     // ==================== TRACES ====================
 
     // Trace for search filter test
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.SEARCH_HIT,
         timestamp: NOW - 30 * 60 * 1000, // 30 min ago
         duration_ms: 1234,
@@ -84,7 +84,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
     })
 
     // Old trace (> 7 days) for date filter test
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.OLD_TRACE,
         timestamp: NOW - 10 * DAY, // 10 days ago
         duration_ms: 500,
@@ -115,7 +115,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
     })
 
     // Model A traces (for model filter)
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.MODEL_A_1,
         timestamp: NOW - 2 * HOUR,
         duration_ms: 800,
@@ -145,7 +145,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
         service_name: 'svc-e2e-a',
     })
 
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.MODEL_A_2,
         timestamp: NOW - 3 * HOUR,
         duration_ms: 600,
@@ -176,7 +176,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
     })
 
     // Model B trace
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.MODEL_B_1,
         timestamp: NOW - 1 * HOUR,
         duration_ms: 1500,
@@ -207,7 +207,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
     })
 
     // Error trace
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.ERROR_TRACE,
         timestamp: NOW - 4 * HOUR,
         duration_ms: 200,
@@ -238,7 +238,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
     })
 
     // Timeline search hit
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.TIMELINE_HIT,
         timestamp: NOW - 15 * 60 * 1000, // 15 min ago
         duration_ms: 900,
@@ -269,7 +269,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
     })
 
     // Proxy tool trace
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.PROXY_TOOL,
         timestamp: NOW - 45 * 60 * 1000,
         duration_ms: 700,
@@ -300,7 +300,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
     })
 
     // Aider tool trace
-    db.insertTrace({
+    db.insertSpan({
         id: TRACE_IDS.AIDER_TOOL,
         timestamp: NOW - 50 * 60 * 1000,
         duration_ms: 2000,
@@ -332,7 +332,7 @@ export function seedDatabase(db: typeof import('@llmflow/db')) {
 
     // Add some traces from different days for analytics
     for (let i = 1; i <= 5; i++) {
-        db.insertTrace({
+        db.insertSpan({
             id: `trace-e2e-day-${i}`,
             timestamp: NOW - i * DAY - HOUR,
             duration_ms: 500 + i * 100,

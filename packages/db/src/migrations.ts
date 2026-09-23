@@ -191,6 +191,8 @@ export function migrate(db: Database) {
                 CREATE INDEX IF NOT EXISTS idx_traces_conversation_id ON traces(conversation_id);
             `)
         },
+        // The table stores spans (TASK-105). SQLite carries its indexes and triggers along.
+        () => db.exec('ALTER TABLE traces RENAME TO spans'),
     ]
     let scrubbed = false
     for (const [index, step] of steps.entries()) {

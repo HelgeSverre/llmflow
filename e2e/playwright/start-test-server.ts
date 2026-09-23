@@ -36,7 +36,7 @@ process.env.OLLAMA_PORT = String(replayProvider.port)
 // DATA_DIR/DB_PATH on import, so it is imported after they are set.
 const db = await import('@llmflow/db')
 seedDatabase(db)
-db.insertTrace({
+db.insertSpan({
     id: 'replay-browser-fixture',
     timestamp: Date.now() - 60000,
     provider: 'ollama',

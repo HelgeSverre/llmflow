@@ -38,7 +38,7 @@ test.describe('Traces Tab', () => {
 
         // Search for specific text and wait for API response
         const responsePromise = page.waitForResponse(
-            (resp) => resp.url().includes('/api/traces') && resp.status() === 200,
+            (resp) => resp.url().includes('/api/spans') && resp.status() === 200,
         )
         await page.fill('[data-testid="traces-search"]', 'search-hit')
         await responsePromise
@@ -69,7 +69,7 @@ test.describe('Traces Tab', () => {
 
     test('status filter shows only success traces', async ({ page }) => {
         const responsePromise = page.waitForResponse(
-            (resp) => resp.url().includes('/api/traces') && resp.status() === 200,
+            (resp) => resp.url().includes('/api/spans') && resp.status() === 200,
         )
         await page.selectOption('[data-testid="traces-status-filter"]', 'success')
         await responsePromise
@@ -92,7 +92,7 @@ test.describe('Traces Tab', () => {
 
     test('status filter shows only error traces', async ({ page }) => {
         const responsePromise = page.waitForResponse(
-            (resp) => resp.url().includes('/api/traces') && resp.status() === 200,
+            (resp) => resp.url().includes('/api/spans') && resp.status() === 200,
         )
         await page.selectOption('[data-testid="traces-status-filter"]', 'error')
         await responsePromise
@@ -120,7 +120,7 @@ test.describe('Traces Tab', () => {
         const initialCount = await page.locator('[data-testid="trace-row"]').count()
 
         const responsePromise = page.waitForResponse(
-            (resp) => resp.url().includes('/api/traces') && resp.status() === 200,
+            (resp) => resp.url().includes('/api/spans') && resp.status() === 200,
         )
         await page.selectOption('[data-testid="traces-date-filter"]', '24h')
         await responsePromise
@@ -140,14 +140,14 @@ test.describe('Traces Tab', () => {
 
         // Apply filter and wait for response
         const filterResponsePromise = page.waitForResponse(
-            (resp) => resp.url().includes('/api/traces') && resp.status() === 200,
+            (resp) => resp.url().includes('/api/spans') && resp.status() === 200,
         )
         await page.selectOption('[data-testid="traces-status-filter"]', 'error')
         await filterResponsePromise
 
         // Clear filters and wait for response
         const clearResponsePromise = page.waitForResponse(
-            (resp) => resp.url().includes('/api/traces') && resp.status() === 200,
+            (resp) => resp.url().includes('/api/spans') && resp.status() === 200,
         )
         await page.click('[data-testid="traces-clear-filters"]')
         await clearResponsePromise
@@ -186,7 +186,7 @@ test.describe('Traces Tab', () => {
     test('search input updates and filters work', async ({ page }) => {
         // Fill search and wait for API response
         const responsePromise = page.waitForResponse(
-            (resp) => resp.url().includes('/api/traces') && resp.status() === 200,
+            (resp) => resp.url().includes('/api/spans') && resp.status() === 200,
         )
         await page.fill('[data-testid="traces-search"]', 'test-query')
         await responsePromise

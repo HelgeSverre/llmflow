@@ -72,7 +72,7 @@ function keyValues(values: Record<string, unknown> | null | undefined): KeyValue
 
 const nanos = (ms: number) => (BigInt(Math.round(ms)) * 1_000_000n).toString()
 
-export function traceToOtlpSpan(trace: Db.Trace) {
+export function traceToOtlpSpan(trace: Db.Span) {
     const start = BigInt(trace.timestamp) * 1_000_000n
     const end = start + BigInt(Math.round((trace.duration_ms || 0) * 1_000_000))
     const spanType = trace.span_type || 'llm'
@@ -253,7 +253,7 @@ function groupByResource<R extends Stored, T>(
     return [...groups.values()]
 }
 
-export function buildTracesPayload(records: Db.Trace[], serviceName = 'llmflow') {
+export function buildTracesPayload(records: Db.Span[], serviceName = 'llmflow') {
     return {
         resourceSpans: groupByResource(records, traceToOtlpSpan, serviceName).map(
             ({ resource, scope, items }) => ({ resource, scopeSpans: [{ scope, spans: items }] }),
@@ -330,7 +330,7 @@ async function send(kind: Kind, payload: object) {
     }
 }
 
-const batches: { traces: Db.Trace[]; logs: Db.Log[]; metrics: Db.Metric[] } = {
+const batches: { traces: Db.Span[]; logs: Db.Log[]; metrics: Db.Metric[] } = {
     traces: [],
     logs: [],
     metrics: [],
@@ -341,7 +341,7 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null
 async function exportBatch(kind: Kind, records: object[]) {
     const payload =
         kind === 'traces'
-            ? buildTracesPayload(records as Db.Trace[])
+            ? buildTracesPayload(records as Db.Span[])
             : kind === 'logs'
               ? buildLogsPayload(records as Db.Log[])
               : buildMetricsPayload(records as Db.Metric[])
@@ -390,7 +390,7 @@ export function getConfig() {
     }
 }
 
-type Subscriptions = Pick<typeof Db, 'subscribeTraces' | 'subscribeLogs' | 'subscribeMetrics'>
+type Subscriptions = Pick<typeof Db, 'subscribeSpans' | 'subscribeLogs' | 'subscribeMetrics'>
 
 // Subscribes the exporter to new records. The returned stop function unsubscribes and
 // flushes what is queued; it is a no-op when export is disabled.
@@ -399,7 +399,7 @@ export function initExportHooks(db: Subscriptions): () => Promise<void> {
     if (stopHooks) return stopHooks
     if (!ENABLED) return async () => {}
     const unsubscribe: (() => void)[] = []
-    if (ENDPOINTS.traces) unsubscribe.push(db.subscribeTraces((trace) => queue('traces', trace)))
+    if (ENDPOINTS.traces) unsubscribe.push(db.subscribeSpans((trace) => queue('traces', trace)))
     if (ENDPOINTS.logs) unsubscribe.push(db.subscribeLogs((entry) => queue('logs', entry)))
     if (ENDPOINTS.metrics)
         unsubscribe.push(db.subscribeMetrics((metric) => queue('metrics', metric)))

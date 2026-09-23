@@ -33,8 +33,8 @@ export const timelineRoutes: Route[] = [
             const items: Item[] = []
 
             if (!type || type === 'trace') {
-                const filters: db.TraceFilters = { service_name, q, date_from }
-                for (const t of db.getTraces({ limit, offset: 0, filters }) as Row[])
+                const filters: db.SpanFilters = { service_name, q, date_from }
+                for (const t of db.getSpans({ limit, offset: 0, filters }) as Row[])
                     items.push({
                         id: t.id,
                         type: 'trace',

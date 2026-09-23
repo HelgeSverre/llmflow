@@ -97,7 +97,7 @@ export async function selectTimelineItem(item: TimelineItem) {
   relatedLogs.length = 0
   try {
     if (item.type === 'trace') {
-      const detail = await api.get<TraceDetail>(`/api/traces/${encodeURIComponent(item.id)}`)
+      const detail = await api.get<TraceDetail>(`/api/spans/${encodeURIComponent(item.id)}`)
       if (request !== selectionRequest) return
       selectedItemData.value = detail
       if (detail.trace.trace_id) {

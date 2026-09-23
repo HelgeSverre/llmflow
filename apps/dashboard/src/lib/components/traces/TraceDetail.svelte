@@ -16,7 +16,7 @@
     replaying = true
     replayError = ''
     try {
-      const response = await fetch(`/api/traces/${encodeURIComponent(id)}/replay`, {
+      const response = await fetch(`/api/spans/${encodeURIComponent(id)}/replay`, {
         method: 'POST',
       })
       const result = await response.json()

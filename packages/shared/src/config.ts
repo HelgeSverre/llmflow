@@ -107,10 +107,15 @@ export const SETTINGS: Setting[] = [
         description: 'Full path to the SQLite file (default: $DATA_DIR/data.db)',
     },
     {
-        name: 'MAX_TRACES',
+        name: 'MAX_SPANS',
         group: 'Storage',
         default: '10000',
         description: 'Spans to keep; whole traces are pruned oldest first beyond this',
+    },
+    {
+        name: 'MAX_TRACES',
+        group: 'Storage',
+        description: 'Former name of MAX_SPANS, read when MAX_SPANS is unset',
     },
     {
         name: 'MAX_LOGS',
@@ -359,8 +364,8 @@ export const config = {
     get dbPath() {
         return expandHome(readSetting('DB_PATH')) || path.join(this.dataDir, 'data.db')
     },
-    get maxTraces() {
-        return Math.max(1, int('MAX_TRACES', 10000))
+    get maxSpans() {
+        return Math.max(1, int('MAX_SPANS', int('MAX_TRACES', 10000)))
     },
     get maxLogs() {
         return int('MAX_LOGS', 100000)

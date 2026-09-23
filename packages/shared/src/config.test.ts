@@ -3,6 +3,7 @@ import { config, readSetting, SETTINGS } from './config'
 
 const touched = [
     'DASHBOARD_PORT',
+    'MAX_SPANS',
     'MAX_TRACES',
     'DATA_DIR',
     'DB_PATH',
@@ -30,12 +31,17 @@ test('ports default, accept 0 and reject invalid values', () => {
 })
 
 test('values are read on access, so later changes apply', () => {
-    process.env.MAX_TRACES = '5'
-    expect(config.maxTraces).toBe(5)
-    process.env.MAX_TRACES = '0'
-    expect(config.maxTraces).toBe(10000)
-    process.env.MAX_TRACES = 'junk'
-    expect(config.maxTraces).toBe(10000)
+    delete process.env.MAX_TRACES
+    process.env.MAX_SPANS = '5'
+    expect(config.maxSpans).toBe(5)
+    process.env.MAX_SPANS = '0'
+    expect(config.maxSpans).toBe(10000)
+    process.env.MAX_SPANS = 'junk'
+    expect(config.maxSpans).toBe(10000)
+    // The former name still works when the new one is unset.
+    delete process.env.MAX_SPANS
+    process.env.MAX_TRACES = '7'
+    expect(config.maxSpans).toBe(7)
 })
 
 test('DATA_DIR expands a leading ~ and DB_PATH defaults inside it', () => {

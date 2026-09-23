@@ -113,7 +113,7 @@ async function ingest(values: Record<string, unknown>, events: unknown[] = []) {
         }),
     })
     expect(response.status).toBe(200)
-    const tree = (await (await fetch(new URL(`/api/traces/${id}/tree`, dashboard.url))).json()) as {
+    const tree = (await (await fetch(new URL(`/api/spans/${id}/tree`, dashboard.url))).json()) as {
         spans: {
             input: Record<string, unknown>
             prompt_tokens: number
@@ -184,7 +184,7 @@ test('model API reports measured token splits and mean LLM latency', async () =>
         [900, 100, 200],
         [10, 90, 600],
     ])
-        db.insertTrace({
+        db.insertSpan({
             id: crypto.randomUUID(),
             timestamp: Date.now(),
             model: 'measured-fixture',
@@ -194,7 +194,7 @@ test('model API reports measured token splits and mean LLM latency', async () =>
             duration_ms: duration,
             span_type: 'llm',
         })
-    db.insertTrace({
+    db.insertSpan({
         id: crypto.randomUUID(),
         timestamp: Date.now(),
         model: 'unknown-latency',

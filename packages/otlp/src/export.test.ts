@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import type { Log, Metric, Trace } from '@llmflow/db'
+import type { Log, Metric, Span } from '@llmflow/db'
 
 // export.ts reads LLMFLOW_OTLP_LEGACY_ATTRS on import; these tests expect the default (current names only).
 delete process.env.LLMFLOW_OTLP_LEGACY_ATTRS
@@ -15,7 +15,7 @@ const {
 } = await import('./export')
 const { messageType } = await import('./transport')
 
-const trace = (fields: Partial<Trace>): Trace => ({
+const trace = (fields: Partial<Span>): Span => ({
     id: 'test',
     timestamp: 1700000000000,
     ...fields,

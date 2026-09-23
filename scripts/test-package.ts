@@ -101,7 +101,7 @@ try {
     if (!assets.length) throw new Error('Dashboard assets missing')
     for (const [, asset] of assets)
         if (!(await fetch(base + asset)).ok) throw new Error(`Missing ${asset}`)
-    if (!(await fetch(`${base}/api/traces`)).ok) throw new Error('Trace API unavailable')
+    if (!(await fetch(`${base}/api/spans`)).ok) throw new Error('Trace API unavailable')
     console.log(
         'Clean tarball, dashboard assets, API, CLI help/version and missing-Bun checks passed',
     )

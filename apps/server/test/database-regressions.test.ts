@@ -10,7 +10,7 @@ const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-db-'))
 Object.assign(process.env, {
     DATA_DIR: directory,
     DB_PATH: path.join(directory, 'test.db'),
-    MAX_TRACES: '5',
+    MAX_SPANS: '5',
 })
 const db = await import('@llmflow/db')
 afterAll(() => {
@@ -18,7 +18,7 @@ afterAll(() => {
     rmSync(directory, { recursive: true, force: true })
 })
 function span(id: string, trace_id: string, options: Record<string, any> = {}) {
-    db.insertTrace({ id, trace_id, timestamp: Date.now(), ...options })
+    db.insertSpan({ id, trace_id, timestamp: Date.now(), ...options })
 }
 test('sessions include descendants, root annotations win conflicts, and roots navigate correctly', () => {
     span('child', 'a', {
@@ -44,7 +44,7 @@ test('sessions include descendants, root annotations win conflicts, and roots na
         tokens: 30,
         cost: 3,
     })
-    expect(db.getTraces({ filters: { session_id: 'session' } })).toHaveLength(3)
+    expect(db.getSpans({ filters: { session_id: 'session' } })).toHaveLength(3)
 })
 test('retention evicts logical traces, bounds oversized traces and marks late fragments', () => {
     span('broot', 'b', { timestamp: 300 })
@@ -58,7 +58,7 @@ test('retention evicts logical traces, bounds oversized traces and marks late fr
     for (let i = 0; i < 6; i++)
         span(`large${i}`, 'large', { timestamp: 1000 + i, parent_id: i ? 'large0' : undefined })
     expect(db.getSpansByTraceId('large')).toHaveLength(0)
-    expect(db.getTraceCount()).toBeLessThanOrEqual(5)
+    expect(db.getSpanCount()).toBeLessThanOrEqual(5)
 })
 test('historical credential scrub and observed timestamp repair execute once', () => {
     const filename = path.join(directory, 'historical.db'),
@@ -87,7 +87,7 @@ test('historical credential scrub and observed timestamp repair execute once', (
         { timestamp: 99 },
         { timestamp: 12345 },
     ])
-    expect(historical.query('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 6 })
+    expect(historical.query('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 7 })
     expect(
         historical
             .query("SELECT name FROM sqlite_master WHERE type='table' AND name='stats_cache'")
@@ -107,7 +107,7 @@ test('historical credential scrub and observed timestamp repair execute once', (
     expect(
         historical.query('SELECT timestamp FROM logs WHERE observed_timestamp=54321').get(),
     ).toEqual({ timestamp: 0 })
-    const columns = (historical.query('PRAGMA table_info(traces)').all() as { name: string }[]).map(
+    const columns = (historical.query('PRAGMA table_info(spans)').all() as { name: string }[]).map(
         (column) => column.name,
     )
     expect(columns).toEqual(

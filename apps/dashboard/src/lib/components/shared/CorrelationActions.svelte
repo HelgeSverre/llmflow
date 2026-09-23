@@ -24,13 +24,13 @@
         let exact: Trace | undefined
         if (span) {
           try {
-            exact = (await api.get<TraceDetail>(`/api/traces/${encodeURIComponent(span)}`)).trace
+            exact = (await api.get<TraceDetail>(`/api/spans/${encodeURIComponent(span)}`)).trace
           } catch {
             /* A retained sibling can still provide trace context after eviction. */
           }
         }
         const rows = trace
-          ? await api.get<Trace[]>(`/api/traces?trace_id=${encodeURIComponent(trace)}&limit=10000`)
+          ? await api.get<Trace[]>(`/api/spans?trace_id=${encodeURIComponent(trace)}&limit=10000`)
           : []
         const target = exact ?? rows.find((row) => row.id === span) ?? rows[0]
         if (request !== generation) return

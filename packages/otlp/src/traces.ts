@@ -290,7 +290,7 @@ function extractIO(attrs: Attributes, events: SpanEvent[] | undefined) {
 /**
  * Transform a single OTLP span to LLMFlow format
  */
-function transformSpan(span: Span, resourceAttrs: Attributes): db.Trace {
+function transformSpan(span: Span, resourceAttrs: Attributes): db.Span {
     const attrs: Attributes = {
         ...extractAttributes(span.attributes),
         _spanName: span.name,
@@ -430,7 +430,7 @@ export function processOtlpTraces(body: TracesRequest): IngestResult {
             for (const span of scopeSpan.spans || []) {
                 try {
                     const llmflowSpan = transformSpan(span, resourceAttrs)
-                    db.insertTrace(llmflowSpan)
+                    db.insertSpan(llmflowSpan)
                     results.accepted++
                 } catch (error) {
                     results.rejected++

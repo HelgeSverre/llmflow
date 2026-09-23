@@ -37,12 +37,15 @@ test('a v0.4.1 database upgrades cleanly and keeps its data', () => {
 
     migrate(db)
 
-    expect(versions(db)).toEqual([1, 2, 3, 4, 5, 6])
+    expect(versions(db)).toEqual([1, 2, 3, 4, 5, 6, 7])
     expect(tables(db)).not.toContain('stats_cache')
+    // The span table was renamed in place (step 7).
+    expect(tables(db)).toContain('spans')
+    expect(tables(db)).not.toContain('traces')
     expect(
         db
             .query(
-                'SELECT id, trace_id, parent_id, service_name, session_id FROM traces ORDER BY id',
+                'SELECT id, trace_id, parent_id, service_name, session_id FROM spans ORDER BY id',
             )
             .all(),
     ).toEqual([
@@ -66,11 +69,31 @@ test('a v0.4.1 database upgrades cleanly and keeps its data', () => {
         name: 'legacy.counter',
         value_int: 7,
     })
-    // The retention bookkeeping from migration 3 still matches the rows.
+    // The retention bookkeeping from migration 3 still matches the rows, and its triggers
+    // followed the table: a new span is counted.
     expect(db.query('SELECT span_count FROM retention_counts').get()).toEqual({ span_count: 2 })
+    db.exec(
+        "INSERT INTO spans(id, timestamp, trace_id) VALUES('span-new', 1750000000100, 'trace-new')",
+    )
+    expect(db.query('SELECT span_count FROM retention_counts').get()).toEqual({ span_count: 3 })
+    expect(
+        db.query("SELECT span_count FROM trace_groups WHERE trace_id = 'trace-new'").get(),
+    ).toEqual({ span_count: 1 })
+    const spanIndexes = (
+        db
+            .query("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='spans'")
+            .all() as { name: string }[]
+    ).map((row) => row.name)
+    expect(spanIndexes).toEqual(
+        expect.arrayContaining([
+            'idx_traces_timestamp',
+            'idx_traces_session_id',
+            'idx_trace_group',
+        ]),
+    )
 
     migrate(db)
-    expect(versions(db)).toEqual([1, 2, 3, 4, 5, 6])
+    expect(versions(db)).toEqual([1, 2, 3, 4, 5, 6, 7])
     db.close()
 })
 
