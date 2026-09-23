@@ -10,17 +10,18 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "e2e/*"
+    "e2e/*",
+    "website"
   ],
   "scripts": {
-    "start": "bun run --filter @llmflow/server start",
-    "start:verbose": "VERBOSE=1 bun run --filter @llmflow/server start",
-    "dev": "bun run --filter @llmflow/server --filter @llmflow/dashboard dev",
-    "dev:server": "bun run --filter @llmflow/server dev",
-    "dev:dashboard": "bun run --filter @llmflow/dashboard dev",
-    "build": "bun run --filter @llmflow/dashboard build && bun run scripts/build-server.ts",
-    "demo": "bun run --filter @llmflow/server demo",
-    "demo:many": "bun run --filter @llmflow/server demo:many",
+    "start": "bun bin/llmflow.js",
+    "start:verbose": "bun bin/llmflow.js --verbose",
+    "dev": "bun --watch scripts/dev.ts all",
+    "dev:server": "bun --watch scripts/dev.ts server",
+    "dev:dashboard": "bun scripts/dev.ts dashboard",
+    "build": "bun scripts/build.ts",
+    "demo": "bun scripts/dev.ts demo",
+    "demo:many": "bun scripts/dev.ts demo --count=20",
     "test": "bun run --filter @llmflow/server test",
     "test:otlp": "bun run --filter @llmflow/server test:otlp",
     "test:ws": "bun run --filter @llmflow/server test:ws",
@@ -31,14 +32,13 @@
     "test:e2e": "bunx playwright test",
     "test:e2e:headed": "bunx playwright test --headed",
     "test:e2e:ui": "bunx playwright test --ui",
-    "typecheck": "bun run --filter '*' typecheck",
-    "prepublishOnly": "bun install && bun run build",
-    "test:package": "bun run scripts/test-package.ts"
+    "typecheck": "bun run --filter '*' typecheck && bunx tsc --noEmit -p scripts/tsconfig.json",
+    "test:package": "bun run scripts/test-package.ts",
+    "prepack": "bun run build"
   },
   "files": [
     "bin/",
-    "dist/",
-    "public/"
+    "dist/"
   ],
   "keywords": [
     "llm",

@@ -7,5 +7,6 @@
     ".": "./src/index.js",
     "./logger": "./src/logger.js",
     "./redaction": "./src/redaction.js"
-  }
+  },
+  "type": "commonjs"
 }

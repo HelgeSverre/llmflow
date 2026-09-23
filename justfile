@@ -130,19 +130,19 @@ clean:
 # Serve the marketing site locally at http://localhost:4000
 [group('website')]
 website:
-    bunx serve website -l 4000
+    bun run --cwd website dev
 
 # Regenerate the social/OG image
 [group('website')]
 website-og:
-    bun apps/server/scripts/generate-og-image.js
+    bun run --cwd website og
 
 # Deploy a preview build to Vercel
 [group('website')]
 website-preview:
-    cd website && vc
+    bun run --cwd website preview
 
 # Deploy the marketing site to Vercel (production)
 [group('website')]
 website-deploy:
-    cd website && vc --prod
+    bun run --cwd website deploy

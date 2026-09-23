@@ -54,9 +54,8 @@ db.insertTrace({
 db.close()
 console.log('✓ Database seeded with test data')
 
-// Resolve the server entry through the workspace link so we don't
-// hard-code apps/server/src/server.ts here.
-const serverEntry = require.resolve('@llmflow/server')
+// Exercise the same bundle and static assets shipped through npm and Docker.
+const serverEntry = path.resolve(__dirname, '../../dist/server.js')
 
 const server = spawn('bun', [serverEntry], {
     stdio: 'inherit',

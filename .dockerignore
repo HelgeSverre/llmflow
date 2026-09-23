@@ -7,3 +7,8 @@ npm-debug.log
 .DS_Store
 README.md
 .env
+**/node_modules
+**/dist
+.backlog
+test-results
+playwright-report

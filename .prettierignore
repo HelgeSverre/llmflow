@@ -5,8 +5,6 @@ yarn.lock
 pnpm-lock.yaml
 
 # Build artifacts
-public/assets
-public/index.html
 apps/dashboard/dist
 **/dist
 **/.svelte-kit
@@ -17,6 +15,11 @@ test-results
 playwright-report
 test-data
 
+# Backlog metadata is maintained through the Backlog.md CLI.
+.backlog/
+backlog/
+
 # Vendored / generated
 packages/pricing/pricing.fallback.json
+packages/otlp/src/proto.json
 release-notes

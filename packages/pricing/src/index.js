@@ -8,9 +8,10 @@ const PRICING_URL = process.env.PRICING_URL || DEFAULT_PRICING_URL
 const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const VERBOSE = process.env.VERBOSE === '1' || process.argv.includes('--verbose')
 
-const fallbackPricingPath = process.env.LLMFLOW_ROOT
-    ? path.join(process.env.LLMFLOW_ROOT, 'dist', 'pricing.fallback.json')
-    : path.join(__dirname, '..', 'pricing.fallback.json')
+const fallbackPricingPath =
+    typeof LLMFLOW_BUNDLE_DIR !== 'undefined'
+        ? path.join(LLMFLOW_BUNDLE_DIR, 'pricing.fallback.json')
+        : path.join(__dirname, '..', 'pricing.fallback.json')
 
 let pricingData = {}
 let lastFetchTime = 0

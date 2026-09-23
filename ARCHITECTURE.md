@@ -72,7 +72,7 @@ graph TB
             PROXY["Proxy listener<br/><b>:8080</b><br/>Bun.serve"]
             DASH["Dashboard + API + OTLP listener<br/><b>:1337</b><br/>Bun.serve"]
             WS["WebSocket hub<br/>/ws fanout"]
-            STATIC["Static file server<br/>/public/* (built Svelte SPA)"]
+            STATIC["Static file server<br/>dist/public/* (built Svelte SPA)"]
         end
 
         subgraph data["Local data"]
@@ -116,7 +116,7 @@ graph TB
         ROUTE_PASS[forwardProxyRequest native mode<br/>/passthrough/openai/* · /passthrough/anthropic/* · …]
         STREAM1[StreamSession]
         WS_HUB[wsClients · broadcast]
-        STATIC2[serveStaticFile · /public]
+        STATIC2[serveStaticFile · dist/public]
         HEALTH[handleProviderHealthCheck<br/>/api/health/providers]
     end
 
@@ -203,7 +203,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph spa["apps/dashboard — Svelte 5 + Vite 8 SPA (output: /public)"]
+    subgraph spa["apps/dashboard — Svelte 5 + Vite 8 SPA (output: apps/dashboard/dist)"]
         APP[App.svelte<br/>tab router · keyboard nav · stats sync]
         HEADER[Header.svelte<br/>connection status · theme toggle]
         TABS["Tabs.svelte<br/>hash-route between views"]
@@ -541,7 +541,7 @@ graph LR
     OTLP --> PRICE
     OTLP --> SHARED
     PROV --> SHARED
-    DASHBOARD2 -.->|"build output to /public"| SERVER
+    DASHBOARD2 -.->|"release assets in dist/public"| SERVER
     SDK -.->|"POST /api/spans"| SERVER
 ```
 
@@ -549,16 +549,16 @@ graph LR
 
 ## Cross-cutting concerns
 
-| Concern                 | Where it lives                                                                                       | Notes                                                                                                                                     |
-| ----------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Logging**             | `packages/shared/src/logger.js`                                                                      | `log.info`, `log.error`, `log.proxy`, `log.otlp`, `log.debug`. `VERBOSE=1` enables debug.                                                 |
-| **Cost calculation**    | `packages/pricing/src/index.js`                                                                      | Backed by LiteLLM pricing JSON, falls back to bundled `pricing.fallback.json`.                                                            |
-| **Provider resolution** | `ProviderRegistry.resolve` in `packages/providers/src/index.ts`                                      | Reads `X-LLMFlow-Provider` header first, then path prefix.                                                                                |
-| **OTLP fanout**         | `packages/otlp/src/export.js`                                                                        | One upstream endpoint via `OTLP_EXPORT_ENDPOINT`; batched (`BATCH_SIZE` rows or `FLUSH_INTERVAL_MS`). Headers from `OTLP_EXPORT_HEADERS`. |
-| **Realtime fanout**     | `broadcast()` in `apps/server/src/server.ts` over `wsClients` set                                    | Stats throttled to 1/sec; normal close and failed sends remove clients.                                                                   |
-| **Static assets**       | `serveStaticFile` at `apps/server/src/server.ts` + `/public/` from `bun run build` of the Svelte SPA | The dashboard ships baked into the npm tarball and the Docker image.                                                                      |
-| **CORS**                | wide-open `*` in `startProxyServer`                                                                  | Intentional for the local development workflow.                                                                                           |
-| **Auth**                | None today                                                                                           | Local tool: no login/token setup or planned bearer-auth layer.                                                                            |
+| Concern                 | Where it lives                                                                                           | Notes                                                                                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Logging**             | `packages/shared/src/logger.js`                                                                          | `log.info`, `log.error`, `log.proxy`, `log.otlp`, `log.debug`. `VERBOSE=1` enables debug.                                                 |
+| **Cost calculation**    | `packages/pricing/src/index.js`                                                                          | Backed by LiteLLM pricing JSON, falls back to bundled `pricing.fallback.json`.                                                            |
+| **Provider resolution** | `ProviderRegistry.resolve` in `packages/providers/src/index.ts`                                          | Reads `X-LLMFlow-Provider` header first, then path prefix.                                                                                |
+| **OTLP fanout**         | `packages/otlp/src/export.js`                                                                            | One upstream endpoint via `OTLP_EXPORT_ENDPOINT`; batched (`BATCH_SIZE` rows or `FLUSH_INTERVAL_MS`). Headers from `OTLP_EXPORT_HEADERS`. |
+| **Realtime fanout**     | `broadcast()` in `apps/server/src/server.ts` over `wsClients` set                                        | Stats throttled to 1/sec; normal close and failed sends remove clients.                                                                   |
+| **Static assets**       | `serveStaticFile` at `apps/server/src/server.ts` + `dist/public/` from `bun run build` of the Svelte SPA | The dashboard ships baked into the npm tarball and the Docker image.                                                                      |
+| **CORS**                | wide-open `*` in `startProxyServer`                                                                      | Intentional for the local development workflow.                                                                                           |
+| **Auth**                | None today                                                                                               | Local tool: no login/token setup or planned bearer-auth layer.                                                                            |
 
 ## Where to start reading
 
@@ -572,3 +572,25 @@ If you only have time for a few files:
 ## Current scope
 
 This is an intentionally local debugging tool. Refactoring is driven by concrete bugs or features, not file-size or module-count targets. Trace retention uses counters and removes whole traces; logs and metrics retain their existing row-based pruning. Exact tag matching uses json_each; body search uses LIKE. The current fix sequence is tracked in Backlog.md.
+
+## Build and package ownership
+
+`bun run build` runs `scripts/build.ts`, builds the dashboard in its own workspace,
+and assembles `dist/server.js`, `dist/public/`, pricing fallback data, and third-party notices from `licenses/`. The output is disposable and ignored by Git. The npm `prepack` hook
+builds it automatically. Docker builds it from source and copies only `dist/`
+into the runtime image. The CLI and Docker execute the same Bun server bundle.
+
+The server composes the private `db`, `otlp`, `pricing`, `providers`, and `shared`
+workspaces. OTLP depends on DB, pricing, and shared utilities; DB depends on shared
+redaction. These packages ship inside the server bundle, not as separately
+installed npm dependencies. Their TypeScript source exports are intentional for
+Bun development. OTLP, pricing, and shared explicitly use CommonJS.
+
+`llmflow-sdk` is a separate public client package with JavaScript and declarations;
+it has no runtime dependency on the server packages. Package unit tests currently
+live in `apps/server/test`; moving those beside their owners is follow-up work,
+while server integration tests should remain with the server.
+
+The marketing website is a separate private workspace. Its assets, local server,
+OG image generator, and deployment commands belong to `website/` and do not enter
+the application release artifact.

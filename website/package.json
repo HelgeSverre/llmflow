@@ -1,0 +1,14 @@
+{
+  "name": "@llmflow/website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bunx serve . -l 4000",
+    "og": "bun scripts/generate-og-image.mjs",
+    "preview": "vc",
+    "deploy": "vc --prod"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}

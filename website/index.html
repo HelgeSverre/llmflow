@@ -216,7 +216,7 @@
                     </svg>
                     <div class="hero-feature-text">
                         <h3>Cost Tracking</h3>
-                        <p>Real-time pricing for 2000+ models</p>
+                        <p>Real-time pricing for 4000+ models</p>
                     </div>
                 </div>
                 <div class="hero-feature">
@@ -273,7 +273,7 @@
                     </svg>
                     <div class="hero-feature-text">
                         <h3>OpenTelemetry</h3>
-                        <p>LangChain, LlamaIndex, OTLP support</p>
+                        <p>OpenTelemetry for LangChain, LlamaIndex and more</p>
                     </div>
                 </div>
                 <div class="hero-feature">
@@ -322,11 +322,11 @@
                         <div class="step-content">
                             <h3>Start LLMFlow</h3>
                             <div class="code-block">
-                                <pre><code><span class="c"># Using npx (recommended)</span>
+                                <pre><code><span class="c"># Using npx (requires Bun: bun.sh)</span>
 npx llmflow
 
 <span class="c"># Or with Docker</span>
-docker run -p 1337:1337 -p 8080:8080 helgesverre/llmflow</code></pre>
+docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 helgesverre/llmflow</code></pre>
                             </div>
                         </div>
                     </div>
@@ -412,7 +412,20 @@ client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>)
                             <span class="provider-name">OpenRouter</span>
                             <code>http://localhost:8080/openrouter/v1</code>
                         </div>
+                        <div class="provider-row">
+                            <span class="provider-name">Cohere</span>
+                            <code>http://localhost:8080/cohere/v1</code>
+                        </div>
+                        <div class="provider-row">
+                            <span class="provider-name">Perplexity</span>
+                            <code>http://localhost:8080/perplexity/v1</code>
+                        </div>
                     </div>
+                    <p class="note">
+                        Using a native SDK (Anthropic, OpenAI, Gemini)? Use
+                        <code>http://localhost:8080/passthrough/{anthropic,openai,gemini}</code>
+                        to keep the provider's own API format.
+                    </p>
                 </div>
 
                 <div class="tab-content" id="tab-otel">
@@ -451,12 +464,15 @@ provider.add_span_processor(SimpleSpanProcessor(exporter))</code></pre>
                             <h4>JavaScript / TypeScript</h4>
                             <div class="code-block">
                                 <pre><code><span class="k">import</span> { OTLPTraceExporter } <span class="k">from</span> <span class="s">'@opentelemetry/exporter-trace-otlp-http'</span>;
-<span class="k">import</span> { SimpleSpanProcessor } <span class="k">from</span> <span class="s">'@opentelemetry/sdk-trace-base'</span>;
+<span class="k">import</span> { NodeTracerProvider, SimpleSpanProcessor } <span class="k">from</span> <span class="s">'@opentelemetry/sdk-trace-node'</span>;
 
 <span class="k">const</span> exporter = <span class="k">new</span> OTLPTraceExporter({
     url: <span class="s">'http://localhost:1337/v1/traces'</span>
 });
-provider.addSpanProcessor(<span class="k">new</span> SimpleSpanProcessor(exporter));</code></pre>
+<span class="k">const</span> provider = <span class="k">new</span> NodeTracerProvider({
+    spanProcessors: [<span class="k">new</span> SimpleSpanProcessor(exporter)]
+});
+provider.register();</code></pre>
                             </div>
                         </div>
 
@@ -492,14 +508,15 @@ OpenTelemetry::SDK.configure <span class="k">do</span> |c|
                     </div>
 
                     <p class="note">
-                        LLMFlow accepts OTLP/HTTP JSON for traces, logs, and metrics on port 1337.
+                        LLMFlow accepts OTLP/HTTP (JSON or protobuf) for traces, logs, and metrics
+                        on port 1337.
                     </p>
                 </div>
 
                 <div class="tab-content" id="tab-cli">
                     <p>
                         Track usage from AI coding assistants like Claude Code, Codex CLI, Aider,
-                        and more.
+                        and Continue.
                     </p>
 
                     <div class="otel-examples">
@@ -519,7 +536,8 @@ claude</code></pre>
 aider --openai-api-base http://localhost:8080/v1
 
 <span class="c"># Anthropic models</span>
-aider --anthropic-api-base http://localhost:8080/passthrough/anthropic</code></pre>
+<span class="k">export</span> ANTHROPIC_API_BASE=http://localhost:8080/passthrough/anthropic
+aider</code></pre>
                             </div>
                         </div>
 
@@ -527,16 +545,19 @@ aider --anthropic-api-base http://localhost:8080/passthrough/anthropic</code></p
                             <h4>Codex CLI</h4>
                             <div class="code-block">
                                 <pre><code><span class="c"># In ~/.codex/config.toml:</span>
-[otel.exporter.<span class="s">"otlp-http"</span>]
-endpoint = <span class="s">"http://localhost:1337/v1/logs"</span></code></pre>
+[otel]
+exporter = { otlp-http = { endpoint = <span class="s">"http://localhost:1337/v1/logs"</span>, protocol = <span class="s">"json"</span> } }</code></pre>
                             </div>
                         </div>
 
                         <div class="otel-example">
-                            <h4>Cursor / Continue</h4>
+                            <h4>Continue</h4>
                             <div class="code-block">
-                                <pre><code><span class="c"># Set OpenAI base URL in settings</span>
-http://localhost:8080/v1</code></pre>
+                                <pre><code><span class="c"># In ~/.continue/config.yaml, under models:</span>
+- name: GPT via LLMFlow
+  provider: openai
+  model: gpt-4o
+  apiBase: http://localhost:8080/v1</code></pre>
                             </div>
                         </div>
                     </div>

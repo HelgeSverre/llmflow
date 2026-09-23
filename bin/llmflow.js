@@ -47,7 +47,6 @@ if (!existsSync(serverFile)) {
 }
 const server = spawn('bun', ['--no-install', serverFile, ...args], {
     stdio: 'inherit',
-    env: { ...process.env, LLMFLOW_ROOT: root },
 })
 server.on('error', (error) => {
     console.error(

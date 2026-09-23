@@ -40,7 +40,6 @@ Provider credentials must be supplied through the client or the supported provid
 
 - [README](https://github.com/HelgeSverre/llmflow/blob/main/README.md): startup, providers, configuration, packaging and testing.
 - [Integration examples](https://github.com/HelgeSverre/llmflow/tree/main/examples): runnable examples and setup.
-- [AI CLI integration guide](https://github.com/HelgeSverre/llmflow/blob/main/docs/guides/ai-cli-tools.md): native proxy and telemetry configuration.
 - [Architecture](https://github.com/HelgeSverre/llmflow/blob/main/ARCHITECTURE.md): current module responsibilities.
 
 ## Source map
@@ -53,5 +52,5 @@ Provider credentials must be supplied through the client or the supported provid
 - packages/pricing/src/: LiteLLM pricing with a bundled fallback.
 - packages/sdk/: JavaScript tracing SDK and declarations.
 - apps/dashboard/src/: Svelte 5 UI, stores and trace viewer.
-- public/: generated dashboard assets.
+- dist/: generated server bundle, public/ dashboard assets, and runtime data.
 - bin/llmflow.js: Node launcher; dist/server.js is the bundled Bun server in npm distributions.

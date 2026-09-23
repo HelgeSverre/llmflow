@@ -44,7 +44,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@llmflow/db": "workspace:*",
-        "@llmflow/server": "workspace:*",
       },
     },
     "packages/db": {
@@ -79,6 +78,12 @@
     "packages/shared": {
       "name": "@llmflow/shared",
       "version": "0.0.0",
+    },
+    "website": {
+      "name": "@llmflow/website",
+      "devDependencies": {
+        "@playwright/test": "^1.60.0",
+      },
     },
   },
   "packages": {
@@ -137,6 +142,8 @@
     "@llmflow/server": ["@llmflow/server@workspace:apps/server"],
 
     "@llmflow/shared": ["@llmflow/shared@workspace:packages/shared"],
+
+    "@llmflow/website": ["@llmflow/website@workspace:website"],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.4", "", { "dependencies": { "@tybys/wasm-util": "^0.10.1" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow=="],
 

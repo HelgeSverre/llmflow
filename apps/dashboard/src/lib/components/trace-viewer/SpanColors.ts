@@ -1,5 +1,5 @@
 // Okabe-Ito 8-color palette — chosen for color-blind safety + perceptual
-// distinguishability. See docs/reference/trace-span-viewer-ui/04 §Color encoding.
+// distinguishability.
 export const SPAN_COLORS: Record<string, string> = {
   llm: '#0072B2', // blue
   agent: '#D55E00', // vermillion

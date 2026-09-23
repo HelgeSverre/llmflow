@@ -7,23 +7,13 @@ Configure OpenAI Codex CLI to send telemetry to LLMFlow.
 Create or edit `~/.codex/config.toml`:
 
 ```toml
-# Enable OTLP telemetry
-[telemetry]
-enabled = true
-
-[telemetry.otlp]
-endpoint = "http://localhost:1337/v1/logs"
-protocol = "http"
+[otel]
+environment = "dev"
+log_user_prompt = true  # Include prompts in logs
+exporter = { otlp-http = { endpoint = "http://localhost:1337/v1/logs", protocol = "json" } }
 ```
 
-## Environment Variables
-
-Alternatively, use environment variables:
-
-```bash
-export CODEX_OTLP_ENDPOINT="http://localhost:1337/v1/logs"
-export CODEX_TELEMETRY_ENABLED=true
-```
+`protocol` is required for `otlp-http`. This exports logs only; add `trace_exporter` with a `/v1/traces` endpoint for traces.
 
 ## Verify
 

@@ -1,6 +1,6 @@
 const { Root } = require('protobufjs/light')
 const { gunzipSync } = require('node:zlib')
-// Generated from opentelemetry-proto v1.11.0. See ../PROTO-LICENSE.
+// Generated from opentelemetry-proto v1.11.0. License: licenses/opentelemetry-proto.txt at the repository root.
 const root = Root.fromJSON(require('./proto.json'))
 const INPUT_LIMIT = 4 * 1024 * 1024
 const OUTPUT_LIMIT = 16 * 1024 * 1024

@@ -98,14 +98,13 @@ db.subscribeMetrics((record) => {
     broadcast({ type: 'new_metric', payload: metric })
 })
 
-// Static file serving
-// Dashboard build output lives at the monorepo root /public/ so it can be
-// included in the npm package via root `files` and served unchanged in
-// production/dev. apps/server/src → repo root is three levels up.
-const publicDir = path.join(
-    process.env.LLMFLOW_ROOT || path.resolve(import.meta.dir, '../../..'),
-    'public',
-)
+declare const LLMFLOW_BUNDLE_DIR: string
+
+// The bundle serves its adjacent assets; source mode uses the dashboard workspace build.
+const publicDir =
+    typeof LLMFLOW_BUNDLE_DIR !== 'undefined'
+        ? path.join(LLMFLOW_BUNDLE_DIR, 'public')
+        : path.resolve(import.meta.dir, '../../dashboard/dist')
 
 function serveStaticFile(filePath: string): Response {
     const fullPath = path.join(publicDir, filePath)
@@ -122,26 +121,14 @@ function serveStaticFile(filePath: string): Response {
     }
 }
 
-function getMimeType(filePath: string): string {
-    const ext = path.extname(filePath).toLowerCase()
-    const mimeTypes: Record<string, string> = {
-        '.html': 'text/html',
-        '.css': 'text/css',
-        '.js': 'application/javascript',
-        '.json': 'application/json',
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.svg': 'image/svg+xml',
-        '.ico': 'image/x-icon',
-    }
-    return mimeTypes[ext] || 'application/octet-stream'
-}
-
 // Dashboard server
-export function startDashboardServer() {
+export function startDashboardServer(
+    port = DASHBOARD_PORT,
+    allowedOrigins: () => string[] = () => [],
+) {
     return Bun.serve({
         hostname: DASHBOARD_HOST,
-        port: DASHBOARD_PORT,
+        port,
 
         websocket: {
             open(ws) {
@@ -162,7 +149,7 @@ export function startDashboardServer() {
 
             // WebSocket upgrade
             if (pathname === '/ws') {
-                if (!trustedWebSocketOrigin(req, DASHBOARD_HOST, server.port!)) {
+                if (!trustedWebSocketOrigin(req, DASHBOARD_HOST, server.port!, allowedOrigins())) {
                     return new Response('Untrusted WebSocket origin', { status: 403 })
                 }
                 if (server.upgrade(req)) return new Response(null)
@@ -921,13 +908,13 @@ async function handleOtlpRoute(req: Request, url: URL): Promise<Response> {
     }
 }
 
-export function startProxyServer() {
+export function startProxyServer(port = PROXY_PORT) {
     return Bun.serve({
         hostname: PROXY_HOST,
-        port: PROXY_PORT,
+        port,
         idleTimeout: 0,
 
-        async fetch(req) {
+        async fetch(req, server) {
             const url = new URL(req.url)
 
             // Health check
@@ -935,7 +922,7 @@ export function startProxyServer() {
                 return Response.json({
                     status: 'ok',
                     service: 'proxy',
-                    port: PROXY_PORT,
+                    port: server.port,
                     idleTimeout: 0,
                     traces: db.getTraceCount(),
                     uptime: process.uptime(),

@@ -12,7 +12,7 @@ npx llmflow
 
 Dashboard: [localhost:1337](http://localhost:1337) · Proxy: [localhost:8080](http://localhost:8080)
 
-![LLMFlow Dashboard](art/screenshot-dark.png)
+![LLMFlow Dashboard](website/screenshot-dark.png)
 
 ---
 
@@ -68,7 +68,7 @@ Open [localhost:1337](http://localhost:1337) to see your traces, costs, and toke
 
 | Feature                 | Description                                                                           |
 | ----------------------- | ------------------------------------------------------------------------------------- |
-| **Cost Tracking**       | Real-time pricing for 2000+ models                                                    |
+| **Cost Tracking**       | Real-time pricing for 4000+ models                                                    |
 | **Request Logging**     | See every request/response with latency                                               |
 | **Multi-Provider**      | OpenAI, Anthropic, Gemini, Ollama, Groq, Mistral, and more                            |
 | **OpenTelemetry**       | Accept OTLP/HTTP traces from LangChain, LlamaIndex, Traceloop, Vercel AI SDK, etc.    |
@@ -118,12 +118,11 @@ new OTLPTraceExporter({ url: 'http://localhost:1337/v1/traces' })
 ```
 
 LLMFlow accepts both the current
-[OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+[OpenTelemetry GenAI semantic conventions](https://github.com/open-telemetry/semantic-conventions-genai)
 (`gen_ai.provider.name`, `gen_ai.usage.input_tokens`, structured
 `gen_ai.input.messages`, etc.) and the deprecated v1.36.0 names
-(`gen_ai.system`, `gen_ai.usage.prompt_tokens`). See
-[GenAI semantic conventions](docs/guides/genai-semconv.md) for the full key
-list, precedence rules, and the `LLMFLOW_OTLP_LEGACY_ATTRS` export flag.
+(`gen_ai.system`, `gen_ai.usage.prompt_tokens`). Set `LLMFLOW_OTLP_LEGACY_ATTRS=1`
+to also export the deprecated names.
 
 ### Session correlation
 
@@ -163,7 +162,7 @@ Set provider API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API
 
 The "what your LLM calls cost" number comes from a live model price table — there's no hand-maintained cost lookup in this repo. Two things matter for trust in that number:
 
-**Source.** `@llmflow/pricing` pulls [BerriAI/litellm's `model_prices_and_context_window.json`](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) over HTTPS on boot and again every 24 hours. That's the canonical community-maintained table for ~2000 models across OpenAI, Anthropic, Google, Azure, Cohere, Mistral, Together, OpenRouter, Perplexity, Groq, and Ollama. Override the URL with `PRICING_URL` if you mirror it internally.
+**Source.** `@llmflow/pricing` pulls [BerriAI/litellm's `model_prices_and_context_window.json`](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) over HTTPS on boot and again every 24 hours. That's the canonical community-maintained table for 4000+ models across OpenAI, Anthropic, Google, Azure, Cohere, Mistral, Together, OpenRouter, Perplexity, Groq, and Ollama. Override the URL with `PRICING_URL` if you mirror it internally.
 
 **Fallback.** If the boot-time fetch fails (offline laptop, blocked egress, LiteLLM is down), LLMFlow falls back to the bundled snapshot at `packages/pricing/pricing.fallback.json`. Costs keep being calculated, but rates are frozen to whatever was current when that file was last regenerated.
 
@@ -232,7 +231,7 @@ bun run dev
 bun run dev:server      # backend only
 bun run dev:dashboard   # Vite HMR only
 
-# Build dashboard for production (outputs to /public/)
+# Build server and dashboard release artifacts in dist/
 bun run build
 
 # Tests
@@ -241,24 +240,15 @@ bun run --filter @llmflow/dashboard test    # viewport vitest suite
 bun run test:e2e            # Playwright
 ```
 
-The dashboard is Svelte 5 + Vite 8 and builds to `/public/` at the repo root.
+The dashboard is Svelte 5 + Vite 8 and builds to `apps/dashboard/dist/`.
+The root build assembles it into `dist/public/` alongside `dist/server.js` and runtime assets.
 The bin entry `bin/llmflow.js` (used by `npx llmflow`) spawns
 the bundled `dist/server.js` in npm installations (source in an unbuilt checkout).
 `bun run build` generates both the dashboard and the self-contained Bun server.
-`bun run test:package` verifies the packed artifact in a fresh consumer project.
-
----
-
-For filtering, trace inspection, session navigation and value conventions, see the [dashboard guide](docs/guides/dashboard.md).
-
-## Advanced Features
-
-For advanced usage, see the [docs/](docs/) folder:
-
-- [AI CLI Tools](docs/guides/ai-cli-tools.md) - Claude Code, Codex CLI, Gemini CLI
-- [Observability Backends](docs/guides/observability-backends.md) - Export to Jaeger, Langfuse, Phoenix
-- [GenAI Semantic Conventions](docs/guides/genai-semconv.md) - Supported `gen_ai.*` attributes (current + legacy)
-- [Passthrough Mode](docs/guides/ai-cli-tools.md#passthrough-mode) - Forward native API formats
+`npm pack` and `npm publish` build through `prepack`; generated output is not committed.
+Docker builds the same release layout from source in a separate build stage.
+`bun run test:package` builds and verifies the packed artifact, including offline pricing,
+in a fresh consumer project. Marketing assets and commands live under `website/`.
 
 ---
 
@@ -276,8 +266,8 @@ Trace-tree API responses remain nested using `timestamp` and `span_name`; the da
 
 ### Runtime and retention policy
 
-- Dashboard/OTLP and SDK default to `http://127.0.0.1:1337`; the proxy defaults to `http://127.0.0.1:8080`. A requested port already in use fails startup; the server never silently selects another port. Set `DASHBOARD_PORT` and the SDK's `LLMFLOW_URL` together for overrides. Port `0` is available for tests; startup prints the actual assigned URLs.
-- WebSocket upgrades require an exact trusted Origin. Loopback dashboard origins at the listening port are accepted. For a reverse proxy, explicitly set `WS_ALLOWED_ORIGINS=https://your-dashboard.example`; forwarded headers do not grant access. The Vite dev command allows its local port 5173. Native WebSocket clients must send an allowed Origin too.
+- Dashboard/OTLP and SDK default to `http://127.0.0.1:1337`; the proxy defaults to `http://127.0.0.1:8080`. Production startup (`bun start` / `npx llmflow`) fails if its requested port is occupied. Development commands (`just dev`, `just dev-server`, `just dev-dashboard`, and their `bun run dev*` equivalents) automatically choose available ports when their preferred ports are busy. Set `DASHBOARD_PORT` and the SDK's `LLMFLOW_URL` together for overrides. Port `0` is available for tests; startup prints the actual assigned URLs.
+- WebSocket upgrades require an exact trusted Origin. Loopback dashboard origins at the listening port are accepted. For a reverse proxy, explicitly set `WS_ALLOWED_ORIGINS=https://your-dashboard.example`; forwarded headers do not grant access. Development startup allows the actual Vite origin, including when its preferred port 5173 is occupied. Native WebSocket clients must send an allowed Origin too.
 - Proxy socket idle timeouts are disabled to permit slow LLM responses and quiet streams. `PROXY_TIMEOUT_MS` sets the overall upstream deadline (default 300000 ms), including body consumption. Downstream cancellation aborts upstream work. Capture is bounded to 2 MiB of text, 1 MiB per tool argument, 4 MiB per streaming frame and 16 MiB for non-streaming responses.
 - OTLP/HTTP accepts JSON and protobuf with identity or gzip encoding for traces, logs and metrics. Encoded input is limited to 4 MiB and decompressed output to 16 MiB. Missing/nonpositive/invalid timestamps are absent: logs prefer event time, then observed time, then ingestion time; metrics use ingestion time; spans use the valid endpoint or ingestion time, with zero duration unless both endpoints form a valid interval.
 - `MAX_TRACES` bounds span rows. Overflow evicts the logical trace with the oldest latest-span timestamp as a unit, including active traces when necessary. A single trace larger than the cap is evicted completely. Independent rows form their own logical traces. Up to `MAX_TRACES` eviction markers identify late fragments; missing-parent checks also mark partial trees. Totals describe retained data. Session ownership prefers a root annotation, otherwise the earliest annotated span (ID breaks ties); all retained descendants contribute.
@@ -318,3 +308,13 @@ for your account when a provider changes availability. Azure additionally requir
 Missing credentials or excluded providers are reported as skipped. Upstream authentication,
 model-access, quota and billing errors remain failures with their HTTP status and message;
 they are not silently counted as passes.
+
+### Development ports and recipes
+
+`just dev` starts the backend and Vite together. `DASHBOARD_PORT`, `PROXY_PORT`, and `VITE_PORT` set preferred ports (1337, 8080, and 5173); an occupied development port falls back to an OS-assigned port. Startup prints the actual dashboard/OTLP, proxy, and Vite URLs. The listeners bind directly, so another process cannot steal a port between a probe and startup. Invalid ports and non-collision startup errors fail with a diagnostic.
+
+For separate terminals, run `just dev-server` and `just dev-dashboard` in either order. Vite discovers the live backend from this checkout on each API or WebSocket connection, including after the backend restarts on a new port. Frontend HMR uses the same HTTP listener. Bun restarts the development process when backend source changes. Ctrl+C closes its listeners and removes its discovery records.
+
+`just status` prints running development endpoints and Docker mappings. `just demo` and `just demo-many` use the discovered backend; set `LLMFLOW_URL` to target a specific instance or an external server. External SDKs and LLM clients still need the actual printed OTLP/proxy URL. Discovery records live in a checkout-specific temporary directory; `LLMFLOW_DEV_STATE_DIR` overrides that location for isolated tests.
+
+`just test` and the signal-specific test recipes use temporary databases and isolated listener ports. `just test-e2e`, `just test-e2e-headed`, and `just test-e2e-ui` use Playwright's isolated server; install Chromium with `bunx playwright install chromium`. Live provider tests require configured providers and credentials. Docker recipes require a running Docker daemon. `just docker` first tries the configured host ports, retries with Docker-assigned ports if binding fails, prints the published URLs, and follows logs; Ctrl+C stops the service. `just website-deploy` publishes to Vercel and is not part of local validation. `just clean` deletes root dependencies and the database selected by `DB_PATH` / `DATA_DIR` (including WAL files), defaulting to `~/.llmflow/data.db`; stop the server first.

@@ -16,5 +16,6 @@
     "@llmflow/pricing": "workspace:*",
     "@llmflow/shared": "workspace:*",
     "protobufjs": "^8.8.0"
-  }
+  },
+  "type": "commonjs"
 }

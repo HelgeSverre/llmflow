@@ -17,8 +17,9 @@ LLMFlow follows [Semantic Versioning](https://semver.org/):
 bun run test
 bun run --filter @llmflow/dashboard test
 
-# 2. Build the dashboard (writes to /public/ which the npm package ships)
+# 2. Build the release bundle and dashboard assets in dist/
 bun run build
+bun run test:package
 
 # 3. Update version in package.json
 # Edit package.json: "version": "0.X.X"
@@ -76,7 +77,7 @@ curl http://localhost:8080/passthrough/openai/v1/chat/completions \
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hi"}],"max_tokens":5}'
 
 # Check dashboard
-open http://localhost:3000
+open http://localhost:1337
 
 # Stop server
 pkill -f "apps/server/src/server.ts"
@@ -92,7 +93,7 @@ Edit `package.json`:
 }
 ```
 
-If releasing SDK changes, also update `sdk/package.json`:
+If releasing SDK changes, also update `packages/sdk/package.json`:
 
 ```json
 {
@@ -102,7 +103,7 @@ If releasing SDK changes, also update `sdk/package.json`:
 
 ### Step 3: Create Release Notes
 
-Create a file `RELEASE_NOTES_v0.X.X.md` with:
+Create a file `release-notes/v0.X.X.md` with:
 
 ```markdown
 # Release Notes - LLMFlow v0.X.X
@@ -192,7 +193,7 @@ docker buildx build \
   -t helgesverre/llmflow:v0.X.X \
   -t helgesverre/llmflow:latest \
   --push \
-  .
+  -f docker/Dockerfile .
 ```
 
 **Option B: Single platform build**
@@ -201,7 +202,7 @@ If you don't need multi-platform:
 
 ```bash
 # Build
-docker build -t helgesverre/llmflow:v0.X.X .
+docker build -f docker/Dockerfile -t helgesverre/llmflow:v0.X.X .
 
 # Tag as latest
 docker tag helgesverre/llmflow:v0.X.X helgesverre/llmflow:latest
@@ -215,14 +216,18 @@ docker push helgesverre/llmflow:latest
 
 ```bash
 # Pull and test the image
-docker run --rm -p 8080:8080 -p 3000:3000 helgesverre/llmflow:v0.X.X
+docker run --rm -p 8080:8080 -p 1337:1337 helgesverre/llmflow:v0.X.X
 
 # In another terminal, test it
 curl http://localhost:8080/health
-curl http://localhost:3000/api/health
+curl http://localhost:1337/api/health
 ```
 
 ### Step 7: Publish to npm
+
+The `prepack` hook builds the complete `dist/` artifact for both `npm pack` and
+`npm publish`. Do not commit generated dashboard or server output. Docker builds
+from source; no prebuilt local assets are needed.
 
 ```bash
 # Ensure you're logged in
@@ -253,7 +258,7 @@ npx llmflow@latest
 2. Click **"Draft a new release"**
 3. Select the tag `v0.X.X`
 4. Title: `v0.X.X`
-5. Copy content from `RELEASE_NOTES_v0.X.X.md`
+5. Copy content from `release-notes/v0.X.X.md`
 6. Click **"Publish release"**
 
 ---
@@ -263,7 +268,7 @@ npx llmflow@latest
 If SDK changes were made:
 
 ```bash
-cd sdk
+cd packages/sdk
 
 # Ensure version is updated
 cat package.json | grep version

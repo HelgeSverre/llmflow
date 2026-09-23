@@ -6,9 +6,9 @@
   "main": "./src/server.ts",
   "scripts": {
     "start": "bun run src/server.ts",
-    "dev": "WS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 bun run --hot src/server.ts",
-    "demo": "bun run test/demo.js",
-    "demo:many": "bun run test/demo.js --count=20",
+    "dev": "bun --watch ../../scripts/dev.ts server",
+    "demo": "bun ../../scripts/dev.ts demo",
+    "demo:many": "bun ../../scripts/dev.ts demo --count=20",
     "test": "bun run test/run-tests.js",
     "test:otlp": "bun run test/run-tests.js otlp-e2e.js",
     "test:ws": "bun run test/run-tests.js websocket-e2e.js",

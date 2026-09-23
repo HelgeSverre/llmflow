@@ -7,7 +7,7 @@ Track costs, tokens, and latency for OpenAI, Anthropic, Gemini, Ollama, and more
 ## Quick Start
 
 ```bash
-docker run -p 1337:1337 -p 8080:8080 helgesverre/llmflow
+docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 helgesverre/llmflow
 ```
 
 Then point your SDK at `http://localhost:8080/v1` and open `http://localhost:1337` to view traces.
@@ -24,7 +24,7 @@ Then point your SDK at `http://localhost:8080/v1` and open `http://localhost:133
 Mount a volume to persist your data (the container's data dir is `/root/.llmflow`):
 
 ```bash
-docker run -p 1337:1337 -p 8080:8080 \
+docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 \
   -v llmflow-data:/root/.llmflow \
   helgesverre/llmflow
 ```

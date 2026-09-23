@@ -1,7 +1,12 @@
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { freePort } from '../apps/server/test/run-tests.js'
+async function freePort() {
+    const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response() })
+    const port = server.port!
+    await server.stop(true)
+    return port
+}
 const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-package-'))
 const root = path.resolve(import.meta.dir, '..')
 let server: ReturnType<typeof Bun.spawn> | undefined
@@ -18,10 +23,27 @@ async function run(args: string[], cwd: string, env = process.env) {
 try {
     const packed = JSON.parse(
         await run(
-            ['npm', 'pack', '--ignore-scripts', '--json', '--pack-destination', directory],
+            [
+                'npm',
+                'pack',
+                '--foreground-scripts=false',
+                '--json',
+                '--pack-destination',
+                directory,
+            ],
             root,
         ),
     )
+    const paths = packed[0].files.map((file: { path: string }) => file.path)
+    for (const required of [
+        'dist/server.js',
+        'dist/public/index.html',
+        'dist/pricing.fallback.json',
+        'dist/licenses/opentelemetry-proto.txt',
+    ])
+        if (!paths.includes(required)) throw new Error(`Missing packed artifact: ${required}`)
+    if (paths.some((file: string) => /^(apps|packages|website|public)\//.test(file)))
+        throw new Error('Tarball includes source or obsolete assets')
     const consumer = path.join(directory, 'consumer')
     mkdirSync(consumer)
     writeFileSync(path.join(consumer, 'package.json'), '{"private":true}')
@@ -81,8 +103,13 @@ try {
     }
     if (!ready) {
         server.kill()
-        throw new Error(await new Response(server.stderr).text())
+        throw new Error(await new Response(server.stderr as ReadableStream<Uint8Array>).text())
     }
+    const health = (await (await fetch(`${base}/api/health`)).json()) as {
+        pricing: { source: string; model_count: number }
+    }
+    if (health.pricing.source !== 'fallback' || health.pricing.model_count < 1)
+        throw new Error(`Bundled pricing unavailable: ${JSON.stringify(health.pricing)}`)
     const html = await (await fetch(base)).text()
     const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^\"]+)"/g)]
     if (!assets.length) throw new Error('Dashboard assets missing')

@@ -1,4 +1,9 @@
-export function trustedWebSocketOrigin(request: Request, hostname: string, port: number): boolean {
+export function trustedWebSocketOrigin(
+    request: Request,
+    hostname: string,
+    port: number,
+    extraOrigins: string[] = [],
+): boolean {
     const value = request.headers.get('origin')
     if (!value || value === 'null') return false
     let origin: URL
@@ -12,10 +17,13 @@ export function trustedWebSocketOrigin(request: Request, hostname: string, port:
     if (!['0.0.0.0', '::'].includes(hostname))
         hosts.add(hostname.includes(':') ? `[${hostname}]` : hostname)
     const allowed = new Set(Array.from(hosts, (host) => `http://${host}:${port}`))
-    for (const entry of (process.env.WS_ALLOWED_ORIGINS || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)) {
+    for (const entry of [
+        ...extraOrigins,
+        ...(process.env.WS_ALLOWED_ORIGINS || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+    ]) {
         try {
             const configured = new URL(entry)
             if (['http:', 'https:'].includes(configured.protocol) && configured.origin === entry)

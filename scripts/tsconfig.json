@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "dev.ts",
+    "dev-runtime.ts",
+    "../apps/dashboard/dev.ts",
+    "docker-dev.ts",
+    "build.ts",
+    "test-package.ts"
+  ]
+}

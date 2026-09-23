@@ -1,3 +1,7 @@
+OpenTelemetry Protocol v1.11.0
+Source: https://github.com/open-telemetry/opentelemetry-proto/tree/v1.11.0
+Applies to the generated schema in packages/otlp/src/proto.json.
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
