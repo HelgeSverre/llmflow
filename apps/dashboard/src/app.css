@@ -23,23 +23,15 @@
   --error: #dc2626;
   --warning: #f59e0b;
 
-  /* Span badge colors */
-  --span-llm-bg: #dcfce7;
-  --span-llm-text: #166534;
-  --span-trace-bg: #dbeafe;
-  --span-trace-text: #1e40af;
-  --span-agent-bg: #fef3c7;
-  --span-agent-text: #92400e;
-  --span-chain-bg: #f3e8ff;
-  --span-chain-text: #7c3aed;
-  --span-tool-bg: #fce7f3;
-  --span-tool-text: #be185d;
-  --span-retrieval-bg: #cffafe;
-  --span-retrieval-text: #0e7490;
-  --span-embedding-bg: #e0e7ff;
-  --span-embedding-text: #4338ca;
-  --span-custom-bg: #f3f4f6;
-  --span-custom-text: #4b5563;
+  /* Span type palette (Okabe-Ito: colour-blind safe); badges tint it per theme */
+  --span-llm: #0072b2;
+  --span-agent: #d55e00;
+  --span-chain: #009e73;
+  --span-tool: #f0e442;
+  --span-retrieval: #56b4e9;
+  --span-embedding: #cc79a7;
+  --span-workflow: #e69f00;
+  --span-custom: #999999;
 }
 
 [data-theme='dark'] {
@@ -65,24 +57,6 @@
   --success: #22c55e;
   --error: #ef4444;
   --warning: #eab308;
-
-  /* Span badge colors - muted for dark bg */
-  --span-llm-bg: #14532d;
-  --span-llm-text: #86efac;
-  --span-trace-bg: #1e3a8a;
-  --span-trace-text: #93c5fd;
-  --span-agent-bg: #78350f;
-  --span-agent-text: #fcd34d;
-  --span-chain-bg: #4c1d95;
-  --span-chain-text: #c4b5fd;
-  --span-tool-bg: #831843;
-  --span-tool-text: #f9a8d4;
-  --span-retrieval-bg: #164e63;
-  --span-retrieval-text: #67e8f9;
-  --span-embedding-bg: #312e81;
-  --span-embedding-text: #a5b4fc;
-  --span-custom-bg: #27272a;
-  --span-custom-text: #d4d4d8;
 }
 
 * {
@@ -440,93 +414,74 @@ tr.trace-row.selected {
   font-weight: 500;
 }
 
-/* Badges */
-.span-badge {
+/* Badges: each variant sets --badge; background and text are tinted from it */
+.span-badge,
+.severity-badge,
+.metric-badge,
+.service-badge {
+  --badge: var(--text-muted);
   display: inline-block;
   padding: 2px 6px;
   border-radius: 3px;
+  background: color-mix(in srgb, var(--badge) 20%, var(--bg-secondary));
+  color: color-mix(in srgb, var(--badge) 60%, var(--text-primary));
+}
+
+.span-badge,
+.severity-badge,
+.metric-badge {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
 }
 
 .span-llm {
-  background: var(--span-llm-bg);
-  color: var(--span-llm-text);
-}
-.span-trace {
-  background: var(--span-trace-bg);
-  color: var(--span-trace-text);
+  --badge: var(--span-llm);
 }
 .span-agent {
-  background: var(--span-agent-bg);
-  color: var(--span-agent-text);
+  --badge: var(--span-agent);
 }
 .span-chain {
-  background: var(--span-chain-bg);
-  color: var(--span-chain-text);
+  --badge: var(--span-chain);
 }
 .span-tool {
-  background: var(--span-tool-bg);
-  color: var(--span-tool-text);
+  --badge: var(--span-tool);
 }
 .span-retrieval {
-  background: var(--span-retrieval-bg);
-  color: var(--span-retrieval-text);
+  --badge: var(--span-retrieval);
 }
 .span-embedding {
-  background: var(--span-embedding-bg);
-  color: var(--span-embedding-text);
+  --badge: var(--span-embedding);
+}
+.span-workflow {
+  --badge: var(--span-workflow);
 }
 .span-custom {
-  background: var(--span-custom-bg);
-  color: var(--span-custom-text);
+  --badge: var(--span-custom);
 }
 
-/* Severity badges for logs */
 .severity-badge {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
   min-width: 45px;
   text-align: center;
 }
-
 .severity-trace {
-  background: var(--span-custom-bg);
-  color: var(--span-custom-text);
+  --badge: var(--text-muted);
 }
 .severity-debug {
-  background: var(--span-trace-bg);
-  color: var(--span-trace-text);
+  --badge: var(--accent-primary);
 }
 .severity-info {
-  background: var(--span-llm-bg);
-  color: var(--span-llm-text);
+  --badge: var(--success);
 }
 .severity-warn {
-  background: var(--span-agent-bg);
-  color: var(--span-agent-text);
+  --badge: var(--warning);
 }
 .severity-error {
-  background: #fee2e2;
-  color: #dc2626;
+  --badge: var(--error);
 }
 .severity-fatal {
-  background: #fecaca;
-  color: #991b1b;
-}
-
-[data-theme='dark'] .severity-error {
-  background: #7f1d1d;
-  color: #fca5a5;
-}
-[data-theme='dark'] .severity-fatal {
-  background: #450a0a;
-  color: #f87171;
+  --badge: var(--error);
+  background: color-mix(in srgb, var(--error) 40%, var(--bg-secondary));
 }
 
 /* Log body preview */
@@ -551,35 +506,19 @@ tr.trace-row.selected {
 
 /* Service badge */
 .service-badge {
-  display: inline-block;
-  padding: 2px 6px;
-  background: var(--span-chain-bg);
-  color: var(--span-chain-text);
-  border-radius: 3px;
+  --badge: var(--span-embedding);
   font-size: 11px;
 }
 
 /* Metric type badges */
-.metric-badge {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
 .metric-sum {
-  background: var(--span-llm-bg);
-  color: var(--span-llm-text);
+  --badge: var(--span-chain);
 }
 .metric-gauge {
-  background: var(--span-trace-bg);
-  color: var(--span-trace-text);
+  --badge: var(--span-llm);
 }
 .metric-histogram {
-  background: var(--span-chain-bg);
-  color: var(--span-chain-text);
+  --badge: var(--span-embedding);
 }
 
 /* Metrics layout */
@@ -642,23 +581,9 @@ tr.trace-row.selected {
   overflow: auto;
 }
 
-.metric-name-cell {
-  font-family: monospace;
-  font-size: 11px;
-}
-
 .metric-value {
   font-weight: 600;
   color: var(--accent-primary);
-}
-
-.model-badge {
-  display: inline-block;
-  padding: 2px 6px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border-radius: 3px;
-  font-size: 11px;
 }
 
 /* Detail panel */
@@ -709,37 +634,6 @@ pre {
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text-primary);
-}
-
-/* Span tree */
-.span-tree {
-  font-size: 12px;
-}
-
-.span-node {
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.span-node:last-child {
-  border-bottom: none;
-}
-
-.span-node-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.span-node-meta {
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.span-node-children {
-  margin-left: 16px;
-  border-left: 1px solid var(--border-primary);
-  padding-left: 12px;
 }
 
 /* Model stats grid */
@@ -805,51 +699,6 @@ pre {
 
 .timeline-list {
   padding: 8px;
-}
-
-/* Type badges */
-.type-badge {
-  display: inline-block;
-  padding: 1px 4px;
-  border-radius: 2px;
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.type-trace {
-  background: var(--span-llm-bg);
-  color: var(--span-llm-text);
-}
-.type-log {
-  background: var(--span-agent-bg);
-  color: var(--span-agent-text);
-}
-.type-metric {
-  background: var(--span-trace-bg);
-  color: var(--span-trace-text);
-}
-
-/* Related logs in detail panel */
-.related-log-item {
-  padding: 8px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  border-radius: 4px;
-  margin-bottom: 6px;
-  font-size: 11px;
-}
-
-.related-log-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.related-log-body {
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
 /* ==================== Analytics Tab ==================== */
@@ -1044,9 +893,6 @@ pre {
 }
 .h-bar-fill.tool-aider {
   background: #d97706;
-}
-.h-bar-fill.tool-proxy {
-  background: var(--text-muted);
 }
 
 [data-theme='dark'] .h-bar-fill.tool-claude-code {

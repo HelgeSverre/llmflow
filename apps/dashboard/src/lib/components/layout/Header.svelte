@@ -1,7 +1,7 @@
 <script lang="ts">
   import { stats } from '$lib/stores/stats.svelte'
   import { connectionStatus } from '$lib/stores/websocket.svelte'
-  import { toggleTheme } from '$lib/stores/theme.svelte'
+  import { toggleTheme } from '$lib/theme'
   import { formatNumber, formatCost, formatLatency } from '$lib/utils/format'
 </script>
 

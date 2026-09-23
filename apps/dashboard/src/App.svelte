@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { refreshActiveTab } from '$lib/stores/refresh'
+  import { refreshActiveTab } from '$lib/refresh'
   import Header from '$lib/components/layout/Header.svelte'
   import PricingFreshnessBanner from '$lib/components/layout/PricingFreshnessBanner.svelte'
   import Tabs from '$lib/components/layout/Tabs.svelte'
@@ -12,12 +12,11 @@
   import AnalyticsTab from '$lib/components/analytics/AnalyticsTab.svelte'
   import SessionsTab from '$lib/components/sessions/SessionsTab.svelte'
   import { tabState, initTabHashSync, setTab, validTabs } from '$lib/stores/tabs.svelte'
-  import { initTheme, toggleTheme } from '$lib/stores/theme.svelte'
+  import { toggleTheme } from '$lib/theme'
   import { initWebSocket, disconnectWebSocket } from '$lib/stores/websocket.svelte'
   import { loadStats, initStatsSync } from '$lib/stores/stats.svelte'
 
   onMount(() => {
-    initTheme()
     const stopTabSync = initTabHashSync()
     initWebSocket()
     loadStats()

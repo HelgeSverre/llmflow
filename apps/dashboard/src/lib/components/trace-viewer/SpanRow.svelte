@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SpanRow } from '$lib/trace/viewport.svelte'
-  import { colorFor } from './SpanColors'
+  import { spanColor } from '$lib/utils/badges'
   import { formatLatency } from '$lib/utils/format'
 
   interface Props {
@@ -60,7 +60,7 @@
       class="span-bar"
       style:left="{row.xPx}px"
       style:width="{row.widthPx}px"
-      style:background-color={colorFor(row.span_type)}
+      style:background-color={spanColor(row.span_type)}
     ></div>
   </div>
   <div class="duration-col">{formatLatency(row.duration_ms)}</div>

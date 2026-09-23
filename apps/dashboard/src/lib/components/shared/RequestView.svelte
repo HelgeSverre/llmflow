@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import type { LoadState } from '$lib/stores/load-state.svelte'
+  import type { LoadState } from '$lib/load-state.svelte'
   let { state, retry, children }: { state: LoadState; retry: () => unknown; children: Snippet } =
     $props()
 </script>
