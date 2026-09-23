@@ -1,9 +1,10 @@
 ---
 id: TASK-72
 title: Fix .env.example and the logger error signature
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-23 08:50'
+updated_date: '2026-09-23 11:41'
 labels:
   - hygiene
   - bug
