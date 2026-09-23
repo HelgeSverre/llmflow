@@ -1,0 +1,86 @@
+// The LLM proxy listener: provider routes, native passthrough routes, health and discovery.
+import * as db from '@llmflow/db'
+import { registry } from '@llmflow/providers'
+import {
+    AnthropicPassthrough,
+    GeminiPassthrough,
+    HeliconePassthrough,
+    OpenAIPassthrough,
+    type PassthroughHandler,
+} from '@llmflow/providers/passthrough'
+import { forwardProxyRequest } from './proxy'
+
+// /passthrough/<name>/* forwards native API formats unchanged.
+const passthroughHandlers: Record<string, PassthroughHandler> = {
+    anthropic: new AnthropicPassthrough(),
+    gemini: new GeminiPassthrough(),
+    openai: new OpenAIPassthrough(),
+    helicone: new HeliconePassthrough(),
+}
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Allow-Methods': '*',
+}
+
+// Browser clients call the proxy directly, so every response carries CORS headers.
+function withCors(response: Response) {
+    const headers = new Headers(response.headers)
+    for (const [name, value] of Object.entries(CORS_HEADERS)) headers.set(name, value)
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+    })
+}
+
+async function route(req: Request, url: URL, port: number): Promise<Response> {
+    if (url.pathname === '/health')
+        return Response.json({
+            status: 'ok',
+            service: 'proxy',
+            port,
+            idleTimeout: 0,
+            traces: db.getTraceCount(),
+            uptime: process.uptime(),
+            providers: registry.list().map((p: { name: string }) => p.name),
+        })
+
+    if (url.pathname === '/providers')
+        return Response.json({
+            providers: registry.list(),
+            passthrough: Object.entries(passthroughHandlers).map(([prefix, handler]) => ({
+                name: handler.name,
+                displayName: handler.displayName,
+                prefix: `/passthrough/${prefix}/*`,
+            })),
+            usage: {
+                default: 'Use /v1/* for OpenAI (default provider)',
+                custom: 'Use /{provider}/v1/* for other providers (e.g., /ollama/v1/chat/completions)',
+                header: 'Or set X-LLMFlow-Provider header to override',
+                passthrough:
+                    'Use /passthrough/{provider}/* for native API formats (e.g., /passthrough/anthropic/v1/messages)',
+            },
+        })
+
+    if (req.method === 'OPTIONS') return new Response(null, { status: 200 })
+
+    for (const [name, handler] of Object.entries(passthroughHandlers)) {
+        const prefix = `/passthrough/${name}`
+        if (url.pathname.startsWith(`${prefix}/`))
+            return forwardProxyRequest(req, url, { handler, prefix })
+    }
+    return forwardProxyRequest(req, url)
+}
+
+export function createProxyServer(hostname: string, port: number) {
+    return Bun.serve({
+        hostname,
+        port,
+        idleTimeout: 0,
+        async fetch(req, server) {
+            return withCors(await route(req, new URL(req.url), server.port!))
+        },
+    })
+}

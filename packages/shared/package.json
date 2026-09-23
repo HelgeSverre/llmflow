@@ -6,6 +6,7 @@
   "exports": {
     "./body": "./src/body.ts",
     "./logger": "./src/logger.ts",
+    "./net": "./src/net.ts",
     "./redaction": "./src/redaction.ts"
   },
   "scripts": {

@@ -12,6 +12,7 @@ import { tmpdir, userInfo } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { log } from '@llmflow/shared/logger'
+import { LOOPBACK_HOSTS } from '@llmflow/shared/net'
 
 // Keyed by checkout so split dev commands in one clone find each other and ignore other clones.
 const checkout = path.resolve(
@@ -31,20 +32,28 @@ export interface Runtime {
     url: string
     proxy?: string
 }
-export function port(name: string, fallback: number) {
-    const value = Number(process.env[name] ?? fallback)
-    if (!Number.isInteger(value) || value < 0 || value > 65535)
-        throw new Error(`${name} must be a port from 0 to 65535`)
-    return value
-}
+// Development only: when the preferred port is busy, listen on any free port instead.
+// `listen` may throw (Bun.serve) or return a rejecting promise (node:http).
 export function available<T>(label: string, preferred: number, listen: (port: number) => T): T {
-    try {
-        return listen(preferred)
-    } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'EADDRINUSE' || preferred === 0) throw error
+    const busy = (error: unknown) =>
+        (error as NodeJS.ErrnoException).code === 'EADDRINUSE' && preferred !== 0
+    const fallback = () => {
         log.warn(`${label} port ${preferred} is busy; choosing an available port.`)
         return listen(0)
     }
+    let result: T
+    try {
+        result = listen(preferred)
+    } catch (error) {
+        if (!busy(error)) throw error
+        return fallback()
+    }
+    if (result instanceof Promise)
+        return result.catch((error: unknown) => {
+            if (!busy(error)) throw error
+            return fallback()
+        }) as T
+    return result
 }
 export function publish(runtime: Omit<Runtime, 'pid' | 'started'>) {
     mkdirSync(stateDirectory, { recursive: true, mode: 0o700 })
@@ -89,20 +98,14 @@ export function backendUrl() {
     if (process.env.LLMFLOW_URL) return process.env.LLMFLOW_URL.replace(/\/$/, '')
     return runtimes().find((runtime) => runtime.kind === 'backend')?.url
 }
-export function clientUrl(url: URL) {
-    const copy = new URL(url)
-    if (['0.0.0.0', '[::]'].includes(copy.hostname)) copy.hostname = '127.0.0.1'
-    return copy.origin
-}
 export function frontendOrigins() {
     return runtimes()
         .filter((runtime) => runtime.kind === 'frontend')
         .flatMap(({ url }) => {
             const value = new URL(url)
             const origins = [value.origin]
-            if (['127.0.0.1', 'localhost', '[::1]'].includes(value.hostname))
-                for (const host of ['127.0.0.1', 'localhost', '[::1]'])
-                    origins.push(`http://${host}:${value.port}`)
+            if (LOOPBACK_HOSTS.includes(value.hostname))
+                for (const host of LOOPBACK_HOSTS) origins.push(`http://${host}:${value.port}`)
             return origins
         })
 }

@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./passthrough": "./src/passthrough.ts",
     "./base": "./src/base.ts",
-    "./stream": "./src/stream.ts"
+    "./stream": "./src/stream.ts",
+    "./credentials": "./src/credentials.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

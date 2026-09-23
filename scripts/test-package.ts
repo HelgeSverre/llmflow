@@ -1,12 +1,7 @@
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-async function freePort() {
-    const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response() })
-    const port = server.port!
-    await server.stop(true)
-    return port
-}
+import { freePort, waitForHealth } from '@llmflow/shared/net'
 const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-package-'))
 const root = path.resolve(import.meta.dir, '..')
 const packageRoot = path.join(root, 'apps/server')
@@ -90,15 +85,9 @@ try {
         throw new Error('Version failed')
     server = Bun.spawn([cli], { cwd: consumer, env, stdout: 'pipe', stderr: 'pipe' })
     const base = `http://127.0.0.1:${dashboardPort}`
-    let ready = false
-    for (let i = 0; i < 100; i++) {
-        try {
-            ready = (await fetch(`${base}/api/health`)).ok
-        } catch {}
-        if (ready) break
-        await Bun.sleep(100)
-    }
-    if (!ready) {
+    try {
+        await waitForHealth(base, 10_000)
+    } catch {
         server.kill()
         throw new Error(await new Response(server.stderr as ReadableStream<Uint8Array>).text())
     }

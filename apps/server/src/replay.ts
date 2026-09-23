@@ -1,20 +1,8 @@
 import * as db from '@llmflow/db'
 import { safeJson } from '@llmflow/db'
 import { registry } from '@llmflow/providers'
+import { PROVIDER_KEY_VARIABLES, providerApiKey } from '@llmflow/providers/credentials'
 import { forwardProxyRequest } from './proxy'
-
-const credentials: Record<string, string[]> = {
-    openai: ['OPENAI_API_KEY'],
-    anthropic: ['ANTHROPIC_API_KEY'],
-    gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
-    cohere: ['COHERE_API_KEY'],
-    azure: ['AZURE_OPENAI_API_KEY'],
-    groq: ['GROQ_API_KEY'],
-    mistral: ['MISTRAL_API_KEY'],
-    together: ['TOGETHER_API_KEY'],
-    perplexity: ['PERPLEXITY_API_KEY'],
-    openrouter: ['OPENROUTER_API_KEY'],
-}
 
 export async function replayTrace(id: string, signal: AbortSignal): Promise<Response> {
     const trace = db.getTraceById(id) as Record<string, unknown> | null
@@ -96,8 +84,8 @@ function prepareReplay(trace: Record<string, unknown>) {
         headers: Object.fromEntries(headers),
     })
     if (provider.name !== 'ollama') {
-        const variables = credentials[provider.name]
-        const key = variables?.map((name) => process.env[name]).find(Boolean)
+        const variables = PROVIDER_KEY_VARIABLES[provider.name]
+        const key = providerApiKey(provider.name)
         if (!key)
             return {
                 error: `Set ${variables?.join(' or ') || 'the provider API key'} in the LLMFlow server environment and restart to replay this request.`,

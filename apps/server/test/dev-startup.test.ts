@@ -3,21 +3,9 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
+import { waitUntil as waitFor } from '@llmflow/shared/net'
 const root = path.resolve(import.meta.dir, '../../..')
 
-async function waitFor<T>(
-    read: () => T | Promise<T>,
-    message: string,
-    timeout = 20000,
-): Promise<T> {
-    const end = Date.now() + timeout
-    while (Date.now() < end) {
-        const result = await read()
-        if (result) return result
-        await Bun.sleep(50)
-    }
-    throw new Error(message)
-}
 async function fixture() {
     const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-dev-test-'))
     const state = path.join(directory, 'state')

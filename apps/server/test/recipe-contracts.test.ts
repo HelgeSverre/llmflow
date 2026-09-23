@@ -117,4 +117,4 @@ if (args.includes('up')) {
     } finally {
         rmSync(directory, { recursive: true, force: true })
     }
-})
+}, 15000)

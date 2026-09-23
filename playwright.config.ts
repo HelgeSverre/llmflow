@@ -1,20 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
-import { createServer } from 'node:net'
+import { freePort } from '@llmflow/shared/net'
 
-async function reservePort(): Promise<string> {
-    const server = createServer()
-    await new Promise<void>((resolve, reject) => {
-        server.once('error', reject)
-        server.listen(0, '127.0.0.1', resolve)
-    })
-    const address = server.address()
-    if (!address || typeof address === 'string') throw new Error('No test port assigned')
-    await new Promise<void>((resolve) => server.close(() => resolve()))
-    return String(address.port)
-}
-
-const dashboardPort = (process.env.LLMFLOW_E2E_DASHBOARD_PORT ||= await reservePort())
-const proxyPort = (process.env.LLMFLOW_E2E_PROXY_PORT ||= await reservePort())
+const dashboardPort = (process.env.LLMFLOW_E2E_DASHBOARD_PORT ||= String(await freePort()))
+const proxyPort = (process.env.LLMFLOW_E2E_PROXY_PORT ||= String(await freePort()))
 const baseURL = `http://127.0.0.1:${dashboardPort}`
 
 export default defineConfig({

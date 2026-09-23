@@ -1,7 +1,8 @@
 import { createServer, type ProxyOptions, type ViteDevServer } from 'vite'
 import { createServer as createHttpServer } from 'node:http'
 import { fileURLToPath } from 'node:url'
-import { backendUrl, port, publish } from '@llmflow/dev-runtime'
+import { available, backendUrl, publish } from '@llmflow/dev-runtime'
+import { clientHost, parsePort as port } from '@llmflow/shared/net'
 import { log } from '@llmflow/shared/logger'
 
 async function startFrontend() {
@@ -54,21 +55,10 @@ async function startFrontend() {
     if (http.listening) await new Promise<void>((resolve) => http.close(() => resolve()))
   }
   try {
-    try {
-      await listen(preferred)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EADDRINUSE' || preferred === 0) throw error
-      log.warn(`Vite port ${preferred} is busy; choosing an available port.`)
-      await listen(0)
-    }
+    await available('Vite', preferred, listen)
     const address = http.address()
     if (!address || typeof address === 'string') throw new Error('No frontend port assigned')
-    const hostname = ['0.0.0.0', '::'].includes(host)
-      ? '127.0.0.1'
-      : host.includes(':')
-        ? `[${host}]`
-        : host
-    const url = `http://${hostname}:${address.port}`
+    const url = `http://${clientHost(host)}:${address.port}`
     vite = await createServer({
       root: fileURLToPath(new URL('.', import.meta.url)),
       configFile: fileURLToPath(new URL('./vite.config.ts', import.meta.url)),

@@ -1,14 +1,7 @@
 import path from 'node:path'
 import { log } from '@llmflow/shared/logger'
-import {
-    available,
-    backendUrl,
-    clientUrl,
-    frontendOrigins,
-    port,
-    publish,
-    runtimes,
-} from '@llmflow/dev-runtime'
+import { clientUrl, parsePort as port } from '@llmflow/shared/net'
+import { available, backendUrl, frontendOrigins, publish, runtimes } from '@llmflow/dev-runtime'
 
 const mode = process.argv[2] || 'server'
 if (['--help', '-h'].includes(mode)) {

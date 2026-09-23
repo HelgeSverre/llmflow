@@ -1,3 +1,5 @@
+import { LOOPBACK_HOSTS, clientHost } from '@llmflow/shared/net'
+
 export function trustedWebSocketOrigin(
     request: Request,
     hostname: string,
@@ -13,9 +15,8 @@ export function trustedWebSocketOrigin(
         return false
     }
     if (!['http:', 'https:'].includes(origin.protocol) || origin.origin !== value) return false
-    const hosts = new Set(['127.0.0.1', 'localhost', '[::1]'])
-    if (!['0.0.0.0', '::'].includes(hostname))
-        hosts.add(hostname.includes(':') ? `[${hostname}]` : hostname)
+    // A wildcard bind is reachable through loopback only; a specific bind also through its own host.
+    const hosts = new Set([...LOOPBACK_HOSTS, clientHost(hostname)])
     const allowed = new Set(Array.from(hosts, (host) => `http://${host}:${port}`))
     for (const entry of [
         ...extraOrigins,
