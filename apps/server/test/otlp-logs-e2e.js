@@ -142,8 +142,6 @@ async function runTests() {
         process.exit(1)
     }
 
-    const now = Date.now()
-
     // Test 2: Send simple log
     console.log(`\n${c.yellow}Test 2: Simple Log Ingestion${c.reset}`)
     const simplePayload = createOtlpLogsPayload('test-service', [

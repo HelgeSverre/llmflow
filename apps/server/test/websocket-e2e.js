@@ -84,7 +84,7 @@ function httpRequest(method, path, body = null) {
 }
 
 function waitForMessages(ws, count, timeout = 5000) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const messages = []
         const timer = setTimeout(() => {
             resolve(messages)

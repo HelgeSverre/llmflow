@@ -111,7 +111,7 @@ try {
     if (health.pricing.source !== 'fallback' || health.pricing.model_count < 1)
         throw new Error(`Bundled pricing unavailable: ${JSON.stringify(health.pricing)}`)
     const html = await (await fetch(base)).text()
-    const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^\"]+)"/g)]
+    const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)]
     if (!assets.length) throw new Error('Dashboard assets missing')
     for (const [, asset] of assets)
         if (!(await fetch(base + asset)).ok) throw new Error(`Missing ${asset}`)

@@ -198,7 +198,8 @@ export class GeminiPassthrough extends PassthroughHandler {
     override streamFormat = 'gemini' as const
     override isStreamingRequest(req: PassthroughRequest): boolean {
         return (
-            /:streamGenerateContent$/.test(req.path.split('?')[0]) || super.isStreamingRequest(req)
+            req.path.split('?')[0].endsWith(':streamGenerateContent') ||
+            super.isStreamingRequest(req)
         )
     }
     override identifyRequestModel(req: PassthroughRequest): string {

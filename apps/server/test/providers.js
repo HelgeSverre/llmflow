@@ -15,7 +15,6 @@ const {
     GeminiProvider,
     CohereProvider,
     AzureOpenAIProvider,
-    OpenAICompatibleProvider,
 } = require('@llmflow/providers')
 
 const c = {

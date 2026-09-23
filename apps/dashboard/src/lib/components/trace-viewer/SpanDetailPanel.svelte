@@ -55,10 +55,10 @@
   function isEmpty(value: unknown): boolean {
     if (value == null) return true
     if (typeof value === 'string') return value.length === 0
-    if (Array.isArray(value)) return value.length === 0 || value.every(isEmpty)
+    if (Array.isArray(value)) return value.every(isEmpty)
     if (typeof value === 'object') {
       const entries = Object.values(value as Record<string, unknown>)
-      return entries.length === 0 || entries.every(isEmpty)
+      return entries.every(isEmpty)
     }
     return false
   }

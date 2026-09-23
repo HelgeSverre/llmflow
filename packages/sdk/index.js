@@ -90,7 +90,6 @@ async function span(opts, fn) {
     // Support shorthand: span('type', 'name', fn)
     if (typeof opts === 'string') {
         const type = opts
-        const name = typeof fn === 'string' ? fn : opts
         fn = arguments[2] || arguments[1]
         opts = { type, name: typeof arguments[1] === 'string' ? arguments[1] : type }
     }

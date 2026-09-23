@@ -23,7 +23,7 @@
  *   3. Run: node index.js (from this directory)
  */
 
-import { trace, span, currentTraceHeaders, wrapOpenAI } from '../../packages/sdk/index.js'
+import { trace, span, wrapOpenAI } from '../../packages/sdk/index.js'
 import OpenAI from 'openai'
 
 const LLMFLOW_PROXY = process.env.LLMFLOW_PROXY || 'http://localhost:8080/v1'
@@ -85,7 +85,7 @@ const KNOWLEDGE_BASE = [
  * Simulate embedding generation
  * In production, this would call OpenAI's embedding API
  */
-async function generateEmbedding(text) {
+async function generateEmbedding(_text) {
     // Simulate embedding generation with a delay
     await new Promise((resolve) => setTimeout(resolve, 50))
     // Return a fake embedding (in production, use actual embeddings)
@@ -100,7 +100,7 @@ async function generateEmbedding(text) {
 async function vectorSearch(embedding, topK = 3) {
     await new Promise((resolve) => setTimeout(resolve, 100))
     // Simulate finding relevant documents
-    const scores = KNOWLEDGE_BASE.map((doc, i) => ({
+    const scores = KNOWLEDGE_BASE.map((doc) => ({
         ...doc,
         score: Math.random() * 0.5 + 0.5, // Random score between 0.5 and 1.0
     }))

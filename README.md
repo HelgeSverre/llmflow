@@ -238,6 +238,12 @@ bun run build
 bun run test                # server unit/integration
 bun run --filter @llmflow/dashboard test    # viewport vitest suite
 bun run test:e2e            # Playwright
+
+# Lint and format (oxlint + oxfmt, configured in .oxlintrc.json / .oxfmtrc.json)
+bun run lint                # oxlint; lint:fix applies autofixes
+bun run format              # oxfmt --write the whole repo
+bun run format:check        # fail on unformatted files
+bun run check               # typecheck + lint + format:check
 ```
 
 The dashboard is Svelte 5 + Vite 8 and builds to `apps/dashboard/dist/`.
