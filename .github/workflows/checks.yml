@@ -1,8 +1,18 @@
 name: Checks
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -12,17 +22,29 @@ jobs:
         with:
           node-version: 22
       - run: bun ci
-      - run: bun run typecheck
-      - run: bun run lint
-      - run: bun run format:check
+      # typecheck + lint + format:check
+      - run: bun run check
       - run: pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
+      # server + packages (bun test --isolate), then dashboard (vitest via --filter)
       - run: bun run test
         env:
           LLMFLOW_PYTHON: python3
+      # The only build in this job; later steps reuse apps/server/dist.
       - run: bun run build
       - run: bun run test:package
+        env:
+          LLMFLOW_REUSE_BUILD: '1'
       - run: bunx playwright install --with-deps chromium
       - run: bunx playwright test
+        env:
+          LLMFLOW_REUSE_BUILD: '1'
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
   docker:
     strategy:
       fail-fast: false
@@ -33,6 +55,7 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
