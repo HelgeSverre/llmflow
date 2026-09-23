@@ -41,8 +41,8 @@ async function exercise(port: string | undefined) {
         )
         expect(await sdk.exited).toBe(0)
         expect(await new Response(sdk.stderr).text()).toBe('')
-        const rows = await (await fetch(url + '/api/traces')).json()
-        expect(rows.some((row: any) => row.span_name === 'sdk-endpoint-fixture')).toBe(true)
+        const rows = (await (await fetch(url + '/api/traces')).json()) as { span_name: string }[]
+        expect(rows.some((row) => row.span_name === 'sdk-endpoint-fixture')).toBe(true)
         const occupied = Bun.spawn(
             [
                 process.execPath,

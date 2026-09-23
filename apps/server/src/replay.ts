@@ -24,7 +24,7 @@ export async function replayTrace(id: string, signal: AbortSignal): Promise<Resp
     const { url, body, headers } = prepared
     const traceId = crypto.randomUUID().replaceAll('-', '')
     headers.set('x-trace-id', traceId)
-    const request = new Request(url, {
+    const request = new Request(url.toString(), {
         method: 'POST',
         headers,
         body: JSON.stringify(body),

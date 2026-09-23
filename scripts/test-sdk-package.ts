@@ -29,7 +29,7 @@ const collector = Bun.serve({
     port: 0,
     async fetch(request) {
         if (request.method === 'POST' && new URL(request.url).pathname === '/api/spans')
-            received.push(await request.json())
+            received.push((await request.json()) as { span_name?: string })
         return Response.json({})
     },
 })

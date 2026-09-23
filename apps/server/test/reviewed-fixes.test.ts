@@ -113,7 +113,15 @@ async function ingest(values: Record<string, unknown>, events: unknown[] = []) {
         }),
     })
     expect(response.status).toBe(200)
-    const tree = await (await fetch(new URL(`/api/traces/${id}/tree`, dashboard.url))).json()
+    const tree = (await (await fetch(new URL(`/api/traces/${id}/tree`, dashboard.url))).json()) as {
+        spans: {
+            input: Record<string, unknown>
+            prompt_tokens: number
+            completion_tokens: number
+            total_tokens: number
+            estimated_cost: number
+        }[]
+    }
     expect(tree.spans).toHaveLength(1)
     return tree.spans[0]
 }
@@ -192,21 +200,24 @@ test('model API reports measured token splits and mean LLM latency', async () =>
         model: 'unknown-latency',
         span_type: 'agent',
     })
-    const models = await (await fetch(new URL('/api/models', dashboard.url))).json()
-    expect(models.find((model: any) => model.model === 'measured-fixture')).toMatchObject({
+    type ModelRow = { model: string; avg_latency: number | null }
+    const models = (await (await fetch(new URL('/api/models', dashboard.url))).json()) as ModelRow[]
+    expect(models.find((model) => model.model === 'measured-fixture')).toMatchObject({
         prompt_tokens: 910,
         completion_tokens: 190,
         total_tokens: 1100,
         avg_latency: 400,
     })
-    expect(models.find((model: any) => model.model === 'unknown-latency').avg_latency).toBeNull()
+    expect(models.find((model) => model.model === 'unknown-latency')!.avg_latency).toBeNull()
     await fetch(new URL('/api/spans', dashboard.url), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ span_type: 'llm', model: 'zero-latency', duration_ms: 0 }),
     })
-    const updated = await (await fetch(new URL('/api/models', dashboard.url))).json()
-    expect(updated.find((model: any) => model.model === 'zero-latency').avg_latency).toBe(0)
+    const updated = (await (
+        await fetch(new URL('/api/models', dashboard.url))
+    ).json()) as ModelRow[]
+    expect(updated.find((model) => model.model === 'zero-latency')!.avg_latency).toBe(0)
 })
 test('hostile or missing WebSocket origins are rejected before upgrade', async () => {
     for (const origin of [undefined, 'null', 'https://hostile.example', 'bad origin']) {

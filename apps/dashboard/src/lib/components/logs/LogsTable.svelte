@@ -1,7 +1,7 @@
 <script lang="ts">
   import { logFilters, clearFilters } from '$lib/stores/logs.svelte'
   import { logs, selectedLogId, selectLog, type Log } from '$lib/stores/logs.svelte'
-  import { formatTimestamp, formatTime } from '$lib/utils/format'
+  import { formatTime } from '$lib/utils/format'
   import { severity } from '$lib/utils/badges'
   import EmptyState from '$lib/components/shared/EmptyState.svelte'
 

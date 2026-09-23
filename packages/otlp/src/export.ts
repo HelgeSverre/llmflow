@@ -300,14 +300,18 @@ function hexIdsToBytes(value: unknown): unknown {
     )
 }
 
-export function encodePayload(kind: Kind, payload: object, protocol: Protocol = PROTOCOL) {
+export function encodePayload(
+    kind: Kind,
+    payload: object,
+    protocol: Protocol = PROTOCOL,
+): { contentType: string; body: string | Buffer } {
     if (protocol === 'http/json')
-        return { contentType: 'application/json', body: JSON.stringify(payload) as BodyInit }
+        return { contentType: 'application/json', body: JSON.stringify(payload) }
     const type = messageType(SIGNALS[kind], 'Request')
     const message = type.fromObject(hexIdsToBytes(payload) as Record<string, unknown>)
     return {
         contentType: 'application/x-protobuf',
-        body: Buffer.from(type.encode(message).finish()) as BodyInit,
+        body: Buffer.from(type.encode(message).finish()),
     }
 }
 

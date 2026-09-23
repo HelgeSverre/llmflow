@@ -347,7 +347,8 @@ test('an initial response longer than Bun default idle timeout remains usable', 
     mode = 'slow'
     const response = await send('/plain/v1/chat/completions', false)
     expect(response.status).toBe(200)
-    expect((await response.json()).usage.total_tokens).toBe(5)
+    const body = (await response.json()) as { usage: { total_tokens: number } }
+    expect(body.usage.total_tokens).toBe(5)
 }, 15000)
 
 test('a quiet streaming gap stays open; cancelling downstream stops upstream work', async () => {
