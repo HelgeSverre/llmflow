@@ -3,10 +3,10 @@ id: TASK-74
 title: >-
   Remove Node-era leftovers: wrong shebangs, node-only comments, NODE_ENV, uuid
   alias
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-23 08:50'
-updated_date: '2026-09-23 09:15'
+updated_date: '2026-09-23 12:15'
 labels:
   - runtime
   - dead-code
