@@ -39,6 +39,7 @@ Provider credentials must be supplied through the client or the supported provid
 ## Current documentation
 
 - [README](https://github.com/HelgeSverre/llmflow/blob/main/README.md): startup, providers, configuration, packaging and testing.
+- [Architecture](https://github.com/HelgeSverre/llmflow/blob/main/ARCHITECTURE.md): listeners, data flow, API routes, WebSocket messages, schema and modules.
 - [Integration examples](https://github.com/HelgeSverre/llmflow/tree/main/examples): runnable examples and setup.
 
 ## Source map

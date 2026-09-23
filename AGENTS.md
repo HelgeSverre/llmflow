@@ -1,53 +1,57 @@
 # AGENTS.md
 
-LLMFlow is a local LLM observability tool: an HTTP proxy for LLM APIs (port 8080) plus a dashboard, JSON API, OTLP receiver and WebSocket feed (port 1337), backed by SQLite. Bun monorepo.
+LLMFlow is a local LLM observability tool: an HTTP proxy for LLM APIs (port 8080) plus a dashboard, JSON API, OTLP receiver and WebSocket feed (port 1337), backed by SQLite. Bun monorepo. [ARCHITECTURE.md](ARCHITECTURE.md) describes the modules, data flow, routes and schema; the README covers usage.
 
-## Status: cleanup milestone in progress
+## Decisions (do not re-open without a task)
 
-- Milestone `m-0` "Project Cleanup" (34 tasks, TASK-71…104) is restructuring the repo. Run `backlog milestone list` and `backlog task list --plain`; before changing build, tests, packaging, config or docs, read the task that owns that area — its comments carry the decisions and the facts we verified.
-- Decisions already made (do not re-open): Bun-only runtime, Node only for `apps/server/bin/llmflow.js` and Playwright · everything becomes TypeScript ESM, no `require()` in TS · `bun test` for server + packages, Vitest for the dashboard, Playwright in `e2e/` · oxlint + oxfmt replace Prettier (TASK-87) · `apps/server` is the published `llmflow` package and the root is a private workspace root (TASK-104) · `website/` leaves the workspaces (TASK-101) · unused API routes are deleted (TASK-88).
-- Deleted on purpose, recreated by their tasks: `docs/`, `ARCHITECTURE.md` (TASK-102), `RELEASING.md` (TASK-98). Do not restore them from git.
+- Bun-only runtime; Node only for `apps/server/bin/llmflow.js`, Node-based tools and Playwright. Everything is TypeScript ESM; no `require()`.
+- `bun test` for server and packages, Vitest for the dashboard, Playwright in `e2e/playwright`. oxlint + oxfmt, no Prettier.
+- `apps/server` is the published `llmflow` package; the root is a private workspace root; `website/` is outside the workspaces.
+- Spans live in the `spans` table and `/api/spans`; "trace" means the group of spans sharing a `trace_id`. The vocabulary and the reasoning behind renames are in ARCHITECTURE.md.
+- Backlog tasks carry the verified facts and decisions behind each change: read the task that owns an area (`backlog search <topic> --plain`) before changing build, tests, packaging, config or docs.
 
-## Runtime and commands (as of 2026-09-23)
+## Commands
 
-- Bun ≥ 1.3.13 required (developed on 1.4.2). `bun install` at the root (`bun ci` in CI); the isolated linker gives each workspace its own `node_modules`. Versions shared by several workspaces live in the root `catalog` and are referenced as `"catalog:"`.
-- Root scripts only forward to workspaces with `bun run --filter`. Plain `--filter` runs in dependency order and waits for each dependency's script to finish, so long-running scripts (`dev`) use `--parallel`.
-- `bun run dev` — `apps/server` (`--watch`) and the Vite dashboard as two processes, falling back to free ports; they find each other through `@llmflow/dev-runtime` (a per-checkout state directory, `LLMFLOW_URL` overrides). `bun run dev:server` / `bun run dev:dashboard` for one side, `bun run dev:status` lists them.
-- `bun run test` = `test:server` (`bun test --isolate` over `apps/server` and `packages`, `**/live/**` ignored) + `test:dashboard` (Vitest). Filter with `bun test --isolate <path-substring>`. `bun run test:live` runs `apps/server/test/live/` (skipped without API keys). Server tests get an in-process server from `apps/server/test/helpers/test-server.ts` (`startTestServer()`: port 0, temp DB, no pricing fetch or export); subprocess tests use its `isolatedEnv()`. `bunx playwright test` — E2E (builds first).
-- `bun run typecheck` — every workspace plus the root `tsconfig.json` (`scripts/`, `playwright.config.ts`); all extend `tsconfig.base.json`. `bun run lint` (oxlint, `.oxlintrc.json`; `lint:fix` autofixes) · `bun run format` / `bun run format:check` (oxfmt, `.oxfmtrc.json`; Svelte goes through oxfmt's bundled Prettier) · `bun run check` = typecheck + lint + format:check. oxlint only sees `.svelte` `<script>` blocks; `svelte-check` in the dashboard typecheck covers templates.
-- `bun run build` → `apps/server/dist/` (server bundle, dashboard assets, pricing fallback, licenses). `bun run test:package` packs `apps/server` with `bun pm pack` and smoke-tests the tarball (only bin/, dist/, package.json, README, LICENSE; no `workspace:`/`catalog:` specifiers). `just --list` shows all recipes by group.
+- Bun ≥ 1.3.13 (CI and Docker use `.bun-version`). `bun install` at the root (`bun ci` in CI); the isolated linker gives each workspace its own `node_modules`. Versions shared by several workspaces live in the root `catalog` (`"catalog:"`).
+- Root scripts forward to workspaces with `bun run --filter`; plain `--filter` runs in dependency order, so long-running scripts (`dev`) use `--parallel`. `just --list` shows the same commands as recipes.
+- `bun run dev` — server (`--watch`) and Vite dashboard as two processes, on free ports if the preferred ones are busy; they find each other through `@llmflow/dev-runtime` (`LLMFLOW_URL` overrides). `dev:server` / `dev:dashboard` for one side, `dev:status` lists them.
+- `bun run test` = `test:server` (`bun test --isolate` over `apps/server` and `packages`, `**/live/**` ignored) + `test:dashboard` (Vitest). Filter with `bun test --isolate <path-substring>`. `bun run test:live` hits real providers (skipped without keys). Server tests get an in-process server from `apps/server/test/helpers/test-server.ts` (`startTestServer()`: port 0, temp DB, no pricing fetch or export); subprocess tests use its `isolatedEnv()`. `bun run test:e2e` runs Playwright (builds first).
+- `bun run check` = typecheck (every workspace plus the root `tsconfig.json`; all extend `tsconfig.base.json`) + lint (`.oxlintrc.json`) + format:check (`.oxfmtrc.json`). oxlint sees only `.svelte` `<script>` blocks; `svelte-check` covers templates.
+- `bun run build` → `apps/server/dist/` (server bundle with embedded pricing fallback and linked source map, dashboard in `public/`, licenses). `bun run test:package` packs `llmflow` and `llmflow-sdk` with `bun pm pack` and tests both tarballs in a clean project (contents, no `workspace:`/`catalog:` specifiers, no build-machine paths, size limits).
 
 ## Layout
 
 ```
-apps/server/        npm package `llmflow`: Bun server (TS) — proxy, dashboard/API/OTLP/WebSocket, replay;
-                    bin/llmflow.js (Node launcher for `npx llmflow`, spawns Bun), scripts/ (dev, build)
-apps/dashboard/     Svelte 5 + Vite SPA (Vitest unit tests colocated)
-packages/db/        bun:sqlite schema, migrations, queries (TS, ESM)
-packages/providers/ provider adapters + passthrough handlers (TS, ESM)
-packages/otlp/      OTLP ingest + upstream export (TS, ESM)
-packages/pricing/   LiteLLM pricing + embedded offline fallback (TS, ESM)
-packages/shared/    logger, redaction, bounded body reader (TS, ESM)
-packages/sdk/       llmflow-sdk: TS source, tsc build to dist/ on prepack, published on its own
-packages/dev-runtime/ dev-server discovery shared by the server and dashboard dev scripts
-e2e/playwright/     Playwright specs, seed data, test server
-scripts/            root orchestration that imports no workspace code: docker-dev, test-package
-docker/ website/ release-notes/ .backlog/
+apps/server/          npm package `llmflow`: server (TS) — src/server.ts wiring, src/api/ route tables,
+                      proxy, OTLP routes, replay, WebSocket; bin/llmflow.js launcher; scripts/ (dev, demo, build)
+apps/dashboard/       Svelte 5 + Vite SPA (Vitest unit tests colocated)
+packages/db/          bun:sqlite schema, versioned migrations, queries, retention
+packages/providers/   provider adapters (translated and passthrough), registry, stream parsing, replay keys
+packages/otlp/        OTLP decoding and ingestion; OTLP export
+packages/pricing/     LiteLLM pricing with embedded offline fallback
+packages/shared/      config (every env var), logger, redaction, bounded body reader, network helpers
+packages/dev-runtime/ development only: busy-port fallback, discovery between dev servers
+packages/sdk/         llmflow-sdk: TS source, tsc build to dist/ on prepack, published on its own
+e2e/playwright/       Playwright specs, seed data, test server
+scripts/              root tooling: docker-dev, test-package, test-sdk-package, gen-env-docs, refresh-pricing-fallback
+docker/ examples/ website/ release-notes/ .backlog/
 ```
 
 ## Conventions
 
-- Internal dependencies use `workspace:*`; import packages by name, never by a relative path into another workspace (add a package `exports` entry instead). The `@llmflow/*` packages are bundled into `llmflow`, so they are its `devDependencies`.
+- Internal dependencies use `workspace:*`; import packages by name, never by a relative path into another workspace (add an `exports` entry instead). The `@llmflow/*` packages are bundled into `llmflow`, so they are its `devDependencies`.
 - Style: no semicolons, single quotes, trailing commas, 4-space indent (2-space in `apps/dashboard/**` and Markdown/JSON/YAML). No comments unless the WHY is non-obvious. Minimal dependencies.
-- Naming: camelCase in code, UPPER_SNAKE constants, snake_case for DB columns and API JSON (no camelCase keys in responses). One name per concept: `service_name` (never "tool"), `request_count`, `avg_duration_ms` / `duration_ms`, `provider` (the upstream, identical for translated and passthrough calls), "passthrough" (never "native" for the mode). A record without a service is `unknown_service` (`DEFAULT_SERVICE_NAME`) on every ingest path. Env vars: `LLMFLOW_URL` (dashboard/API) and `LLMFLOW_PROXY_URL` (proxy) for clients, millisecond settings end in `_MS`, default host `127.0.0.1`.
-- Request handlers return an error `Response`; they never throw. Providers extend `BaseProvider` (`packages/providers/src/base.ts`).
+- Naming: camelCase in code, UPPER_SNAKE constants, snake_case for DB columns and API JSON (no camelCase keys in responses). One name per concept (see the vocabulary in ARCHITECTURE.md): `service_name`, `request_count`, `avg_duration_ms` / `duration_ms`, `provider`, "passthrough". A record without a service is `unknown_service` (`DEFAULT_SERVICE_NAME`). Client env vars are `LLMFLOW_URL` and `LLMFLOW_PROXY_URL`; millisecond settings end in `_MS`; the default host is `127.0.0.1`.
+- API routes are entries in the route tables under `apps/server/src/api/`. Handlers return an error `Response`; they never throw. Providers extend `BaseProvider` (`packages/providers/src/base.ts`), which serves translated and passthrough calls.
+- Schema changes are new steps appended to `packages/db/src/migrations.ts`; never edit or reorder an applied step. `packages/db/src/migrations.test.ts` upgrades a real v0.4.1 database and compares the result with a new one.
 - Environment variables: declare every variable in `SETTINGS` and read it through `config` (`packages/shared/src/config.ts`); never read `process.env` elsewhere (a test enforces it; the SDK, `vite.config.ts` and test harnesses are exempt). After changing `SETTINGS`, run `bun run env:docs` to regenerate `.env.example`, the README table and `llmflow --help`.
-- npm packages list what they ship in the `files` whitelist of their `package.json`; there is no `.npmignore`. `.dockerignore` keeps the image build context to what `bun install` + `bun run build` need.
-- Never commit generated output (`apps/server/dist/`, `apps/dashboard/dist/`, `test-results/`, the `apps/server/README.md`/`LICENSE` copies made by prepack) or private files (`.env`, `*.db`, `.claude-config/`).
+- User-visible changes go into `release-notes/UNRELEASED.md`.
+- npm packages list what they ship in the `files` whitelist; there is no `.npmignore`. `.dockerignore` keeps the image build context to what `bun install` + `bun run build` need.
+- Never commit generated output (`apps/server/dist/`, `apps/dashboard/dist/`, `packages/sdk/dist/`, `test-results/`, the `apps/server/README.md`/`LICENSE` copies made by prepack) or private files (`.env`, `*.db`, `.claude-config/`). Tests must not write into the repository (e2e screenshots go to `test-results/`).
 
 ## Before marking a task Done
 
-`bun run check` (typecheck + lint + format:check) and `bun run test` (server, packages and dashboard) must pass; run Playwright when UI or API behaviour changed and `bun run test:package` when packaging changed. Record verified facts and decisions as task comments so the next task sees them.
+`bun run check` and `bun run test` must pass; run `bun run test:e2e` when UI or API behaviour changed and `bun run test:package` when packaging changed. Record verified facts and decisions in the task (notes or comments) so the next task sees them.
 
 <!-- BACKLOG.MD GUIDELINES START -->
 <!-- backlog.md-instructions-version: 1.52.0 -->
