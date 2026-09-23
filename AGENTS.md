@@ -42,6 +42,7 @@ docker/ website/ release-notes/ .backlog/
 - Naming: camelCase in code, UPPER_SNAKE constants, snake_case for DB columns and API JSON.
 - Request handlers return an error `Response`; they never throw. Providers extend `BaseProvider` (`packages/providers/src/base.ts`).
 - Environment variables are still read ad hoc; TASK-90 centralises them. Do not add new scattered `process.env` reads — extend the existing read site instead.
+- npm packages list what they ship in the `files` whitelist of their `package.json`; there is no `.npmignore`. `.dockerignore` keeps the image build context to what `bun install` + `bun run build` need.
 - Never commit generated output (`apps/server/dist/`, `apps/dashboard/dist/`, `test-results/`, the `apps/server/README.md`/`LICENSE` copies made by prepack) or private files (`.env`, `*.db`, `.claude-config/`).
 
 ## Before marking a task Done
