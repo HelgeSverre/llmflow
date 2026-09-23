@@ -46,8 +46,7 @@ COPY --from=build /app/apps/server/dist ./dist
 RUN mkdir -p /home/bun/.llmflow && chown bun:bun /home/bun/.llmflow
 USER bun
 
-ENV NODE_ENV=production \
-    PROXY_PORT=8080 \
+ENV PROXY_PORT=8080 \
     DASHBOARD_PORT=1337 \
     PROXY_HOST=0.0.0.0 \
     DASHBOARD_HOST=0.0.0.0 \

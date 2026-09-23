@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Seeds an isolated database and starts the Bun server for Playwright.
 const path = require('path')
 const fs = require('fs')
@@ -10,7 +9,6 @@ const TEST_DB_PATH = path.join(TEST_DATA_DIR, 'e2e.db')
 
 process.env.DATA_DIR = TEST_DATA_DIR
 process.env.DB_PATH = TEST_DB_PATH
-process.env.NODE_ENV = 'test'
 
 console.log('Starting test server with:')
 console.log('  DATA_DIR:', process.env.DATA_DIR)

@@ -10,7 +10,6 @@
  * - Correlation with traces via trace_id/span_id
  */
 
-const uuidv4 = () => crypto.randomUUID()
 const db = require('@llmflow/db')
 
 /**
@@ -151,7 +150,7 @@ function processOtlpLogs(body) {
             for (const logRecord of scopeLog.logRecords || []) {
                 try {
                     const attrs = extractAttributes(logRecord.attributes)
-                    const logId = uuidv4()
+                    const logId = crypto.randomUUID()
 
                     db.insertLog({
                         id: logId,

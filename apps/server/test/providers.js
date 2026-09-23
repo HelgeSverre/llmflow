@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Provider Unit Tests
  *

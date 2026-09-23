@@ -34,7 +34,6 @@ export function isolatedEnv(directory: string, overrides: Env = {}): Env {
         PROXY_PORT: '0',
         LLMFLOW_URL: undefined,
         PROXY_URL: undefined,
-        NODE_ENV: 'test',
         PRICING_URL: 'https://127.0.0.1:1/pricing.json',
         OTLP_EXPORT_ENABLED: 'false',
         OTLP_EXPORT_ENDPOINT: undefined,

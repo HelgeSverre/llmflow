@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * End-to-End Test for OTLP Integration
  *
@@ -9,7 +7,7 @@
  * 3. Verify span tree is correct
  * 4. Verify dashboard API returns correct data
  *
- * Run: node test/otlp-e2e.js
+ * Run: bun test --isolate apps/server/test/legacy-scripts.test.ts
  * Requires: LLMFlow server running on 127.0.0.1:1337
  */
 
