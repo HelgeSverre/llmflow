@@ -71,11 +71,11 @@ jobs:
         run: |
           docker run -d --name llmflow -p 1337:1337 -p 8080:8080 llmflow:ci
           for _ in $(seq 1 30); do
-            curl -fsS http://localhost:1337/api/health && break
+            curl -fsS http://127.0.0.1:1337/api/health && break
             sleep 1
           done
-          curl -fsS http://localhost:1337/api/health
-          curl -sS -o /dev/null -w 'proxy %{http_code}\n' http://localhost:8080/v1/models
+          curl -fsS http://127.0.0.1:1337/api/health
+          curl -sS -o /dev/null -w 'proxy %{http_code}\n' http://127.0.0.1:8080/v1/models
           test "$(docker exec llmflow id -u)" = 1000
           test "$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' llmflow:ci)" = "$(jq -r .version apps/server/package.json)"
       - if: failure()

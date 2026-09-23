@@ -47,7 +47,7 @@ This folder contains example configurations for integrating LLMFlow with popular
    - Jaeger: http://localhost:16686
    - Phoenix: http://localhost:6006
    - Langfuse: http://localhost:3001
-   - LLMFlow: http://localhost:1337
+   - LLMFlow: http://127.0.0.1:1337
 
 ## Architecture
 
@@ -56,7 +56,7 @@ This folder contains example configurations for integrating LLMFlow with popular
 │                     Your Application                        │
 │                                                             │
 │   const client = new OpenAI({                               │
-│       baseURL: 'http://localhost:8080/v1'  // LLMFlow      │
+│       baseURL: 'http://127.0.0.1:8080/v1'  // LLMFlow      │
 │   });                                                       │
 └──────────────────────────┬──────────────────────────────────┘
                            │
@@ -80,15 +80,15 @@ This folder contains example configurations for integrating LLMFlow with popular
 
 ## Environment Variables
 
-| Variable                       | Description                    | Example                             |
-| ------------------------------ | ------------------------------ | ----------------------------------- |
-| `OTLP_EXPORT_ENDPOINT`         | Primary OTLP endpoint          | `http://localhost:4318/v1/traces`   |
-| `OTLP_EXPORT_TRACES_ENDPOINT`  | Traces-specific endpoint       | `http://jaeger:4318/v1/traces`      |
-| `OTLP_EXPORT_LOGS_ENDPOINT`    | Logs-specific endpoint         | `http://loki:3100/v1/logs`          |
-| `OTLP_EXPORT_METRICS_ENDPOINT` | Metrics-specific endpoint      | `http://prometheus:9090/v1/metrics` |
-| `OTLP_EXPORT_HEADERS`          | Auth headers (comma-separated) | `Authorization=Bearer xxx`          |
-| `OTLP_EXPORT_BATCH_SIZE`       | Batch size before flush        | `100`                               |
-| `OTLP_EXPORT_FLUSH_INTERVAL`   | Flush interval (ms)            | `5000`                              |
+| Variable                        | Description                    | Example                             |
+| ------------------------------- | ------------------------------ | ----------------------------------- |
+| `OTLP_EXPORT_ENDPOINT`          | Primary OTLP endpoint          | `http://localhost:4318/v1/traces`   |
+| `OTLP_EXPORT_TRACES_ENDPOINT`   | Traces-specific endpoint       | `http://jaeger:4318/v1/traces`      |
+| `OTLP_EXPORT_LOGS_ENDPOINT`     | Logs-specific endpoint         | `http://loki:3100/v1/logs`          |
+| `OTLP_EXPORT_METRICS_ENDPOINT`  | Metrics-specific endpoint      | `http://prometheus:9090/v1/metrics` |
+| `OTLP_EXPORT_HEADERS`           | Auth headers (comma-separated) | `Authorization=Bearer xxx`          |
+| `OTLP_EXPORT_BATCH_SIZE`        | Batch size before flush        | `100`                               |
+| `OTLP_EXPORT_FLUSH_INTERVAL_MS` | Flush interval (ms)            | `5000`                              |
 
 ## Backend-Specific Notes
 

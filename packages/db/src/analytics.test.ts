@@ -41,13 +41,13 @@ seed.forEach(([provider, model, cost, age], index) => {
     })
 })
 
-describe('Cost by Tool', () => {
-    test('getCostByTool returns array', () => {
-        expect(db.getCostByTool({ days: 30 })).toBeArray()
+describe('Cost by service', () => {
+    test('getCostByService returns array', () => {
+        expect(db.getCostByService({ days: 30 })).toBeArray()
     })
 
-    test('getCostByTool items have expected fields', () => {
-        const byTool = rows(db.getCostByTool({ days: 30 }))
+    test('getCostByService items have expected fields', () => {
+        const byTool = rows(db.getCostByService({ days: 30 }))
         expect(byTool.length).toBeGreaterThan(0)
         for (const key of [
             'provider',
@@ -61,10 +61,10 @@ describe('Cost by Tool', () => {
         }
     })
 
-    test('getCostByTool orders by total_cost descending', () => {
-        const costs = rows(db.getCostByTool({ days: 30 })).map((item) => Number(item.total_cost))
+    test('getCostByService orders by total_cost descending', () => {
+        const costs = rows(db.getCostByService({ days: 30 })).map((item) => Number(item.total_cost))
         expect(costs).toEqual([...costs].sort((a, b) => b - a))
-        expect(rows(db.getCostByTool({ days: 30 }))[0]?.provider).toBe('openai')
+        expect(rows(db.getCostByService({ days: 30 }))[0]?.provider).toBe('openai')
     })
 })
 
@@ -104,7 +104,7 @@ describe('Daily Stats', () => {
     test('getDailyStats items have expected fields', () => {
         const daily = rows(db.getDailyStats({ days: 30 }))
         expect(daily.length).toBeGreaterThan(0)
-        for (const key of ['bucket', 'date', 'tokens', 'cost', 'requests']) {
+        for (const key of ['bucket', 'date', 'tokens', 'cost', 'request_count']) {
             expect(daily[0]).toHaveProperty(key)
         }
     })
@@ -122,16 +122,16 @@ describe('Daily Stats', () => {
 })
 
 describe('Edge Cases', () => {
-    test('getCostByTool with 0 days returns empty', () => {
-        expect(db.getCostByTool({ days: 0 })).toHaveLength(0)
+    test('getCostByService with 0 days returns empty', () => {
+        expect(db.getCostByService({ days: 0 })).toHaveLength(0)
     })
 
     test('getDailyStats with 0 days returns empty', () => {
         expect(db.getDailyStats({ days: 0 })).toHaveLength(0)
     })
 
-    test('getCostByTool with default params works', () => {
-        expect(db.getCostByTool()).toBeArray()
+    test('getCostByService with default params works', () => {
+        expect(db.getCostByService()).toBeArray()
     })
 
     test('getModelAggregates with default params works', () => {

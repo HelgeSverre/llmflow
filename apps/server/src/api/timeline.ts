@@ -26,8 +26,7 @@ export const timelineRoutes: Route[] = [
         (_req, url) => {
             const limit = Number(url.searchParams.get('limit') || '100')
             const params = url.searchParams
-            // 'tool' is the dashboard's name for a service.
-            const service_name = params.get('tool') || params.get('service_name') || undefined
+            const service_name = params.get('service_name') || undefined
             const q = params.get('q') || undefined
             const date_from = params.get('date_from') ? Number(params.get('date_from')) : undefined
             const type = params.get('type') || ''
@@ -44,7 +43,6 @@ export const timelineRoutes: Route[] = [
                         subtitle: t.service_name || t.provider,
                         model: t.model,
                         service_name: t.service_name,
-                        tool: t.service_name,
                         status: t.status,
                         duration_ms: t.duration_ms,
                         tokens: t.total_tokens,
@@ -63,7 +61,6 @@ export const timelineRoutes: Route[] = [
                         title: logTitle(l),
                         subtitle: l.body && l.body !== 'null' ? l.event_name : null,
                         service_name: l.service_name,
-                        tool: l.service_name,
                         severity_text: l.severity_text,
                         data: l,
                     })

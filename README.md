@@ -10,7 +10,7 @@ Install [Bun](https://bun.sh/docs/installation) first; the npm launcher requires
 npx llmflow
 ```
 
-Dashboard: [localhost:1337](http://localhost:1337) · Proxy: [localhost:8080](http://localhost:8080)
+Dashboard: [127.0.0.1:1337](http://127.0.0.1:1337) · Proxy: [127.0.0.1:8080](http://127.0.0.1:8080)
 
 ![LLMFlow Dashboard](website/screenshot-dark.png)
 
@@ -37,22 +37,22 @@ docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 helgesverre/llmflow
 ```python
 # Python
 from openai import OpenAI
-client = OpenAI(base_url="http://localhost:8080/v1")
+client = OpenAI(base_url="http://127.0.0.1:8080/v1")
 ```
 
 ```javascript
 // JavaScript
-const client = new OpenAI({ baseURL: 'http://localhost:8080/v1' })
+const client = new OpenAI({ baseURL: 'http://127.0.0.1:8080/v1' })
 ```
 
 ```php
 // PHP
-$client = OpenAI::factory()->withBaseUri('http://localhost:8080/v1')->make();
+$client = OpenAI::factory()->withBaseUri('http://127.0.0.1:8080/v1')->make();
 ```
 
 ### 3. View Dashboard
 
-Open [localhost:1337](http://localhost:1337) to see your traces, costs, and token usage.
+Open [127.0.0.1:1337](http://127.0.0.1:1337) to see your traces, costs, and token usage.
 
 ---
 
@@ -85,26 +85,26 @@ Use path prefixes or the `X-LLMFlow-Provider` header:
 
 | Provider     | URL                                   |
 | ------------ | ------------------------------------- |
-| OpenAI       | `http://localhost:8080/v1` (default)  |
-| Anthropic    | `http://localhost:8080/anthropic/v1`  |
-| Gemini       | `http://localhost:8080/gemini/v1`     |
-| Ollama       | `http://localhost:8080/ollama/v1`     |
-| Groq         | `http://localhost:8080/groq/v1`       |
-| Mistral      | `http://localhost:8080/mistral/v1`    |
-| Azure OpenAI | `http://localhost:8080/azure/v1`      |
-| Cohere       | `http://localhost:8080/cohere/v1`     |
-| Together     | `http://localhost:8080/together/v1`   |
-| OpenRouter   | `http://localhost:8080/openrouter/v1` |
-| Perplexity   | `http://localhost:8080/perplexity/v1` |
+| OpenAI       | `http://127.0.0.1:8080/v1` (default)  |
+| Anthropic    | `http://127.0.0.1:8080/anthropic/v1`  |
+| Gemini       | `http://127.0.0.1:8080/gemini/v1`     |
+| Ollama       | `http://127.0.0.1:8080/ollama/v1`     |
+| Groq         | `http://127.0.0.1:8080/groq/v1`       |
+| Mistral      | `http://127.0.0.1:8080/mistral/v1`    |
+| Azure OpenAI | `http://127.0.0.1:8080/azure/v1`      |
+| Cohere       | `http://127.0.0.1:8080/cohere/v1`     |
+| Together     | `http://127.0.0.1:8080/together/v1`   |
+| OpenRouter   | `http://127.0.0.1:8080/openrouter/v1` |
+| Perplexity   | `http://127.0.0.1:8080/perplexity/v1` |
 
 These routes take OpenAI-format requests and translate them. To send a provider's own API
 format unchanged, use a passthrough route: `/passthrough/anthropic/*`, `/passthrough/gemini/*`,
 `/passthrough/openai/*` or `/passthrough/helicone/*` (for example
-`ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic`). Both kinds of route record
+`ANTHROPIC_BASE_URL=http://127.0.0.1:8080/passthrough/anthropic`). Both kinds of route record
 the same provider name, so a provider shows up once in Analytics.
 
 Optional request headers: `X-LLMFlow-Service` names the calling application (default
-`llmflow-proxy`), `X-LLMFlow-Tags` adds comma-separated tags, and `X-Trace-Id` / `X-Parent-Id`
+`unknown_service`), `X-LLMFlow-Tags` adds comma-separated tags, and `X-Trace-Id` / `X-Parent-Id`
 attach the call to an existing trace (the SDK's `currentTraceHeaders()` sets these).
 
 ---
@@ -117,14 +117,14 @@ If you're using LangChain, LlamaIndex, or other instrumented frameworks:
 # Python - point OTLP exporter to LLMFlow
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
-exporter = OTLPSpanExporter(endpoint="http://localhost:1337/v1/traces")
+exporter = OTLPSpanExporter(endpoint="http://127.0.0.1:1337/v1/traces")
 ```
 
 ```javascript
 // JavaScript
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 
-new OTLPTraceExporter({ url: 'http://localhost:1337/v1/traces' })
+new OTLPTraceExporter({ url: 'http://127.0.0.1:1337/v1/traces' })
 ```
 
 LLMFlow accepts both the current
@@ -149,6 +149,10 @@ a single session and exposes them in the **Sessions** tab:
 
 For chat-thread correlation, set `gen_ai.conversation.id` (OTel) or
 `traceloop.association.properties.thread_id`.
+
+Spans, logs and metrics whose source names no service (no `service.name` resource attribute,
+no `X-LLMFlow-Service` header, no SDK `serviceName`) are stored under `unknown_service`,
+OpenTelemetry's default, on every ingest path.
 
 ### Forwarding to another backend
 
@@ -216,7 +220,7 @@ Every setting is an environment variable; `.env.example` lists them all with the
 
 | Variable                   | Default           | Description                                                                          |
 | -------------------------- | ----------------- | ------------------------------------------------------------------------------------ |
-| `OLLAMA_HOST`              | `localhost`       | Ollama host                                                                          |
+| `OLLAMA_HOST`              | `127.0.0.1`       | Ollama host                                                                          |
 | `OLLAMA_PORT`              | `11434`           | Ollama port                                                                          |
 | `AZURE_OPENAI_RESOURCE`    |                   | Azure OpenAI resource name (an x-azure-resource header wins)                         |
 | `AZURE_OPENAI_API_VERSION` | `2024-02-01`      | Azure OpenAI API version                                                             |
@@ -227,18 +231,18 @@ Every setting is an environment variable; `.env.example` lists them all with the
 
 **OTLP export**
 
-| Variable                       | Default     | Description                                                     |
-| ------------------------------ | ----------- | --------------------------------------------------------------- |
-| `OTLP_EXPORT_ENABLED`          | `false`     | Enable export (true); setting any endpoint enables it too       |
-| `OTLP_EXPORT_TRACES_ENDPOINT`  |             | Full traces URL                                                 |
-| `OTLP_EXPORT_ENDPOINT`         |             | Alias for the traces URL; it does not enable logs or metrics    |
-| `OTLP_EXPORT_LOGS_ENDPOINT`    |             | Full logs URL; logs are exported only when set                  |
-| `OTLP_EXPORT_METRICS_ENDPOINT` |             | Full metrics URL; metrics are exported only when set            |
-| `OTLP_EXPORT_PROTOCOL`         | `http/json` | http/json or http/protobuf (Phoenix accepts protobuf only)      |
-| `OTLP_EXPORT_HEADERS`          |             | Headers sent with every export (comma-separated key=value)      |
-| `OTLP_EXPORT_BATCH_SIZE`       | `100`       | Records per export batch, per signal                            |
-| `OTLP_EXPORT_FLUSH_INTERVAL`   | `5000`      | Milliseconds between flushes                                    |
-| `LLMFLOW_OTLP_LEGACY_ATTRS`    | `0`         | Also export the deprecated v1.36.0 GenAI attribute names (1=on) |
+| Variable                        | Default     | Description                                                     |
+| ------------------------------- | ----------- | --------------------------------------------------------------- |
+| `OTLP_EXPORT_ENABLED`           | `false`     | Enable export (true); setting any endpoint enables it too       |
+| `OTLP_EXPORT_TRACES_ENDPOINT`   |             | Full traces URL                                                 |
+| `OTLP_EXPORT_ENDPOINT`          |             | Alias for the traces URL; it does not enable logs or metrics    |
+| `OTLP_EXPORT_LOGS_ENDPOINT`     |             | Full logs URL; logs are exported only when set                  |
+| `OTLP_EXPORT_METRICS_ENDPOINT`  |             | Full metrics URL; metrics are exported only when set            |
+| `OTLP_EXPORT_PROTOCOL`          | `http/json` | http/json or http/protobuf (Phoenix accepts protobuf only)      |
+| `OTLP_EXPORT_HEADERS`           |             | Headers sent with every export (comma-separated key=value)      |
+| `OTLP_EXPORT_BATCH_SIZE`        | `100`       | Records per export batch, per signal                            |
+| `OTLP_EXPORT_FLUSH_INTERVAL_MS` | `5000`      | Milliseconds between flushes                                    |
+| `LLMFLOW_OTLP_LEGACY_ATTRS`     | `0`         | Also export the deprecated v1.36.0 GenAI attribute names (1=on) |
 
 **Development**
 

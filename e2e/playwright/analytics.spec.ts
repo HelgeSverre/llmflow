@@ -8,15 +8,15 @@ test.describe('Analytics Tab', () => {
         await page.waitForFunction(
             () => {
                 const tokenChart = document.querySelector('[data-testid="token-trends-chart"]')
-                const costTool = document.querySelector('[data-testid="cost-by-tool-chart"]')
+                const costService = document.querySelector('[data-testid="cost-by-service-chart"]')
                 const costModel = document.querySelector('[data-testid="cost-by-model-chart"]')
                 const daily = document.querySelector('[data-testid="daily-summary-table"]')
 
                 return (
                     tokenChart &&
                     !tokenChart.textContent?.includes('Loading') &&
-                    costTool &&
-                    !costTool.textContent?.includes('Loading') &&
+                    costService &&
+                    !costService.textContent?.includes('Loading') &&
                     costModel &&
                     !costModel.textContent?.includes('Loading') &&
                     daily &&
@@ -35,8 +35,8 @@ test.describe('Analytics Tab', () => {
         expect(content?.length).toBeGreaterThan(5)
     })
 
-    test('displays cost by tool chart section', async ({ page }) => {
-        const chart = page.locator('[data-testid="cost-by-tool-chart"]')
+    test('displays cost by service chart section', async ({ page }) => {
+        const chart = page.locator('[data-testid="cost-by-service-chart"]')
         await expect(chart).toBeVisible()
 
         const content = await chart.textContent()
@@ -124,7 +124,7 @@ test.describe('Analytics Tab', () => {
         await expect(page.locator('[data-testid="token-trends-chart"]')).not.toContainText(
             'Loading',
         )
-        await expect(page.locator('[data-testid="cost-by-tool-chart"]')).not.toContainText(
+        await expect(page.locator('[data-testid="cost-by-service-chart"]')).not.toContainText(
             'Loading',
         )
         await expect(page.locator('[data-testid="cost-by-model-chart"]')).not.toContainText(
@@ -136,7 +136,7 @@ test.describe('Analytics Tab', () => {
 
         // All charts should be visible and populated
         await expect(page.locator('[data-testid="token-trends-chart"]')).toBeVisible()
-        await expect(page.locator('[data-testid="cost-by-tool-chart"]')).toBeVisible()
+        await expect(page.locator('[data-testid="cost-by-service-chart"]')).toBeVisible()
         await expect(page.locator('[data-testid="cost-by-model-chart"]')).toBeVisible()
         await expect(page.locator('[data-testid="daily-summary-table"]')).toBeVisible()
     })
@@ -150,8 +150,8 @@ test.describe('Analytics Tab', () => {
         expect(hasContent).toBeTruthy()
     })
 
-    test('cost by tool chart renders horizontal bars when data exists', async ({ page }) => {
-        const chart = page.locator('[data-testid="cost-by-tool-chart"]')
+    test('cost by service chart renders horizontal bars when data exists', async ({ page }) => {
+        const chart = page.locator('[data-testid="cost-by-service-chart"]')
         const content = await chart.textContent()
 
         // Should have content

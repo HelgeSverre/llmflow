@@ -99,7 +99,7 @@ test('a root span broadcasts new_span and new_trace', async () => {
     ).toBeDefined()
     // stats_update is throttled to one per second, so it may or may not arrive here.
     const stats = client.messages.find((message) => message.type === 'stats_update')
-    if (stats) expect(typeof stats.payload?.total_requests).toBe('number')
+    if (stats) expect(typeof stats.payload?.request_count).toBe('number')
     client.socket.close()
 })
 

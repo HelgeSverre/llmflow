@@ -146,7 +146,7 @@
                             </button>
                         </div>
                         <p class="install-note">
-                            Then point your SDK at <code>localhost:8080/v1</code>
+                            Then point your SDK at <code>127.0.0.1:8080/v1</code>
                         </p>
                     </div>
 
@@ -337,10 +337,10 @@ docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 helgesverre/llmflow</co
                             <div class="code-block">
                                 <pre><code><span class="c"># Python</span>
 <span class="k">from</span> openai <span class="k">import</span> OpenAI
-client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>)
+client = OpenAI(base_url=<span class="s">"http://127.0.0.1:8080/v1"</span>)
 
 <span class="c"># JavaScript</span>
-<span class="k">const</span> client = <span class="k">new</span> OpenAI({ baseURL: <span class="s">"http://localhost:8080/v1"</span> });</code></pre>
+<span class="k">const</span> client = <span class="k">new</span> OpenAI({ baseURL: <span class="s">"http://127.0.0.1:8080/v1"</span> });</code></pre>
                             </div>
                         </div>
                     </div>
@@ -349,7 +349,7 @@ client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>)
                         <div class="step-content">
                             <h3>View your traces</h3>
                             <p>
-                                Open <a href="http://localhost:1337">localhost:1337</a> to see
+                                Open <a href="http://127.0.0.1:1337">127.0.0.1:1337</a> to see
                                 costs, tokens, latency, and full request/response details.
                             </p>
                         </div>
@@ -378,52 +378,52 @@ client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>)
                     <div class="providers-table">
                         <div class="provider-row">
                             <span class="provider-name">OpenAI</span>
-                            <code>http://localhost:8080/v1</code>
+                            <code>http://127.0.0.1:8080/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Anthropic</span>
-                            <code>http://localhost:8080/anthropic/v1</code>
+                            <code>http://127.0.0.1:8080/anthropic/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Gemini</span>
-                            <code>http://localhost:8080/gemini/v1</code>
+                            <code>http://127.0.0.1:8080/gemini/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Ollama</span>
-                            <code>http://localhost:8080/ollama/v1</code>
+                            <code>http://127.0.0.1:8080/ollama/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Groq</span>
-                            <code>http://localhost:8080/groq/v1</code>
+                            <code>http://127.0.0.1:8080/groq/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Mistral</span>
-                            <code>http://localhost:8080/mistral/v1</code>
+                            <code>http://127.0.0.1:8080/mistral/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Azure OpenAI</span>
-                            <code>http://localhost:8080/azure/v1</code>
+                            <code>http://127.0.0.1:8080/azure/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Together</span>
-                            <code>http://localhost:8080/together/v1</code>
+                            <code>http://127.0.0.1:8080/together/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">OpenRouter</span>
-                            <code>http://localhost:8080/openrouter/v1</code>
+                            <code>http://127.0.0.1:8080/openrouter/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Cohere</span>
-                            <code>http://localhost:8080/cohere/v1</code>
+                            <code>http://127.0.0.1:8080/cohere/v1</code>
                         </div>
                         <div class="provider-row">
                             <span class="provider-name">Perplexity</span>
-                            <code>http://localhost:8080/perplexity/v1</code>
+                            <code>http://127.0.0.1:8080/perplexity/v1</code>
                         </div>
                     </div>
                     <p class="note">
                         Using a native SDK (Anthropic, OpenAI, Gemini)? Use
-                        <code>http://localhost:8080/passthrough/{anthropic,openai,gemini}</code>
+                        <code>http://127.0.0.1:8080/passthrough/{anthropic,openai,gemini}</code>
                         to keep the provider's own API format.
                     </p>
                 </div>
@@ -441,7 +441,7 @@ client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>)
                                 <pre><code><span class="k">from</span> traceloop.sdk <span class="k">import</span> Traceloop
 
 Traceloop.init(
-    api_endpoint=<span class="s">"http://localhost:1337/v1/traces"</span>,
+    api_endpoint=<span class="s">"http://127.0.0.1:1337/v1/traces"</span>,
     disable_batch=<span class="k">True</span>
 )</code></pre>
                             </div>
@@ -455,7 +455,7 @@ Traceloop.init(
 <span class="k">from</span> opentelemetry.sdk.trace.export <span class="k">import</span> SimpleSpanProcessor
 
 provider = TracerProvider()
-exporter = OTLPSpanExporter(endpoint=<span class="s">"http://localhost:1337/v1/traces"</span>)
+exporter = OTLPSpanExporter(endpoint=<span class="s">"http://127.0.0.1:1337/v1/traces"</span>)
 provider.add_span_processor(SimpleSpanProcessor(exporter))</code></pre>
                             </div>
                         </div>
@@ -467,7 +467,7 @@ provider.add_span_processor(SimpleSpanProcessor(exporter))</code></pre>
 <span class="k">import</span> { NodeTracerProvider, SimpleSpanProcessor } <span class="k">from</span> <span class="s">'@opentelemetry/sdk-trace-node'</span>;
 
 <span class="k">const</span> exporter = <span class="k">new</span> OTLPTraceExporter({
-    url: <span class="s">'http://localhost:1337/v1/traces'</span>
+    url: <span class="s">'http://127.0.0.1:1337/v1/traces'</span>
 });
 <span class="k">const</span> provider = <span class="k">new</span> NodeTracerProvider({
     spanProcessors: [<span class="k">new</span> SimpleSpanProcessor(exporter)]
@@ -482,7 +482,7 @@ provider.register();</code></pre>
                                 <pre><code><span class="k">import</span> <span class="s">"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"</span>
 
 exporter, _ := otlptracehttp.New(ctx,
-    otlptracehttp.WithEndpoint(<span class="s">"localhost:1337"</span>),
+    otlptracehttp.WithEndpoint(<span class="s">"127.0.0.1:1337"</span>),
     otlptracehttp.WithURLPath(<span class="s">"/v1/traces"</span>),
     otlptracehttp.WithInsecure(),
 )</code></pre>
@@ -498,7 +498,7 @@ OpenTelemetry::SDK.configure <span class="k">do</span> |c|
   c.add_span_processor(
     OpenTelemetry::SDK::Trace::Export::SimpleSpanProcessor.new(
       OpenTelemetry::Exporter::OTLP::Exporter.new(
-        endpoint: <span class="s">'http://localhost:1337/v1/traces'</span>
+        endpoint: <span class="s">'http://127.0.0.1:1337/v1/traces'</span>
       )
     )
   )
@@ -524,7 +524,7 @@ OpenTelemetry::SDK.configure <span class="k">do</span> |c|
                             <h4>Claude Code</h4>
                             <div class="code-block">
                                 <pre><code><span class="c"># Use passthrough mode</span>
-<span class="k">export</span> ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic
+<span class="k">export</span> ANTHROPIC_BASE_URL=http://127.0.0.1:8080/passthrough/anthropic
 claude</code></pre>
                             </div>
                         </div>
@@ -533,10 +533,10 @@ claude</code></pre>
                             <h4>Aider</h4>
                             <div class="code-block">
                                 <pre><code><span class="c"># OpenAI models</span>
-aider --openai-api-base http://localhost:8080/v1
+aider --openai-api-base http://127.0.0.1:8080/v1
 
 <span class="c"># Anthropic models</span>
-<span class="k">export</span> ANTHROPIC_API_BASE=http://localhost:8080/passthrough/anthropic
+<span class="k">export</span> ANTHROPIC_API_BASE=http://127.0.0.1:8080/passthrough/anthropic
 aider</code></pre>
                             </div>
                         </div>
@@ -546,7 +546,7 @@ aider</code></pre>
                             <div class="code-block">
                                 <pre><code><span class="c"># In ~/.codex/config.toml:</span>
 [otel]
-exporter = { otlp-http = { endpoint = <span class="s">"http://localhost:1337/v1/logs"</span>, protocol = <span class="s">"json"</span> } }</code></pre>
+exporter = { otlp-http = { endpoint = <span class="s">"http://127.0.0.1:1337/v1/logs"</span>, protocol = <span class="s">"json"</span> } }</code></pre>
                             </div>
                         </div>
 
@@ -557,7 +557,7 @@ exporter = { otlp-http = { endpoint = <span class="s">"http://localhost:1337/v1/
 - name: GPT via LLMFlow
   provider: openai
   model: gpt-4o
-  apiBase: http://localhost:8080/v1</code></pre>
+  apiBase: http://127.0.0.1:8080/v1</code></pre>
                             </div>
                         </div>
                     </div>

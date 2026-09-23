@@ -882,29 +882,29 @@ pre {
   transition: width 0.3s ease;
 }
 
-.h-bar-fill.tool-claude-code {
+.h-bar-fill.service-claude-code {
   background: #7c3aed;
 }
-.h-bar-fill.tool-codex-cli {
+.h-bar-fill.service-codex-cli {
   background: #16a34a;
 }
-.h-bar-fill.tool-gemini-cli {
+.h-bar-fill.service-gemini-cli {
   background: #2563eb;
 }
-.h-bar-fill.tool-aider {
+.h-bar-fill.service-aider {
   background: #d97706;
 }
 
-[data-theme='dark'] .h-bar-fill.tool-claude-code {
+[data-theme='dark'] .h-bar-fill.service-claude-code {
   background: #a78bfa;
 }
-[data-theme='dark'] .h-bar-fill.tool-codex-cli {
+[data-theme='dark'] .h-bar-fill.service-codex-cli {
   background: #4ade80;
 }
-[data-theme='dark'] .h-bar-fill.tool-gemini-cli {
+[data-theme='dark'] .h-bar-fill.service-gemini-cli {
   background: #60a5fa;
 }
-[data-theme='dark'] .h-bar-fill.tool-aider {
+[data-theme='dark'] .h-bar-fill.service-aider {
   background: #fbbf24;
 }
 

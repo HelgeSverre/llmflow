@@ -1,6 +1,7 @@
 // Health, headline stats, services, per-model summaries and the analytics view.
 import * as db from '@llmflow/db'
 import { getPricingStatus } from '@llmflow/pricing'
+import { DEFAULT_SERVICE_NAME } from '@llmflow/shared/config'
 import type { Route } from './router'
 
 // The dashboard charts break on null labels.
@@ -40,11 +41,15 @@ export const overviewRoutes: Route[] = [
             const days = Number(url.searchParams.get('days') || '30')
             return Response.json({
                 daily: db.getDailyStats({ days }),
-                by_tool: orUnknown(db.getCostByTool({ days }), ['provider', 'service_name']),
+                by_service: orUnknown(db.getCostByService({ days }), ['provider']).map((row) => ({
+                    ...row,
+                    service_name:
+                        (row as { service_name?: string }).service_name || DEFAULT_SERVICE_NAME,
+                })),
                 by_model: orUnknown(
                     db
                         .getModelAggregates({ from: Date.now() - days * DAY_MS, orderBy: 'cost' })
-                        .map(({ avg_latency: _latency, ...model }) => model),
+                        .map(({ avg_duration_ms: _latency, ...model }) => model),
                     ['model', 'provider'],
                 ),
                 days,

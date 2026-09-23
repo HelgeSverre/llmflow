@@ -35,9 +35,9 @@ This folder contains working examples of LLMFlow integrations with popular LLM f
    ./examples/run-all.sh
    ```
 
-4. **View traces** at [http://localhost:1337](http://localhost:1337)
+4. **View traces** at [http://127.0.0.1:1337](http://127.0.0.1:1337)
 
-> Run each example with `bun run start` to load the project-root `.env`. The runner also loads it. Exported environment variables and `LLMFLOW_URL` / `LLMFLOW_PROXY` can override the defaults.
+> Run each example with `bun run start` to load the project-root `.env`. The runner also loads it. Exported environment variables and `LLMFLOW_URL` / `LLMFLOW_PROXY_URL` can override the defaults.
 
 ## Integration Methods
 
@@ -49,7 +49,7 @@ Point your LLM SDK at the LLMFlow proxy to automatically capture all LLM calls:
 import OpenAI from 'openai'
 
 const client = new OpenAI({
-  baseURL: 'http://localhost:8080/v1',
+  baseURL: 'http://127.0.0.1:8080/v1',
 })
 ```
 
@@ -61,7 +61,7 @@ import { ChatOpenAI } from '@langchain/openai'
 const model = new ChatOpenAI({
   modelName: 'gpt-4o-mini',
   configuration: {
-    baseURL: 'http://localhost:8080/v1',
+    baseURL: 'http://127.0.0.1:8080/v1',
   },
 })
 ```
@@ -72,7 +72,7 @@ Or with Vercel AI SDK:
 import { createOpenAI } from '@ai-sdk/openai'
 
 const openai = createOpenAI({
-  baseURL: 'http://localhost:8080/v1',
+  baseURL: 'http://127.0.0.1:8080/v1',
   apiKey: process.env.OPENAI_API_KEY,
 })
 ```
@@ -109,7 +109,7 @@ Send traces via the OTLP/HTTP endpoint:
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 
 new OTLPTraceExporter({
-  url: 'http://localhost:1337/v1/traces',
+  url: 'http://127.0.0.1:1337/v1/traces',
 })
 ```
 
@@ -117,11 +117,11 @@ new OTLPTraceExporter({
 
 All examples use the `.env` file from the project root. See `.env.example` for all available options.
 
-| Variable         | Required | Description                                              |
-| ---------------- | -------- | -------------------------------------------------------- |
-| `OPENAI_API_KEY` | Yes      | Your OpenAI API key                                      |
-| `LLMFLOW_URL`    | No       | LLMFlow dashboard URL (default: `http://localhost:1337`) |
-| `LLMFLOW_PROXY`  | No       | LLMFlow proxy URL (default: `http://localhost:8080/v1`)  |
+| Variable            | Required | Description                                              |
+| ------------------- | -------- | -------------------------------------------------------- |
+| `OPENAI_API_KEY`    | Yes      | Your OpenAI API key                                      |
+| `LLMFLOW_URL`       | No       | LLMFlow dashboard URL (default: `http://127.0.0.1:1337`) |
+| `LLMFLOW_PROXY_URL` | No       | LLMFlow proxy URL (default: `http://127.0.0.1:8080/v1`)  |
 
 ## Adding New Examples
 

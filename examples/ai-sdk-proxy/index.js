@@ -13,9 +13,8 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateText, streamText } from 'ai'
 
-const LLMFLOW_PROXY = process.env.LLMFLOW_PROXY || 'http://localhost:8080/v1'
-const LLMFLOW_DASHBOARD =
-    process.env.LLMFLOW_DASHBOARD || process.env.LLMFLOW_URL || 'http://localhost:1337'
+const LLMFLOW_PROXY_URL = process.env.LLMFLOW_PROXY_URL || 'http://127.0.0.1:8080/v1'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 // Check for API key early
 if (!process.env.OPENAI_API_KEY) {
@@ -24,11 +23,11 @@ if (!process.env.OPENAI_API_KEY) {
     process.exit(1)
 }
 
-console.log(`Vercel AI SDK routing through LLMFlow proxy at ${LLMFLOW_PROXY}`)
+console.log(`Vercel AI SDK routing through LLMFlow proxy at ${LLMFLOW_PROXY_URL}`)
 
 // Create OpenAI client that routes through LLMFlow proxy
 const openai = createOpenAI({
-    baseURL: LLMFLOW_PROXY,
+    baseURL: LLMFLOW_PROXY_URL,
     apiKey: process.env.OPENAI_API_KEY,
 })
 
@@ -66,7 +65,7 @@ async function runExample() {
     console.log('\n')
 
     console.log('--- Example Complete ---')
-    console.log(`View traces at: ${LLMFLOW_DASHBOARD}`)
+    console.log(`View traces at: ${LLMFLOW_URL}`)
 }
 
 runExample()

@@ -29,7 +29,7 @@ test('Analytics renders nonzero daily data and service costs without page errors
     await page.goto('/#analytics')
     await page.getByTestId('analytics-days-filter').selectOption('7')
     const service = page
-        .getByTestId('cost-by-tool-chart')
+        .getByTestId('cost-by-service-chart')
         .locator('.h-bar-row')
         .filter({ hasText: name })
     await expect(service.locator('.h-bar-value')).toHaveText('$0.25')
@@ -37,7 +37,7 @@ test('Analytics renders nonzero daily data and service costs without page errors
         .getByTestId('daily-summary-table')
         .locator('tbody tr')
         .filter({ hasText: today.date })
-    await expect(row.locator('td').nth(1)).toHaveText(String(today.requests))
+    await expect(row.locator('td').nth(1)).toHaveText(String(today.request_count))
     await expect(row.locator('td').nth(2)).not.toHaveText('-')
     await expect(row.locator('td').nth(3)).not.toHaveText('-')
     await expect
@@ -159,7 +159,7 @@ test('Metrics filters affect cards and rows and live gauges preserve correct ave
 test('Header displays actual zero stats rather than missing-value dashes', async ({ page }) => {
     await page.route('**/api/stats', (route) =>
         route.fulfill({
-            json: { total_requests: 1, total_tokens: 0, total_cost: 0, avg_duration: 0 },
+            json: { request_count: 1, total_tokens: 0, total_cost: 0, avg_duration_ms: 0 },
         }),
     )
     await page.goto('/')
@@ -228,7 +228,7 @@ test('Timeline correlates real trace IDs, filters custom services, and renders m
         },
     })
     await page.goto('/#timeline')
-    await page.getByTestId('timeline-tool-filter').selectOption(service)
+    await page.getByTestId('timeline-service-filter').selectOption(service)
     await expect(page.locator('.timeline-item')).toHaveCount(2)
     await page.locator('.timeline-item').filter({ hasText: 'Readable conversation' }).click()
     await expect(page.getByTestId('related-logs')).toContainText('Correlated timeline log')

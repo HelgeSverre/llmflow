@@ -3,7 +3,7 @@ import { registry, type BaseProvider } from '@llmflow/providers'
 import type { ProviderRequest, TokenUsage } from '@llmflow/providers/base'
 import { calculateCost } from '@llmflow/pricing'
 import { readBoundedBody } from '@llmflow/shared/body'
-import { config } from '@llmflow/shared/config'
+import { config, DEFAULT_SERVICE_NAME } from '@llmflow/shared/config'
 import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
 import { log } from '@llmflow/shared/logger'
 
@@ -78,8 +78,7 @@ export async function forwardProxyRequest(
         request_method: req.method,
         request_path: sanitizePath(url.pathname + url.search),
         request_headers: sanitizeHeaders(req.headers),
-        // The caller can name itself; otherwise proxied spans are grouped under the proxy.
-        service_name: req.headers.get('x-llmflow-service') || 'llmflow-proxy',
+        service_name: req.headers.get('x-llmflow-service') || DEFAULT_SERVICE_NAME,
         tags: (req.headers.get('x-llmflow-tags') || req.headers.get('x-llmflow-tag') || '')
             .split(',')
             .map((tag) => tag.trim())

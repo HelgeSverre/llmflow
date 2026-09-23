@@ -77,7 +77,7 @@
               <span class="model-stat-label">Cost</span>
             </div>
             <div class="model-stat">
-              <span class="model-stat-value">{formatLatency(model.avg_latency)}</span>
+              <span class="model-stat-value">{formatLatency(model.avg_duration_ms)}</span>
               <span class="model-stat-label">Avg Latency</span>
             </div>
           </div>

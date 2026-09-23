@@ -10,7 +10,7 @@ Create or edit `~/.gemini/settings.json`:
 {
   "telemetry": {
     "enabled": true,
-    "endpoint": "http://localhost:1337/v1/logs"
+    "endpoint": "http://127.0.0.1:1337/v1/logs"
   }
 }
 ```
@@ -18,7 +18,7 @@ Create or edit `~/.gemini/settings.json`:
 ## Environment Variables
 
 ```bash
-export GEMINI_TELEMETRY_ENDPOINT="http://localhost:1337/v1/logs"
+export GEMINI_TELEMETRY_ENDPOINT="http://127.0.0.1:1337/v1/logs"
 ```
 
 ## Usage
@@ -27,4 +27,4 @@ export GEMINI_TELEMETRY_ENDPOINT="http://localhost:1337/v1/logs"
 gemini "write a hello world function"
 ```
 
-Check the LLMFlow dashboard at `http://localhost:1337` for logs.
+Check the LLMFlow dashboard at `http://127.0.0.1:1337` for logs.

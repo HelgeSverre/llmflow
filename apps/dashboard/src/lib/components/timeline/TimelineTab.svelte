@@ -33,7 +33,7 @@
   }
 
   function handleToolChange(e: Event) {
-    timelineFilters.tool = (e.target as HTMLInputElement).value
+    timelineFilters.service_name = (e.target as HTMLInputElement).value
   }
 
   function handleTypeChange(e: Event) {
@@ -78,9 +78,9 @@
   />
   <select
     id="toolFilter"
-    data-testid="timeline-tool-filter"
+    data-testid="timeline-service-filter"
     aria-label="Service"
-    value={timelineFilters.tool}
+    value={timelineFilters.service_name}
     onchange={handleToolChange}
     ><option value="">All Services</option>{#each services.values as service}<option value={service}
         >{service}</option

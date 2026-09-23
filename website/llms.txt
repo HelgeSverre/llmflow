@@ -22,15 +22,15 @@ bun run start
 
 For development, run `bun run dev` after installation. The dashboard Vite server proxies API/WebSocket requests to the Bun server.
 
-Dashboard and OTLP default to http://localhost:1337. Proxy defaults to http://localhost:8080. Occupied configured ports fail startup; there is no automatic fallback port. `DASHBOARD_PORT` and `PROXY_PORT` override these ports. Set the SDK's `LLMFLOW_URL` when changing the dashboard endpoint.
+Dashboard and OTLP default to http://127.0.0.1:1337. Proxy defaults to http://127.0.0.1:8080. Occupied configured ports fail startup; there is no automatic fallback port. `DASHBOARD_PORT` and `PROXY_PORT` override these ports. Set the SDK's `LLMFLOW_URL` when changing the dashboard endpoint.
 
 ## Integrations
 
-- OpenAI-compatible base URL: http://localhost:8080/v1
-- Native Anthropic base URL: http://localhost:8080/passthrough/anthropic
-- Native OpenAI base URL: http://localhost:8080/passthrough/openai
-- Native Gemini base URL: http://localhost:8080/passthrough/gemini
-- OTLP/HTTP JSON or protobuf: POST http://localhost:1337/v1/traces, /v1/logs and /v1/metrics; gzip is supported. The receiver does not implement OTLP/gRPC.
+- OpenAI-compatible base URL: http://127.0.0.1:8080/v1
+- Native Anthropic base URL: http://127.0.0.1:8080/passthrough/anthropic
+- Native OpenAI base URL: http://127.0.0.1:8080/passthrough/openai
+- Native Gemini base URL: http://127.0.0.1:8080/passthrough/gemini
+- OTLP/HTTP JSON or protobuf: POST http://127.0.0.1:1337/v1/traces, /v1/logs and /v1/metrics; gzip is supported. The receiver does not implement OTLP/gRPC.
 - JavaScript SDK: `llmflow-sdk`, with TypeScript declarations; defaults to http://127.0.0.1:1337.
 - Trace spans with session.id can be grouped in Sessions. Timeline displays traces and logs; Metrics has a separate tab.
 

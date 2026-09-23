@@ -35,9 +35,9 @@ else
 fi
 echo ""
 
-LLMFLOW_URL="${LLMFLOW_URL:-http://localhost:1337}"
-LLMFLOW_PROXY="${LLMFLOW_PROXY:-http://localhost:8080/v1}"
-export LLMFLOW_URL LLMFLOW_PROXY
+LLMFLOW_URL="${LLMFLOW_URL:-http://127.0.0.1:1337}"
+LLMFLOW_PROXY_URL="${LLMFLOW_PROXY_URL:-http://127.0.0.1:8080/v1}"
+export LLMFLOW_URL LLMFLOW_PROXY_URL
 
 # Check if LLMFlow is running
 if ! curl --fail --silent --show-error --max-time 5 "${LLMFLOW_URL%/}/api/health" > /dev/null 2>&1; then
@@ -49,9 +49,9 @@ fi
 echo -e "${GREEN}✓ LLMFlow is running${NC}"
 echo ""
 
-PROXY_HEALTH_URL=$(bun -e 'console.log(new URL("/health", process.argv.at(-1)).href)' "$LLMFLOW_PROXY")
+PROXY_HEALTH_URL=$(bun -e 'console.log(new URL("/health", process.argv.at(-1)).href)' "$LLMFLOW_PROXY_URL")
 if ! curl --fail --silent --show-error --max-time 5 "$PROXY_HEALTH_URL" >/dev/null; then
-    echo "Proxy is unavailable at $LLMFLOW_PROXY" >&2
+    echo "Proxy is unavailable at $LLMFLOW_PROXY_URL" >&2
     exit 1
 fi
 if [ "${1:-}" = "--check" ]; then

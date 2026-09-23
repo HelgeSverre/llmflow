@@ -14,9 +14,8 @@ import { ChatOpenAI } from '@langchain/openai'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { StringOutputParser } from '@langchain/core/output_parsers'
 
-const LLMFLOW_PROXY = process.env.LLMFLOW_PROXY || 'http://localhost:8080/v1'
-const LLMFLOW_DASHBOARD =
-    process.env.LLMFLOW_DASHBOARD || process.env.LLMFLOW_URL || 'http://localhost:1337'
+const LLMFLOW_PROXY_URL = process.env.LLMFLOW_PROXY_URL || 'http://127.0.0.1:8080/v1'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 // Check for API key early
 if (!process.env.OPENAI_API_KEY) {
@@ -25,7 +24,7 @@ if (!process.env.OPENAI_API_KEY) {
     process.exit(1)
 }
 
-console.log(`LangChain routing through LLMFlow proxy at ${LLMFLOW_PROXY}`)
+console.log(`LangChain routing through LLMFlow proxy at ${LLMFLOW_PROXY_URL}`)
 
 async function runExample() {
     // Configure LangChain to use LLMFlow proxy
@@ -33,7 +32,7 @@ async function runExample() {
         modelName: 'gpt-4o-mini',
         temperature: 0.7,
         configuration: {
-            baseURL: LLMFLOW_PROXY,
+            baseURL: LLMFLOW_PROXY_URL,
         },
     })
 
@@ -74,7 +73,7 @@ async function runExample() {
     console.log(`A: ${result3}\n`)
 
     console.log('--- Example Complete ---')
-    console.log(`View traces at: ${LLMFLOW_DASHBOARD}`)
+    console.log(`View traces at: ${LLMFLOW_URL}`)
 }
 
 runExample()

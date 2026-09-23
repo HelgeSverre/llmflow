@@ -200,15 +200,15 @@ test('model API reports measured token splits and mean LLM latency', async () =>
         model: 'unknown-latency',
         span_type: 'agent',
     })
-    type ModelRow = { model: string; avg_latency: number | null }
+    type ModelRow = { model: string; avg_duration_ms: number | null }
     const models = (await (await fetch(new URL('/api/models', dashboard.url))).json()) as ModelRow[]
     expect(models.find((model) => model.model === 'measured-fixture')).toMatchObject({
         prompt_tokens: 910,
         completion_tokens: 190,
         total_tokens: 1100,
-        avg_latency: 400,
+        avg_duration_ms: 400,
     })
-    expect(models.find((model) => model.model === 'unknown-latency')!.avg_latency).toBeNull()
+    expect(models.find((model) => model.model === 'unknown-latency')!.avg_duration_ms).toBeNull()
     await fetch(new URL('/api/spans', dashboard.url), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -217,7 +217,7 @@ test('model API reports measured token splits and mean LLM latency', async () =>
     const updated = (await (
         await fetch(new URL('/api/models', dashboard.url))
     ).json()) as ModelRow[]
-    expect(updated.find((model) => model.model === 'zero-latency')!.avg_latency).toBe(0)
+    expect(updated.find((model) => model.model === 'zero-latency')!.avg_duration_ms).toBe(0)
 })
 test('hostile or missing WebSocket origins are rejected before upgrade', async () => {
     for (const origin of [undefined, 'null', 'https://hostile.example', 'bad origin']) {

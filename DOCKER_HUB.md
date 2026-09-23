@@ -10,7 +10,7 @@ Track costs, tokens, and latency for OpenAI, Anthropic, Gemini, Ollama, and more
 docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 helgesverre/llmflow
 ```
 
-Then point your SDK at `http://localhost:8080/v1` and open `http://localhost:1337` to view traces.
+Then point your SDK at `http://127.0.0.1:8080/v1` and open `http://127.0.0.1:1337` to view traces.
 
 The image is built for `linux/amd64` and `linux/arm64`.
 
@@ -68,17 +68,17 @@ Route your LLM requests through LLMFlow with a path prefix or the `X-LLMFlow-Pro
 
 | Provider     | URL                                   |
 | ------------ | ------------------------------------- |
-| OpenAI       | `http://localhost:8080/v1` (default)  |
-| Anthropic    | `http://localhost:8080/anthropic/v1`  |
-| Gemini       | `http://localhost:8080/gemini/v1`     |
-| Ollama       | `http://localhost:8080/ollama/v1`     |
-| Groq         | `http://localhost:8080/groq/v1`       |
-| Mistral      | `http://localhost:8080/mistral/v1`    |
-| Azure OpenAI | `http://localhost:8080/azure/v1`      |
-| Cohere       | `http://localhost:8080/cohere/v1`     |
-| Together     | `http://localhost:8080/together/v1`   |
-| OpenRouter   | `http://localhost:8080/openrouter/v1` |
-| Perplexity   | `http://localhost:8080/perplexity/v1` |
+| OpenAI       | `http://127.0.0.1:8080/v1` (default)  |
+| Anthropic    | `http://127.0.0.1:8080/anthropic/v1`  |
+| Gemini       | `http://127.0.0.1:8080/gemini/v1`     |
+| Ollama       | `http://127.0.0.1:8080/ollama/v1`     |
+| Groq         | `http://127.0.0.1:8080/groq/v1`       |
+| Mistral      | `http://127.0.0.1:8080/mistral/v1`    |
+| Azure OpenAI | `http://127.0.0.1:8080/azure/v1`      |
+| Cohere       | `http://127.0.0.1:8080/cohere/v1`     |
+| Together     | `http://127.0.0.1:8080/together/v1`   |
+| OpenRouter   | `http://127.0.0.1:8080/openrouter/v1` |
+| Perplexity   | `http://127.0.0.1:8080/perplexity/v1` |
 
 To reach an Ollama server on the Docker host, set `OLLAMA_HOST=host.docker.internal` (on Linux, also add `--add-host=host.docker.internal:host-gateway`).
 
@@ -86,13 +86,13 @@ To reach an Ollama server on the Docker host, set `OLLAMA_HOST=host.docker.inter
 
 LLMFlow accepts OTLP/HTTP traces, logs, and metrics:
 
-- Traces: `http://localhost:1337/v1/traces`
-- Logs: `http://localhost:1337/v1/logs`
-- Metrics: `http://localhost:1337/v1/metrics`
+- Traces: `http://127.0.0.1:1337/v1/traces`
+- Logs: `http://127.0.0.1:1337/v1/logs`
+- Metrics: `http://127.0.0.1:1337/v1/metrics`
 
 ## Health Check
 
-`GET http://localhost:1337/api/health` returns `{"status":"ok",...}`. The image's `HEALTHCHECK` polls it.
+`GET http://127.0.0.1:1337/api/health` returns `{"status":"ok",...}`. The image's `HEALTHCHECK` polls it.
 
 ## Links
 

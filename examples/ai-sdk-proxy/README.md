@@ -4,7 +4,7 @@ This example shows how to trace Vercel AI SDK applications by routing API calls 
 
 ## How it works
 
-Instead of calling OpenAI directly, we configure the AI SDK to route requests through the LLMFlow proxy at `http://localhost:8080/v1`. The proxy:
+Instead of calling OpenAI directly, we configure the AI SDK to route requests through the LLMFlow proxy at `http://127.0.0.1:8080/v1`. The proxy:
 
 1. Logs the request
 2. Forwards it to OpenAI
@@ -31,7 +31,7 @@ Instead of calling OpenAI directly, we configure the AI SDK to route requests th
    bun run start
    ```
 
-4. View traces at [http://localhost:1337](http://localhost:1337)
+4. View traces at [http://127.0.0.1:1337](http://127.0.0.1:1337)
 
 ## Key Code
 
@@ -41,7 +41,7 @@ import { generateText } from 'ai'
 
 // Create OpenAI client that routes through LLMFlow proxy
 const openai = createOpenAI({
-  baseURL: 'http://localhost:8080/v1',
+  baseURL: 'http://127.0.0.1:8080/v1',
   apiKey: process.env.OPENAI_API_KEY,
 })
 

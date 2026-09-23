@@ -28,7 +28,7 @@ export interface SpanOptions {
     input?: unknown
     attributes?: Record<string, unknown>
     tags?: string[]
-    /** Defaults to 'app'. */
+    /** Defaults to 'unknown_service', OpenTelemetry's name for an unnamed service. */
     serviceName?: string
 }
 
@@ -66,7 +66,7 @@ async function sendSpan(body: Record<string, unknown>) {
         if (!response.ok) console.error(`[llmflow] Failed to send span: ${response.status}`)
     } catch (error) {
         // Tracing must never break the application; only report when asked to.
-        if (process.env.LLMFLOW_DEBUG)
+        if (process.env.LLMFLOW_VERBOSE)
             console.error('[llmflow] Failed to send span:', (error as Error).message)
     }
 }
@@ -126,7 +126,7 @@ export async function span<T>(
             output: typeof output === 'object' ? output : { result: output },
             attributes: options.attributes || {},
             tags: options.tags || [],
-            service_name: options.serviceName || 'app',
+            service_name: options.serviceName || 'unknown_service',
         })
     }
 }

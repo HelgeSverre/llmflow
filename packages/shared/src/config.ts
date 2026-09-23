@@ -6,6 +6,9 @@
 import os from 'node:os'
 import path from 'node:path'
 
+/** service_name for records whose source does not name itself (OpenTelemetry's default). */
+export const DEFAULT_SERVICE_NAME = 'unknown_service'
+
 export interface Setting {
     name: string
     group: Group
@@ -150,7 +153,7 @@ export const SETTINGS: Setting[] = [
     {
         name: 'OLLAMA_HOST',
         group: 'Provider settings',
-        default: 'localhost',
+        default: '127.0.0.1',
         description: 'Ollama host',
     },
     {
@@ -251,7 +254,7 @@ export const SETTINGS: Setting[] = [
         description: 'Records per export batch, per signal',
     },
     {
-        name: 'OTLP_EXPORT_FLUSH_INTERVAL',
+        name: 'OTLP_EXPORT_FLUSH_INTERVAL_MS',
         group: 'OTLP export',
         default: '5000',
         description: 'Milliseconds between flushes',
@@ -372,7 +375,7 @@ export const config = {
     },
 
     get ollamaHost() {
-        return readSetting('OLLAMA_HOST') || 'localhost'
+        return readSetting('OLLAMA_HOST') || '127.0.0.1'
     },
     get ollamaPort() {
         return int('OLLAMA_PORT', 11434)
@@ -415,7 +418,7 @@ export const config = {
             protocol: readSetting('OTLP_EXPORT_PROTOCOL'),
             headers: readSetting('OTLP_EXPORT_HEADERS') || '',
             batchSize: int('OTLP_EXPORT_BATCH_SIZE', 100),
-            flushIntervalMs: int('OTLP_EXPORT_FLUSH_INTERVAL', 5000),
+            flushIntervalMs: int('OTLP_EXPORT_FLUSH_INTERVAL_MS', 5000),
             legacyAttributes: flag('LLMFLOW_OTLP_LEGACY_ATTRS'),
         }
     },

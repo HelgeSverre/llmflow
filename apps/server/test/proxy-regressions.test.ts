@@ -397,7 +397,7 @@ test('translated and passthrough Anthropic calls share provider, service and cac
         await (await send(route, true, { 'x-trace-id': 'stream-cache-trace' })).text()
     const streamed = rowsFor('stream-cache-trace')
     expect(streamed.map((row) => row.provider)).toEqual(['anthropic', 'anthropic'])
-    expect(streamed.map((row) => row.service_name)).toEqual(['llmflow-proxy', 'llmflow-proxy'])
+    expect(streamed.map((row) => row.service_name)).toEqual(['unknown_service', 'unknown_service'])
     expect(cacheFields(streamed[0])).toEqual(cacheFields(streamed[1]))
     expect(cacheFields(streamed[0]).cache_read_input_tokens).toBe(20)
 

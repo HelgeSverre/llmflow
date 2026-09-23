@@ -34,7 +34,7 @@
 
 6. View traces:
    - **Opik UI**: http://localhost:5173
-   - **LLMFlow Dashboard**: http://localhost:1337
+   - **LLMFlow Dashboard**: http://127.0.0.1:1337
 
 ## Comet Cloud
 

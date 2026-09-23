@@ -202,7 +202,7 @@ describe('Ollama Provider', () => {
         const provider = new OllamaProvider()
         const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
-        expect(target.hostname).toBe('localhost')
+        expect(target.hostname).toBe('127.0.0.1')
         expect(target.port).toBe(11434)
         expect(target.protocol).toBe('http')
     })

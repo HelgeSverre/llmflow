@@ -27,7 +27,7 @@ Your App → LLMFlow Proxy → Helicone Gateway → OpenAI
 
    ```javascript
    const client = new OpenAI({
-     baseURL: 'http://localhost:8080/passthrough/helicone/v1',
+     baseURL: 'http://127.0.0.1:8080/passthrough/helicone/v1',
    })
    ```
 
@@ -35,7 +35,7 @@ Your App → LLMFlow Proxy → Helicone Gateway → OpenAI
 
    ```javascript
    const client = new OpenAI({
-     baseURL: 'http://localhost:8080/passthrough/helicone/v1',
+     baseURL: 'http://127.0.0.1:8080/passthrough/helicone/v1',
      defaultHeaders: {
        'Helicone-Auth': 'Bearer sk-helicone-xxx',
      },
@@ -46,7 +46,7 @@ Your App → LLMFlow Proxy → Helicone Gateway → OpenAI
 
 4. View analytics:
    - **Helicone Dashboard**: https://helicone.ai/dashboard
-   - **LLMFlow Dashboard**: http://localhost:1337
+   - **LLMFlow Dashboard**: http://127.0.0.1:1337
 
 ## Self-Hosted Helicone
 
@@ -111,7 +111,7 @@ Using LLMFlow + Helicone together:
 import OpenAI from 'openai'
 
 const client = new OpenAI({
-  baseURL: 'http://localhost:8080/passthrough/helicone/v1',
+  baseURL: 'http://127.0.0.1:8080/passthrough/helicone/v1',
   defaultHeaders: {
     'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
     'Helicone-Property-App': 'my-app',
@@ -124,5 +124,5 @@ const response = await client.chat.completions.create({
 })
 
 console.log(response.choices[0].message.content)
-// Logged in both LLMFlow (localhost:1337) and Helicone (helicone.ai)
+// Logged in both LLMFlow (127.0.0.1:1337) and Helicone (helicone.ai)
 ```

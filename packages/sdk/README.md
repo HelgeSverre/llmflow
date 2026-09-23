@@ -18,7 +18,7 @@ import OpenAI from 'openai'
 import { currentTraceHeaders, span, trace } from 'llmflow-sdk'
 
 // LLM calls go through the LLMFlow proxy, which records them.
-const openai = new OpenAI({ baseURL: 'http://localhost:8080/v1' })
+const openai = new OpenAI({ baseURL: 'http://127.0.0.1:8080/v1' })
 
 const answer = await trace('answer-question', async () => {
   const docs = await span('retrieval', 'search_docs', () => vectorStore.search('refund policy'))
@@ -86,7 +86,7 @@ sent with status `500` and the error message, and the error is rethrown.
 | `input`       | `unknown`                 | Recorded as the span input                                     |
 | `attributes`  | `Record<string, unknown>` | Custom attributes                                              |
 | `tags`        | `string[]`                | Tags for filtering                                             |
-| `serviceName` | `string`                  | Service name; defaults to `app`                                |
+| `serviceName` | `string`                  | Service name; defaults to `unknown_service`                    |
 
 ### `traced(type, name?)`
 
@@ -119,7 +119,7 @@ Patches an OpenAI client so every `client.chat.completions.create()` call sends
 `currentTraceHeaders()`. Returns the same client.
 
 ```js
-const openai = wrapOpenAI(new OpenAI({ baseURL: 'http://localhost:8080/v1' }))
+const openai = wrapOpenAI(new OpenAI({ baseURL: 'http://127.0.0.1:8080/v1' }))
 await trace('chat', () => openai.chat.completions.create({ model: 'gpt-4o-mini', messages }))
 ```
 
@@ -153,13 +153,13 @@ TypeScript users.
 
 ## Configuration
 
-| Variable        | Default                 | Description                                                |
-| --------------- | ----------------------- | ---------------------------------------------------------- |
-| `LLMFLOW_URL`   | `http://127.0.0.1:1337` | LLMFlow dashboard URL; spans are sent to `POST /api/spans` |
-| `LLMFLOW_DEBUG` | unset                   | Print network errors when a span cannot be sent            |
+| Variable          | Default                 | Description                                                |
+| ----------------- | ----------------------- | ---------------------------------------------------------- |
+| `LLMFLOW_URL`     | `http://127.0.0.1:1337` | LLMFlow dashboard URL; spans are sent to `POST /api/spans` |
+| `LLMFLOW_VERBOSE` | unset                   | Print network errors when a span cannot be sent            |
 
 Both are read once, when the SDK is imported. Spans are sent in the background and never throw
-into your code: an unreachable server is silent unless `LLMFLOW_DEBUG` is set, and a rejected
+into your code: an unreachable server is silent unless `LLMFLOW_VERBOSE` is set, and a rejected
 span prints one `[llmflow]` line.
 
 ## How it works

@@ -97,7 +97,7 @@ export class ProviderRegistry {
         const result: ProviderListing[] = [
             {
                 name: this.defaultProvider.name,
-                displayName: this.defaultProvider.displayName,
+                display_name: this.defaultProvider.displayName,
                 prefix: '/v1/*',
                 default: true,
             },
@@ -106,7 +106,7 @@ export class ProviderRegistry {
         for (const [prefix, provider] of this.providers) {
             result.push({
                 name: provider.name,
-                displayName: provider.displayName,
+                display_name: provider.displayName,
                 prefix: `/${prefix}/v1/*`,
                 default: false,
             })

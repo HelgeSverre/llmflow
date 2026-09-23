@@ -1,3 +1,4 @@
+import { DEFAULT_SERVICE_NAME } from '@llmflow/shared/config'
 import type { AnyValue, Attributes, KeyValue } from './types'
 
 export function extractAnyValue(value: AnyValue | undefined): unknown {
@@ -19,8 +20,9 @@ export function extractAttributes(attrs: KeyValue[] | undefined): Attributes {
     )
 }
 
-// Every signal attributes records to the resource's service.name, or 'unknown'.
+// Every ingest path attributes records to the resource's service.name, or OpenTelemetry's
+// default 'unknown_service'.
 export function serviceName(resourceAttrs: Attributes): string {
     const name = resourceAttrs['service.name']
-    return typeof name === 'string' && name ? name : 'unknown'
+    return typeof name === 'string' && name ? name : DEFAULT_SERVICE_NAME
 }

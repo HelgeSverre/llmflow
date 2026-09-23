@@ -40,7 +40,7 @@ export interface NormalizedResponse {
 
 export interface ProviderListing {
     name: string
-    displayName: string
+    display_name: string
     prefix: string
     default: boolean
 }

@@ -1,6 +1,7 @@
 // Spans and traces: list, detail, span tree, replay, and span creation for the SDK.
 import * as db from '@llmflow/db'
 import { parseTraceRow } from '@llmflow/db'
+import { DEFAULT_SERVICE_NAME } from '@llmflow/shared/config'
 import { log } from '@llmflow/shared/logger'
 import { replayTrace, replayUnavailableReason } from '../replay'
 import { notFound, page, queryFilters, type Route } from './router'
@@ -122,7 +123,7 @@ async function createSpan(req: Request) {
         input: body.input,
         output: body.output,
         attributes: (body.attributes as Record<string, unknown>) || {},
-        service_name: (body.service_name as string) || 'app',
+        service_name: (body.service_name as string) || DEFAULT_SERVICE_NAME,
         session_id: (body.session_id as string) || undefined,
         conversation_id: (body.conversation_id as string) || undefined,
         agent_name: (body.agent_name as string) || undefined,

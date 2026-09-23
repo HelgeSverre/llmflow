@@ -26,7 +26,7 @@
 
 5. View traces:
    - **Phoenix UI**: http://localhost:6006
-   - **LLMFlow Dashboard**: http://localhost:1337
+   - **LLMFlow Dashboard**: http://127.0.0.1:1337
 
 ## Arize Cloud
 

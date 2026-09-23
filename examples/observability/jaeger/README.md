@@ -26,7 +26,7 @@
 
 5. View traces:
    - **Jaeger UI**: http://localhost:16686
-   - **LLMFlow Dashboard**: http://localhost:1337
+   - **LLMFlow Dashboard**: http://127.0.0.1:1337
 
 ## Configuration
 

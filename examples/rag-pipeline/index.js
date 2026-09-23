@@ -26,8 +26,8 @@
 import { trace, span, wrapOpenAI } from '../../packages/sdk/index.js'
 import OpenAI from 'openai'
 
-const LLMFLOW_PROXY = process.env.LLMFLOW_PROXY || 'http://localhost:8080/v1'
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://localhost:1337'
+const LLMFLOW_PROXY_URL = process.env.LLMFLOW_PROXY_URL || 'http://127.0.0.1:8080/v1'
+const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
 // Check for API key early
 if (!process.env.OPENAI_API_KEY) {
@@ -40,7 +40,7 @@ if (!process.env.OPENAI_API_KEY) {
 // Using wrapOpenAI to auto-inject trace headers
 const openai = wrapOpenAI(
     new OpenAI({
-        baseURL: LLMFLOW_PROXY,
+        baseURL: LLMFLOW_PROXY_URL,
         apiKey: process.env.OPENAI_API_KEY,
     }),
 )
@@ -330,7 +330,7 @@ async function main() {
     console.log('  RAG Pipeline + LLMFlow SDK Example')
     console.log('===========================================')
     console.log(`\nSending spans to: ${LLMFLOW_URL}`)
-    console.log(`LLM calls via proxy: ${LLMFLOW_PROXY}\n`)
+    console.log(`LLM calls via proxy: ${LLMFLOW_PROXY_URL}\n`)
 
     // Example 1: Simple RAG query
     console.log('--- Example 1: RAG Query ---')

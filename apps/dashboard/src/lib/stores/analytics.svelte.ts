@@ -3,14 +3,14 @@ import { api } from '$lib/api/client'
 
 export interface DailyStats {
   date: string
-  requests: number
+  request_count: number
   tokens: number
   prompt_tokens: number
   completion_tokens: number
   cost: number
 }
 
-export interface ToolCost {
+export interface ServiceCost {
   service_name: string
   provider: string
   total_cost: number
@@ -25,13 +25,13 @@ export interface ModelCost {
 
 export interface Analytics {
   daily: DailyStats[]
-  by_tool: ToolCost[]
+  by_service: ServiceCost[]
   by_model: ModelCost[]
 }
 
 export const analytics = $state<Analytics>({
   daily: [],
-  by_tool: [],
+  by_service: [],
   by_model: [],
 })
 export const analyticsDays = $state<{ value: number }>({ value: 30 })
@@ -46,7 +46,7 @@ export async function loadAnalytics() {
     const data = await api.get<Analytics>(`/api/analytics?days=${analyticsDays.value}`)
     if (request !== analyticsRequest) return
     analytics.daily = data.daily || []
-    analytics.by_tool = data.by_tool || []
+    analytics.by_service = data.by_service || []
     analytics.by_model = data.by_model || []
     analyticsState.loaded = true
     analyticsState.error = ''

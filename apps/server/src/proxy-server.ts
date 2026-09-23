@@ -26,7 +26,6 @@ async function route(req: Request, url: URL, port: number): Promise<Response> {
             status: 'ok',
             service: 'proxy',
             port,
-            idleTimeout: 0,
             traces: db.getTraceCount(),
             uptime: process.uptime(),
             providers: registry.list().map((p: { name: string }) => p.name),
@@ -37,7 +36,7 @@ async function route(req: Request, url: URL, port: number): Promise<Response> {
             providers: registry.list(),
             passthrough: Object.entries(passthroughProviders).map(([prefix, provider]) => ({
                 name: provider.name,
-                displayName: provider.displayName,
+                display_name: provider.displayName,
                 prefix: `/passthrough/${prefix}/*`,
             })),
             usage: {

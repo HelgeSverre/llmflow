@@ -49,7 +49,7 @@ test.describe('Timeline Tab', () => {
         await page
             .getByRole('combobox', { name: 'Service', exact: true })
             .selectOption('timeline-test')
-        await expect(page.getByTestId('timeline-tool-filter')).toHaveValue('timeline-test')
+        await expect(page.getByTestId('timeline-service-filter')).toHaveValue('timeline-test')
     })
 
     test('type filter shows only traces', async ({ page }) => {

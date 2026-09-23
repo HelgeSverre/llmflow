@@ -4,7 +4,7 @@ This example demonstrates how to trace LangChain.js applications with LLMFlow by
 
 ## How It Works
 
-LangChain is configured to send OpenAI API calls through the LLMFlow proxy at `http://localhost:8080/v1`. The proxy:
+LangChain is configured to send OpenAI API calls through the LLMFlow proxy at `http://127.0.0.1:8080/v1`. The proxy:
 
 1. Logs the request
 2. Forwards it to OpenAI
@@ -38,7 +38,7 @@ LangChain is configured to send OpenAI API calls through the LLMFlow proxy at `h
    bun run start
    ```
 
-5. View traces at [http://localhost:1337](http://localhost:1337)
+5. View traces at [http://127.0.0.1:1337](http://127.0.0.1:1337)
 
 ## Key Code
 
@@ -50,7 +50,7 @@ const model = new ChatOpenAI({
   modelName: 'gpt-4o-mini',
   temperature: 0.7,
   configuration: {
-    baseURL: 'http://localhost:8080/v1',
+    baseURL: 'http://127.0.0.1:8080/v1',
   },
 })
 ```
@@ -70,6 +70,6 @@ LLMFlow automatically captures:
 
 | Variable            | Default                    | Description                      |
 | ------------------- | -------------------------- | -------------------------------- |
-| `LLMFLOW_PROXY`     | `http://localhost:8080/v1` | LLMFlow proxy URL                |
-| `LLMFLOW_DASHBOARD` | `http://localhost:1337`    | Dashboard URL for viewing traces |
+| `LLMFLOW_PROXY_URL` | `http://127.0.0.1:8080/v1` | LLMFlow proxy URL                |
+| `LLMFLOW_URL`       | `http://127.0.0.1:1337`    | Dashboard URL for viewing traces |
 | `OPENAI_API_KEY`    | (required)                 | Your OpenAI API key              |

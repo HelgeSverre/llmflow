@@ -528,19 +528,19 @@ export function getStats() {
         .query(
             `
         SELECT
-            COUNT(*) as total_requests,
+            COUNT(*) as request_count,
             COALESCE(SUM(total_tokens), 0) as total_tokens,
             COALESCE(SUM(estimated_cost), 0) as total_cost,
-            COALESCE(SUM(duration_ms), 0) as total_duration,
+            COALESCE(SUM(duration_ms), 0) as total_duration_ms,
             SUM(CASE WHEN status >= 400 THEN 1 ELSE 0 END) as error_count
         FROM traces
     `,
         )
         .get() as Record<string, number>
 
-    const avg_duration = row.total_requests > 0 ? row.total_duration / row.total_requests : 0
+    const avg_duration_ms = row.request_count > 0 ? row.total_duration_ms / row.request_count : 0
 
-    return { ...row, avg_duration }
+    return { ...row, avg_duration_ms }
 }
 
 export function getTraceCount() {
@@ -956,7 +956,7 @@ function formatDateLabel(timestamp: number, interval: string) {
     return `${year}-${month}-${day} ${hour}:00`
 }
 
-export function getCostByTool({ days = 30 } = {}) {
+export function getCostByService({ days = 30 } = {}) {
     const fromTs = Date.now() - days * 24 * 60 * 60 * 1000
 
     return db
@@ -970,7 +970,7 @@ export function getCostByTool({ days = 30 } = {}) {
             SUM(prompt_tokens) as prompt_tokens,
             SUM(completion_tokens) as completion_tokens,
             COUNT(*) as request_count,
-            AVG(duration_ms) as avg_duration
+            AVG(duration_ms) as avg_duration_ms
         FROM traces
         WHERE timestamp >= $fromTs
         GROUP BY provider, service_name
@@ -997,7 +997,7 @@ export function getDailyStats({ days = 30 } = {}) {
             SUM(prompt_tokens) as prompt_tokens,
             SUM(completion_tokens) as completion_tokens,
             SUM(estimated_cost) as cost,
-            COUNT(*) as requests
+            COUNT(*) as request_count
         FROM traces
         WHERE timestamp >= $fromTs
         GROUP BY bucket
@@ -1024,7 +1024,7 @@ export function getDailyStats({ days = 30 } = {}) {
                 prompt_tokens: 0,
                 completion_tokens: 0,
                 cost: 0,
-                requests: 0,
+                request_count: 0,
             })
         }
     }
@@ -1080,7 +1080,7 @@ export interface ModelAggregate {
     completion_tokens: number
     total_cost: number
     /** Mean duration of LLM spans with a known duration; null when there are none. */
-    avg_latency: number | null
+    avg_duration_ms: number | null
 }
 
 /**
@@ -1104,7 +1104,7 @@ export function getModelAggregates({
             COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
             COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
             COALESCE(SUM(estimated_cost), 0) AS total_cost,
-            AVG(CASE WHEN span_type = 'llm' AND duration_ms >= 0 THEN duration_ms END) AS avg_latency
+            AVG(CASE WHEN span_type = 'llm' AND duration_ms >= 0 THEN duration_ms END) AS avg_duration_ms
         FROM traces
         WHERE model IS NOT NULL AND timestamp >= $from AND ($to IS NULL OR timestamp <= $to)
         GROUP BY model

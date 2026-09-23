@@ -23,9 +23,9 @@
 
   // Compute max values for chart scaling
   let maxDailyTokens = $derived(Math.max(...analytics.daily.map((d) => d.tokens), 1))
-  let maxToolCost = $derived(Math.max(...analytics.by_tool.map((t) => t.total_cost), 0.01))
+  let maxServiceCost = $derived(Math.max(...analytics.by_service.map((s) => s.total_cost), 0.01))
   let maxModelCost = $derived(Math.max(...analytics.by_model.map((m) => m.total_cost), 0.01))
-  let totalToolCost = $derived(analytics.by_tool.reduce((sum, t) => sum + t.total_cost, 0))
+  let totalServiceCost = $derived(analytics.by_service.reduce((sum, s) => sum + s.total_cost, 0))
   let totalModelCost = $derived(analytics.by_model.reduce((sum, m) => sum + m.total_cost, 0))
 </script>
 
@@ -111,35 +111,35 @@
     </div>
 
     <!-- Cost by Tool -->
-    <div class="analytics-card" data-testid="cost-by-tool-card">
+    <div class="analytics-card" data-testid="cost-by-service-card">
       <div class="analytics-card-header">
         <h3>Cost by Service / Provider</h3>
         <span class="analytics-subtitle">Total spend grouped by service and provider</span>
       </div>
       <div class="analytics-card-body">
-        <div class="chart-container" data-testid="cost-by-tool-chart">
-          {#if analytics.by_tool.length === 0}
-            <EmptyState message="No tool data" />
+        <div class="chart-container" data-testid="cost-by-service-chart">
+          {#if analytics.by_service.length === 0}
+            <EmptyState message="No service data" />
           {:else}
             <div class="horizontal-bar-chart">
-              {#each analytics.by_tool.slice(0, 5) as tool}
+              {#each analytics.by_service.slice(0, 5) as service}
                 <div class="h-bar-row">
-                  <span class="h-bar-label" title={`${tool.service_name} (${tool.provider})`}
-                    >{tool.service_name} · {tool.provider}</span
+                  <span class="h-bar-label" title={`${service.service_name} (${service.provider})`}
+                    >{service.service_name} · {service.provider}</span
                   >
                   <div class="h-bar-track">
                     <div
-                      class="h-bar-fill tool-{tool.service_name
+                      class="h-bar-fill service-{service.service_name
                         .toLowerCase()
                         .replace(/[^a-z]/g, '-')}"
-                      style="width: {(tool.total_cost / maxToolCost) * 100}%"
+                      style="width: {(service.total_cost / maxServiceCost) * 100}%"
                     ></div>
                   </div>
-                  <span class="h-bar-value">{formatCost(tool.total_cost)}</span>
+                  <span class="h-bar-value">{formatCost(service.total_cost)}</span>
                 </div>
               {/each}
             </div>
-            <div class="chart-total">Total: {formatCost(totalToolCost)}</div>
+            <div class="chart-total">Total: {formatCost(totalServiceCost)}</div>
           {/if}
         </div>
       </div>
@@ -200,7 +200,7 @@
                 {#each [...analytics.daily].reverse() as day}
                   <tr>
                     <td>{day.date}</td>
-                    <td>{formatNumber(day.requests)}</td>
+                    <td>{formatNumber(day.request_count)}</td>
                     <td>{day.tokens.toLocaleString()}</td><td
                       >{day.prompt_tokens.toLocaleString()}</td
                     ><td>{day.completion_tokens.toLocaleString()}</td>

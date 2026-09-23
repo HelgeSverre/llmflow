@@ -35,7 +35,7 @@
 
 6. View traces:
    - **Langfuse UI**: http://localhost:3001
-   - **LLMFlow Dashboard**: http://localhost:1337
+   - **LLMFlow Dashboard**: http://127.0.0.1:1337
 
 ## Langfuse Cloud
 

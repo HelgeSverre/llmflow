@@ -13,7 +13,6 @@ export interface TimelineItem {
   subtitle?: string
   model?: string
   service_name?: string
-  tool?: string
   status?: string
   duration_ms?: number
   tokens?: number
@@ -24,7 +23,7 @@ export interface TimelineItem {
 
 export interface TimelineFilters {
   q: string
-  tool: string
+  service_name: string
   type: string
   dateRange: string
 }
@@ -36,7 +35,7 @@ export const selectedItemError = $state({ value: '' })
 export const relatedLogs = $state<Log[]>([])
 export const timelineFilters = $state<TimelineFilters>({
   q: '',
-  tool: '',
+  service_name: '',
   type: '',
   dateRange: '',
 })
@@ -70,7 +69,7 @@ export async function loadTimeline() {
   try {
     const params = new URLSearchParams({ limit: '100' })
     if (timelineFilters.q) params.set('q', timelineFilters.q)
-    if (timelineFilters.tool) params.set('tool', timelineFilters.tool)
+    if (timelineFilters.service_name) params.set('service_name', timelineFilters.service_name)
     if (timelineFilters.type) params.set('type', timelineFilters.type)
 
     const from = getDateRange(timelineFilters.dateRange)
@@ -130,7 +129,7 @@ export function clearSelection() {
 
 export function clearFilters() {
   timelineFilters.q = ''
-  timelineFilters.tool = ''
+  timelineFilters.service_name = ''
   timelineFilters.type = ''
   timelineFilters.dateRange = ''
 }

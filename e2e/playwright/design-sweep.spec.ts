@@ -356,7 +356,7 @@ test('analytics exposes exact daily values newest first with matching date label
     await expect(row.locator('td').first()).toHaveText(latest.date)
     await expect(row.locator('td').nth(2)).toHaveText(latest.tokens.toLocaleString())
     await expect(page.locator('.chart-dates')).toContainText(data.daily[0].date)
-    await expect(page.getByTestId('cost-by-tool-card')).toContainText('Service / Provider')
+    await expect(page.getByTestId('cost-by-service-card')).toContainText('Service / Provider')
     for (const width of [1440, 390]) {
         await page.setViewportSize({ width, height: 900 })
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -424,7 +424,7 @@ test('loading is distinct from empty data and an obsolete failure cannot replace
                         prompt_tokens: 0,
                         completion_tokens: 0,
                         total_cost: 0,
-                        avg_latency: null,
+                        avg_duration_ms: null,
                     },
                 ],
             })

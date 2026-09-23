@@ -2,17 +2,17 @@ import { api } from '$lib/api/client'
 import { onMessage } from './websocket.svelte'
 
 export interface Stats {
-  total_requests: number | null
+  request_count: number | null
   total_tokens: number | null
   total_cost: number | null
-  avg_duration: number | null
+  avg_duration_ms: number | null
 }
 
 export const stats = $state<Stats>({
-  total_requests: null,
+  request_count: null,
   total_tokens: null,
   total_cost: null,
-  avg_duration: null,
+  avg_duration_ms: null,
 })
 
 export async function loadStats() {

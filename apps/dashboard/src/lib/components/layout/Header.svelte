@@ -73,7 +73,7 @@
       <span class="scope-label">All time · all services</span>
       <div class="stat" data-testid="stat-traces">
         <span class="stat-value" data-testid="total-requests"
-          >{formatNumber(stats.total_requests)}</span
+          >{formatNumber(stats.request_count)}</span
         >
         <span class="stat-label">Spans</span>
       </div>
@@ -87,7 +87,8 @@
         <span class="stat-label">Cost</span>
       </div>
       <div class="stat" data-testid="stat-latency">
-        <span class="stat-value" data-testid="avg-latency">{formatLatency(stats.avg_duration)}</span
+        <span class="stat-value" data-testid="avg-latency"
+          >{formatLatency(stats.avg_duration_ms)}</span
         >
         <span class="stat-label">Avg Latency</span>
       </div>

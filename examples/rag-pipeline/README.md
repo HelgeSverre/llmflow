@@ -52,7 +52,7 @@ agent-task (trace)
    bun run start
    ```
 
-4. View traces at [http://localhost:1337](http://localhost:1337)
+4. View traces at [http://127.0.0.1:1337](http://127.0.0.1:1337)
 
 ## Key Code
 
@@ -65,7 +65,7 @@ import OpenAI from 'openai'
 // Wrap OpenAI client to auto-inject trace headers
 const openai = wrapOpenAI(
   new OpenAI({
-    baseURL: 'http://localhost:8080/v1',
+    baseURL: 'http://127.0.0.1:8080/v1',
   }),
 )
 
@@ -118,7 +118,7 @@ await trace(
 import { wrapOpenAI } from '../../packages/sdk/index.js';
 
 const openai = wrapOpenAI(new OpenAI({
-    baseURL: 'http://localhost:8080/v1'
+    baseURL: 'http://127.0.0.1:8080/v1'
 }));
 
 // All calls automatically include x-trace-id and x-parent-id headers
@@ -152,7 +152,7 @@ await openai.chat.completions.create({
 
 ## Viewing Traces
 
-1. Open [http://localhost:1337](http://localhost:1337)
+1. Open [http://127.0.0.1:1337](http://127.0.0.1:1337)
 2. Find traces named "rag-query" or "agent-task"
 3. Click to view the span tree
 4. Each span shows:

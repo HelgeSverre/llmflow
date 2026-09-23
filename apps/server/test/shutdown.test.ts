@@ -6,7 +6,7 @@ import { childEnv, isolatedEnv, tempDirectory } from './helpers/test-server'
 async function start(extra: Record<string, string>) {
     const directory = tempDirectory('llmflow-shutdown-')
     const child = Bun.spawn([process.execPath, path.resolve(import.meta.dir, '../src/server.ts')], {
-        env: childEnv(isolatedEnv(directory, { OTLP_EXPORT_FLUSH_INTERVAL: '60000', ...extra })),
+        env: childEnv(isolatedEnv(directory, { OTLP_EXPORT_FLUSH_INTERVAL_MS: '60000', ...extra })),
         stdout: 'pipe',
         stderr: 'pipe',
     })
