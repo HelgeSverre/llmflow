@@ -28,7 +28,7 @@ export default defineConfig({
     },
     projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
     webServer: {
-        command: 'bun run build && bun e2e/playwright/start-test-server.js',
+        command: 'bun run build && bun e2e/playwright/start-test-server.ts',
         url: `${baseURL}/api/health`,
         reuseExistingServer: false,
         timeout: 60000,

@@ -14,7 +14,7 @@ export interface PassthroughUsage {
     [extra: string]: number | string | undefined
 }
 
-interface PassthroughRequest {
+export interface PassthroughRequest {
     method?: string
     path: string
     headers: Record<string, string | undefined>

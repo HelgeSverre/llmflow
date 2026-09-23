@@ -1,6 +1,6 @@
-const { test, expect } = require('@playwright/test')
+import { test, expect, type APIRequestContext } from '@playwright/test'
 
-async function sendLog(request, service, body, severity = 17) {
+async function sendLog(request: APIRequestContext, service: string, body: string, severity = 17) {
     const response = await request.post('/v1/logs', {
         data: {
             resourceLogs: [
@@ -27,7 +27,7 @@ async function sendLog(request, service, body, severity = 17) {
     expect(response.ok()).toBe(true)
 }
 
-async function sendSpan(request, data) {
+async function sendSpan(request: APIRequestContext, data: Record<string, unknown>) {
     const response = await request.post('/api/spans', { data: { duration_ms: 10, ...data } })
     expect(response.ok()).toBe(true)
 }
@@ -140,7 +140,7 @@ test('Timeline details show failed requests and Retry recovers without stale err
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByRole('button', { name: 'input', exact: true })).toBeVisible()
     await expect(page.getByRole('alert')).toHaveCount(0)
-    let release
+    let release!: (value?: unknown) => void
     const gate = new Promise((resolve) => {
         release = resolve
     })

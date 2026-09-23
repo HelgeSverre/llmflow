@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test')
+import { test, expect } from '@playwright/test'
 
 test('live arrivals obey combined model, status, date and body search filters', async ({
     page,
@@ -6,7 +6,7 @@ test('live arrivals obey combined model, status, date and body search filters', 
 }) => {
     const model = `live-model-${crypto.randomUUID()}`
     const marker = `needle-${crypto.randomUUID()}`
-    const post = async (name, overrides = {}) => {
+    const post = async (name: string, overrides: Record<string, unknown> = {}) => {
         const response = await request.post('/api/spans', {
             data: {
                 id: crypto.randomUUID(),

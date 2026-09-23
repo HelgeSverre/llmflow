@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test')
+import { test, expect } from '@playwright/test'
 
 test('Analytics renders nonzero daily data and service costs without page errors', async ({
     page,
@@ -19,10 +19,12 @@ test('Analytics renders nonzero daily data and service costs without page errors
         },
     })
     const data = await (await request.get('/api/analytics?days=7')).json()
-    const today = data.daily.find((row) => row.date === new Date().toISOString().slice(0, 10))
+    const today = data.daily.find(
+        (row: { date: string }) => row.date === new Date().toISOString().slice(0, 10),
+    )
     expect(today.tokens).toBeGreaterThanOrEqual(150)
     expect(today.prompt_tokens).toBeGreaterThanOrEqual(100)
-    const errors = []
+    const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto('/#analytics')
     await page.getByTestId('analytics-days-filter').selectOption('7')
@@ -86,7 +88,7 @@ test('Metrics filters affect cards and rows and live gauges preserve correct ave
 }) => {
     const service = `metrics-${crypto.randomUUID()}`
     const timeUnixNano = String(BigInt(Date.now()) * 1000000n)
-    const send = async (serviceName, metrics) => {
+    const send = async (serviceName: string, metrics: Record<string, unknown>[]) => {
         const response = await request.post('/v1/metrics', {
             data: {
                 resourceMetrics: [
@@ -103,15 +105,17 @@ test('Metrics filters affect cards and rows and live gauges preserve correct ave
         })
         expect(response.ok()).toBe(true)
     }
-    const metrics = ['integer', 'double', 'mixed'].map((name, index) => ({
-        name: `${service}-${name}`,
-        gauge: {
-            dataPoints: [
-                { timeUnixNano, ...(index === 1 ? { asDouble: 10 } : { asInt: '10' }) },
-                { timeUnixNano, ...(index === 0 ? { asInt: '20' } : { asDouble: 20 }) },
-            ],
-        },
-    }))
+    const metrics: Record<string, unknown>[] = ['integer', 'double', 'mixed'].map(
+        (name, index) => ({
+            name: `${service}-${name}`,
+            gauge: {
+                dataPoints: [
+                    { timeUnixNano, ...(index === 1 ? { asDouble: 10 } : { asInt: '10' }) },
+                    { timeUnixNano, ...(index === 0 ? { asInt: '20' } : { asDouble: 20 }) },
+                ],
+            },
+        }),
+    )
     metrics.push({
         name: `${service}-counter`,
         sum: { dataPoints: [{ timeUnixNano, asInt: '99' }] },
@@ -236,7 +240,7 @@ test('Timeline correlates real trace IDs, filters custom services, and renders m
     await expect(detail.locator('.messages')).toContainText('Tool call: weather')
     await expect(detail.locator('.messages')).toContainText('"temperature": 12')
     await page.screenshot({
-        path: '.backlog/assets/images/fixed-timeline-conversation.png',
+        path: test.info().outputPath('fixed-timeline-conversation.png'),
         fullPage: true,
     })
     await page.locator('.timeline-item').filter({ hasText: 'Correlated timeline log' }).click()
@@ -275,10 +279,13 @@ test('Sessions can open an older session beyond the first fifty', async ({ page,
     await page.getByRole('button', { name: 'Next', exact: true }).click()
     await expect(page.locator('.sessions-table tbody tr')).toHaveCount(next.sessions.length)
     const ids = await page.locator('.sessions-table tbody .mono').allTextContents()
-    expect(ids).toEqual(next.sessions.map((row) => row.session_id))
-    expect(ids.some((id) => first.sessions.some((row) => row.session_id === id))).toBe(false)
+    type SessionRow = { session_id: string }
+    expect(ids).toEqual(next.sessions.map((row: SessionRow) => row.session_id))
+    expect(ids.some((id) => first.sessions.some((row: SessionRow) => row.session_id === id))).toBe(
+        false,
+    )
     await page.screenshot({
-        path: '.backlog/assets/images/fixed-session-pagination.png',
+        path: test.info().outputPath('fixed-session-pagination.png'),
         fullPage: true,
     })
     await page.locator('.sessions-table tr').filter({ hasText: target }).getByRole('button').click()
@@ -314,7 +321,7 @@ test('Replay opens a separate streaming trace from the local provider fixture', 
     await expect(page.getByTestId('traces-detail-panel')).toContainText('Local replay result')
     expect(await (await request.get('/api/traces/replay-browser-fixture')).json()).toEqual(before)
     await page.screenshot({
-        path: '.backlog/assets/images/fixed-replay-result.png',
+        path: test.info().outputPath('fixed-replay-result.png'),
         fullPage: true,
     })
 })

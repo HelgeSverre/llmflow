@@ -9,5 +9,8 @@
     "./passthrough": "./src/passthrough.ts",
     "./base": "./src/base.ts",
     "./stream": "./src/stream.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
   }
 }

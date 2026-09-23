@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test')
+import { test, expect } from '@playwright/test'
 
 test.describe('Analytics Tab', () => {
     test.beforeEach(async ({ page }) => {
@@ -78,7 +78,9 @@ test.describe('Analytics Tab', () => {
         const count = await options.count()
         expect(count).toBe(4) // 7, 14, 30, 90 days
 
-        const values = await options.evaluateAll((opts) => opts.map((o) => o.value))
+        const values = await options.evaluateAll((opts) =>
+            opts.map((o) => (o as HTMLOptionElement).value),
+        )
         expect(values).toContain('7')
         expect(values).toContain('14')
         expect(values).toContain('30')

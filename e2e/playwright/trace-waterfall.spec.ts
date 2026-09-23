@@ -1,6 +1,6 @@
-const { test, expect } = require('@playwright/test')
+import { test, expect, type APIRequestContext } from '@playwright/test'
 
-async function seedTree(request) {
+async function seedTree(request: APIRequestContext) {
     const traceId = crypto.randomUUID().replaceAll('-', '')
     const ids = Array.from({ length: 4 }, () =>
         crypto.randomUUID().replaceAll('-', '').slice(0, 16),
@@ -98,8 +98,8 @@ for (const width of [1440, 1000, 390]) {
 
         await expect(async () => {
             const geometry = await panel.evaluate((el) => {
-                const axis = el.querySelector('.axis-bar-area').getBoundingClientRect()
-                const root = el.querySelector('.span-bar').getBoundingClientRect()
+                const axis = el.querySelector('.axis-bar-area')!.getBoundingClientRect()
+                const root = el.querySelector('.span-bar')!.getBoundingClientRect()
                 return { axis: axis.width, root: root.width, offset: root.x - axis.x }
             })
             expect(geometry.axis).toBeGreaterThan(30)
@@ -115,7 +115,7 @@ for (const width of [1440, 1000, 390]) {
                 width: document.documentElement.scrollWidth,
                 height: document.documentElement.scrollHeight,
                 viewport: { width: innerWidth, height: innerHeight },
-                bottom: document.querySelector('.detail-panel').getBoundingClientRect().bottom,
+                bottom: document.querySelector('.detail-panel')!.getBoundingClientRect().bottom,
             }))
             expect(bounds.width).toBeLessThanOrEqual(bounds.viewport.width)
             expect(bounds.height).toBeLessThanOrEqual(bounds.viewport.height)

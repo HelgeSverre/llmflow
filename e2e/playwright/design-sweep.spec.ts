@@ -1,9 +1,8 @@
-const { test, expect } = require('@playwright/test')
-const path = require('node:path')
-const fs = require('node:fs')
-const evidence = path.join(__dirname, '../../.backlog/assets/design-fixes-2026-09-22')
+import { test, expect, type APIRequestContext } from '@playwright/test'
+// Layout evidence screenshots go to the test's output directory, never into the repo.
+const evidence = (name: string) => test.info().outputPath(name)
 
-async function seed(request) {
+async function seed(request: APIRequestContext) {
     const key = crypto.randomUUID()
     const trace = key.replaceAll('-', ''),
         root = crypto.randomUUID().replaceAll('-', '').slice(0, 16),
@@ -122,7 +121,7 @@ test('failed child is visible in lists, waterfall and keyboard session navigatio
 }) => {
     const ids = await seed(request)
     const list = await (await request.get(`/api/traces?q=Design%20investigation%20root`)).json()
-    expect(list.find((row) => row.id === ids.root).has_child_error).toBe(1)
+    expect(list.find((row: { id: string }) => row.id === ids.root).has_child_error).toBe(1)
     await page.goto('/#traces')
     const root = page.locator(`[data-trace-id="${ids.root}"]`)
     await expect(root).toContainText('Child error')
@@ -275,7 +274,6 @@ for (const width of [1440, 1280, 800, 390]) {
     }) => {
         const ids = await seed(request)
         await page.setViewportSize({ width, height: 900 })
-        fs.mkdirSync(evidence, { recursive: true })
         for (const tab of ['traces', 'logs', 'timeline', 'sessions']) {
             await page.goto(`/#${tab}`)
             if (tab === 'sessions') {
@@ -312,7 +310,7 @@ for (const width of [1440, 1280, 800, 390]) {
                     )
                     await page.screenshot({
                         animations: 'disabled',
-                        path: path.join(evidence, `${tab}-${width}-${theme}-list.png`),
+                        path: evidence(`${tab}-${width}-${theme}-list.png`),
                     })
                 }
                 await row.click()
@@ -339,7 +337,7 @@ for (const width of [1440, 1280, 800, 390]) {
                 }, theme)
                 await page.screenshot({
                     animations: 'disabled',
-                    path: path.join(evidence, `${tab}-${width}-${theme}.png`),
+                    path: evidence(`${tab}-${width}-${theme}.png`),
                 })
             }
         }
@@ -366,7 +364,7 @@ test('analytics exposes exact daily values newest first with matching date label
         )
         await page.screenshot({
             animations: 'disabled',
-            path: path.join(evidence, `analytics-${width}.png`),
+            path: evidence(`analytics-${width}.png`),
         })
     }
 })
@@ -407,7 +405,7 @@ test('session search covers older pages and Clear restores the complete result s
 test('loading is distinct from empty data and an obsolete failure cannot replace newer models', async ({
     page,
 }) => {
-    let release
+    let release!: (value?: unknown) => void
     const gate = new Promise((resolve) => {
         release = resolve
     })

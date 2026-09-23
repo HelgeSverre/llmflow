@@ -1,8 +1,8 @@
-const { test, expect } = require('@playwright/test')
+import { test, expect } from '@playwright/test'
 
 test('Timeline filters fetch once and Clear cancels pending search', async ({ page }) => {
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-    const queries = []
+    const queries: URLSearchParams[] = []
     await page.route('**/api/timeline?*', async (route) => {
         queries.push(new URL(route.request().url()).searchParams)
         await route.fulfill({ json: [] })
@@ -12,7 +12,10 @@ test('Timeline filters fetch once and Clear cancels pending search', async ({ pa
     await expect.poll(() => queries.length).toBe(1)
     await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'))
 
-    async function change(action, verify) {
+    async function change(
+        action: () => Promise<unknown>,
+        verify: (query: URLSearchParams) => void,
+    ) {
         queries.length = 0
         await action()
         await page.clock.runFor(400)
@@ -47,7 +50,7 @@ test('Timeline filters fetch once and Clear cancels pending search', async ({ pa
 for (const tab of ['traces', 'logs']) {
     test(`${tab} Clear cancels pending search before it can reapply`, async ({ page }) => {
         await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-        const queries = []
+        const queries: URLSearchParams[] = []
         await page.route(`**/api/${tab}?*`, async (route) => {
             queries.push(new URL(route.request().url()).searchParams)
             await route.fulfill({ json: tab === 'logs' ? { logs: [] } : [] })

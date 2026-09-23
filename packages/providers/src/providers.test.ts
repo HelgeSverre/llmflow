@@ -8,6 +8,13 @@ import {
     CohereProvider,
     AzureOpenAIProvider,
 } from './index'
+import type { BaseProvider, ProviderRequest } from './base'
+
+const request = (fields: Partial<ProviderRequest> = {}): ProviderRequest => ({
+    path: '/',
+    headers: {},
+    ...fields,
+})
 
 describe('Provider Resolution', () => {
     test('resolves OpenAI as default for /v1/* paths', () => {
@@ -78,7 +85,7 @@ describe('Provider Resolution', () => {
 describe('OpenAI Provider', () => {
     test('OpenAI getTarget returns correct hostname and path', () => {
         const provider = new OpenAIProvider()
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.hostname).toBe('api.openai.com')
         expect(target.port).toBe(443)
@@ -87,7 +94,10 @@ describe('OpenAI Provider', () => {
 
     test('OpenAI transforms headers correctly', () => {
         const provider = new OpenAIProvider()
-        const headers = provider.transformRequestHeaders({ authorization: 'Bearer sk-test123' }, {})
+        const headers = provider.transformRequestHeaders(
+            { authorization: 'Bearer sk-test123' },
+            request(),
+        )
 
         expect(headers['Content-Type']).toBe('application/json')
         expect(headers['Authorization']).toBe('Bearer sk-test123')
@@ -95,8 +105,8 @@ describe('OpenAI Provider', () => {
 
     test('OpenAI detects Responses API path', () => {
         const provider = new OpenAIProvider()
-        expect(provider.isResponsesAPI({ path: '/v1/responses' })).toBe(true)
-        expect(provider.isResponsesAPI({ path: '/v1/chat/completions' })).toBeFalsy()
+        expect(provider.isResponsesAPI(request({ path: '/v1/responses' }))).toBe(true)
+        expect(provider.isResponsesAPI(request({ path: '/v1/chat/completions' }))).toBeFalsy()
     })
 
     test('OpenAI normalizes Chat Completions response', () => {
@@ -108,13 +118,16 @@ describe('OpenAI Provider', () => {
             usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
         }
 
-        const normalized = provider.normalizeResponse(response, {
-            path: '/v1/chat/completions',
-            body: {},
-        })
+        const normalized = provider.normalizeResponse(
+            response,
+            request({
+                path: '/v1/chat/completions',
+                body: {},
+            }),
+        )
         expect(normalized.model).toBe('gpt-4')
-        expect(normalized.usage.prompt_tokens).toBe(10)
-        expect(normalized.usage.completion_tokens).toBe(5)
+        expect(normalized.usage!.prompt_tokens).toBe(10)
+        expect(normalized.usage!.completion_tokens).toBe(5)
     })
 
     test('OpenAI normalizes Responses API response', () => {
@@ -131,10 +144,13 @@ describe('OpenAI Provider', () => {
             usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
         }
 
-        const normalized = provider.normalizeResponse(response, { path: '/v1/responses', body: {} })
+        const normalized = provider.normalizeResponse(
+            response,
+            request({ path: '/v1/responses', body: {} }),
+        )
         expect(normalized.model).toBe('gpt-4.1')
-        expect(normalized.usage.prompt_tokens).toBe(10)
-        expect(normalized.usage.completion_tokens).toBe(5)
+        expect(normalized.usage!.prompt_tokens).toBe(10)
+        expect(normalized.usage!.completion_tokens).toBe(5)
         expect(normalized._extractedContent).toBe('Hello!')
     })
 
@@ -182,12 +198,12 @@ describe('OpenAI Provider', () => {
 describe('Ollama Provider', () => {
     test('Ollama uses HTTP module', () => {
         const provider = new OllamaProvider()
-        expect(provider.getTarget({ path: '/v1/chat/completions' }).protocol).toBe('http')
+        expect(provider.getTarget(request({ path: '/v1/chat/completions' })).protocol).toBe('http')
     })
 
     test('Ollama uses correct default host and port', () => {
         const provider = new OllamaProvider()
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.hostname).toBe('localhost')
         expect(target.port).toBe(11434)
@@ -196,7 +212,7 @@ describe('Ollama Provider', () => {
 
     test('Ollama does not require authorization header', () => {
         const provider = new OllamaProvider()
-        const headers = provider.transformRequestHeaders({}, {})
+        const headers = provider.transformRequestHeaders({}, request())
 
         expect(headers['Content-Type']).toBe('application/json')
         expect(headers['Authorization']).toBeFalsy()
@@ -206,7 +222,7 @@ describe('Ollama Provider', () => {
 describe('Anthropic Provider', () => {
     test('Anthropic maps /v1/chat/completions to /v1/messages', () => {
         const provider = new AnthropicProvider()
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.path).toBe('/v1/messages')
         expect(target.hostname).toBe('api.anthropic.com')
@@ -216,7 +232,7 @@ describe('Anthropic Provider', () => {
         const provider = new AnthropicProvider()
         const headers = provider.transformRequestHeaders(
             { authorization: 'Bearer sk-ant-test123' },
-            {},
+            request(),
         )
 
         expect(headers['x-api-key']).toBe('sk-ant-test123')
@@ -227,7 +243,7 @@ describe('Anthropic Provider', () => {
 
     test('Anthropic accepts x-api-key header directly', () => {
         const provider = new AnthropicProvider()
-        const headers = provider.transformRequestHeaders({ 'x-api-key': 'direct-key' }, {})
+        const headers = provider.transformRequestHeaders({ 'x-api-key': 'direct-key' }, request())
 
         expect(headers['x-api-key']).toBe('direct-key')
     })
@@ -242,7 +258,7 @@ describe('Anthropic Provider', () => {
             ],
         }
 
-        const transformed = provider.transformRequestBody(body, {})
+        const transformed = provider.transformRequestBody(body, request()) as Record<string, any>
 
         expect(transformed.system).toBe('You are helpful')
         expect(transformed.messages.length).toBe(1)
@@ -259,7 +275,7 @@ describe('Anthropic Provider', () => {
             messages: [{ role: 'user', content: 'Hello' }],
         }
 
-        const transformed = provider.transformRequestBody(body, {})
+        const transformed = provider.transformRequestBody(body, request()) as Record<string, any>
         expect(transformed.max_tokens).toBe(1000)
     })
 
@@ -271,7 +287,7 @@ describe('Anthropic Provider', () => {
             stop: 'END',
         }
 
-        const transformed = provider.transformRequestBody(body, {})
+        const transformed = provider.transformRequestBody(body, request()) as Record<string, any>
         expect(transformed.stop_sequences).toEqual(['END'])
     })
 
@@ -287,14 +303,16 @@ describe('Anthropic Provider', () => {
             usage: { input_tokens: 10, output_tokens: 5 },
         }
 
-        const normalized = provider.normalizeResponse(anthropicResponse, { body: {} })
+        const normalized = provider.normalizeResponse(anthropicResponse, request({ body: {} }))
 
         expect(normalized.model).toBe('claude-3-haiku')
-        expect(normalized.data.choices[0].message.content).toBe('Hello there!')
-        expect(normalized.data.choices[0].finish_reason).toBe('stop')
-        expect(normalized.usage.prompt_tokens).toBe(10)
-        expect(normalized.usage.completion_tokens).toBe(5)
-        expect(normalized.usage.total_tokens).toBe(15)
+        expect((normalized.data as Record<string, any>).choices[0].message.content).toBe(
+            'Hello there!',
+        )
+        expect((normalized.data as Record<string, any>).choices[0].finish_reason).toBe('stop')
+        expect(normalized.usage!.prompt_tokens).toBe(10)
+        expect(normalized.usage!.completion_tokens).toBe(5)
+        expect(normalized.usage!.total_tokens).toBe(15)
     })
 
     test('Anthropic parses streaming chunks', () => {
@@ -371,7 +389,7 @@ describe('Gemini Provider', () => {
             temperature: 0.7,
         }
 
-        const transformed = provider.transformRequestBody(body, {})
+        const transformed = provider.transformRequestBody(body, request()) as Record<string, any>
 
         // System message should be in systemInstruction
         expect(transformed.systemInstruction.parts[0].text).toBe('You are helpful')
@@ -394,7 +412,7 @@ describe('Gemini Provider', () => {
             contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
         }
 
-        const transformed = provider.transformRequestBody(body, {})
+        const transformed = provider.transformRequestBody(body, request()) as Record<string, any>
         expect(transformed).toEqual(body)
     })
 
@@ -417,16 +435,21 @@ describe('Gemini Provider', () => {
             },
         }
 
-        const normalized = provider.normalizeResponse(geminiResponse, {
-            body: { model: 'gemini-2.0-flash' },
-        })
+        const normalized = provider.normalizeResponse(
+            geminiResponse,
+            request({
+                body: { model: 'gemini-2.0-flash' },
+            }),
+        )
 
         expect(normalized.model).toBe('gemini-2.0-flash')
-        expect(normalized.data.choices[0].message.content).toBe('Hello there!')
-        expect(normalized.data.choices[0].finish_reason).toBe('stop')
-        expect(normalized.usage.prompt_tokens).toBe(10)
-        expect(normalized.usage.completion_tokens).toBe(5)
-        expect(normalized.usage.total_tokens).toBe(15)
+        expect((normalized.data as Record<string, any>).choices[0].message.content).toBe(
+            'Hello there!',
+        )
+        expect((normalized.data as Record<string, any>).choices[0].finish_reason).toBe('stop')
+        expect(normalized.usage!.prompt_tokens).toBe(10)
+        expect(normalized.usage!.completion_tokens).toBe(5)
+        expect(normalized.usage!.total_tokens).toBe(15)
     })
 
     test('Gemini extracts usage from usageMetadata', () => {
@@ -469,7 +492,7 @@ describe('Cohere Provider', () => {
 
     test('Cohere maps /v1/chat/completions to /v2/chat', () => {
         const provider = new CohereProvider()
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.hostname).toBe('api.cohere.com')
         expect(target.path).toBe('/v2/chat')
@@ -484,7 +507,7 @@ describe('Cohere Provider', () => {
             top_p: 0.9,
         }
 
-        const transformed = provider.transformRequestBody(body, {})
+        const transformed = provider.transformRequestBody(body, request()) as Record<string, any>
         expect(transformed.stop_sequences).toEqual(['END'])
         expect(transformed.p).toBe(0.9) // top_p -> p
     })
@@ -504,14 +527,19 @@ describe('Cohere Provider', () => {
             },
         }
 
-        const normalized = provider.normalizeResponse(cohereResponse, {
-            body: { model: 'command' },
-        })
+        const normalized = provider.normalizeResponse(
+            cohereResponse,
+            request({
+                body: { model: 'command' },
+            }),
+        )
 
-        expect(normalized.data.choices[0].message.content).toBe('Hello there!')
-        expect(normalized.data.choices[0].finish_reason).toBe('stop')
-        expect(normalized.usage.prompt_tokens).toBe(10)
-        expect(normalized.usage.completion_tokens).toBe(5)
+        expect((normalized.data as Record<string, any>).choices[0].message.content).toBe(
+            'Hello there!',
+        )
+        expect((normalized.data as Record<string, any>).choices[0].finish_reason).toBe('stop')
+        expect(normalized.usage!.prompt_tokens).toBe(10)
+        expect(normalized.usage!.completion_tokens).toBe(5)
     })
 
     test('Cohere parses streaming content-delta events', () => {
@@ -572,7 +600,7 @@ describe('Azure OpenAI Provider', () => {
         const provider = new AzureOpenAIProvider()
         const headers = provider.transformRequestHeaders(
             { authorization: 'Bearer my-azure-key' },
-            {},
+            request(),
         )
 
         expect(headers['api-key']).toBe('my-azure-key')
@@ -581,7 +609,7 @@ describe('Azure OpenAI Provider', () => {
 
     test('Azure uses api-key header directly if provided', () => {
         const provider = new AzureOpenAIProvider()
-        const headers = provider.transformRequestHeaders({ 'api-key': 'direct-key' }, {})
+        const headers = provider.transformRequestHeaders({ 'api-key': 'direct-key' }, request())
 
         expect(headers['api-key']).toBe('direct-key')
     })
@@ -596,7 +624,7 @@ describe('Azure OpenAI Provider', () => {
 describe('OpenAI-Compatible Provider', () => {
     test('Groq provider uses correct hostname', () => {
         const { provider } = registry.resolve({ path: '/groq/v1/chat/completions', headers: {} })
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.hostname).toBe('api.groq.com')
         expect(target.path).toBe('/openai/v1/chat/completions')
@@ -604,7 +632,7 @@ describe('OpenAI-Compatible Provider', () => {
 
     test('Mistral provider uses correct hostname', () => {
         const { provider } = registry.resolve({ path: '/mistral/v1/chat/completions', headers: {} })
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.hostname).toBe('api.mistral.ai')
         expect(target.path).toBe('/v1/chat/completions')
@@ -615,7 +643,7 @@ describe('OpenAI-Compatible Provider', () => {
             path: '/together/v1/chat/completions',
             headers: {},
         })
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.hostname).toBe('api.together.xyz')
     })
@@ -625,7 +653,7 @@ describe('OpenAI-Compatible Provider', () => {
             path: '/openrouter/v1/chat/completions',
             headers: {},
         })
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.hostname).toBe('openrouter.ai')
         expect(target.path).toBe('/api/v1/chat/completions')
@@ -636,7 +664,7 @@ describe('OpenAI-Compatible Provider', () => {
             path: '/perplexity/v1/chat/completions',
             headers: {},
         })
-        const target = provider.getTarget({ path: '/v1/chat/completions' })
+        const target = provider.getTarget(request({ path: '/v1/chat/completions' }))
 
         expect(target.hostname).toBe('api.perplexity.ai')
         expect(target.path).toBe('/v1/chat/completions')
@@ -646,13 +674,16 @@ describe('OpenAI-Compatible Provider', () => {
 describe('Streaming Detection', () => {
     test('detects streaming request from body.stream=true', () => {
         const provider = new OpenAIProvider()
-        expect(provider.isStreamingRequest({ body: { stream: true } })).toBe(true)
-        expect(provider.isStreamingRequest({ body: { stream: false } })).toBeFalsy()
-        expect(provider.isStreamingRequest({ body: {} })).toBeFalsy()
+        expect(provider.isStreamingRequest(request({ body: { stream: true } }))).toBe(true)
+        expect(provider.isStreamingRequest(request({ body: { stream: false } }))).toBeFalsy()
+        expect(provider.isStreamingRequest(request({ body: {} }))).toBeFalsy()
     })
 })
 
-function parseStream(provider, chunk) {
+function parseStream(
+    provider: { createStreamSession: BaseProvider['createStreamSession'] },
+    chunk: string,
+) {
     const session = provider.createStreamSession({ path: '/', headers: {}, body: {} }, 'fixture')
     session.push(new TextEncoder().encode(chunk), true)
     return { content: session.content, usage: session.usage, done: session.done }

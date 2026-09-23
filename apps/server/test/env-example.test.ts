@@ -55,7 +55,7 @@ test('a DATA_DIR with a leading ~ resolves under the home directory, not ./~', a
         [
             process.execPath,
             '-e',
-            `const db = require(${JSON.stringify(path.join(root, 'packages/db/src/index.ts'))}); db.close()`,
+            `const db = await import(${JSON.stringify(path.join(root, 'packages/db/src/index.ts'))}); db.close()`,
         ],
         {
             cwd,

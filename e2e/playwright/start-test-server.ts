@@ -1,8 +1,9 @@
 // Seeds an isolated database and starts the Bun server for Playwright.
-const path = require('path')
-const fs = require('fs')
-const os = require('os')
-const { spawn } = require('child_process')
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { seedDatabase } from './seed-data'
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'llmflow-playwright-'))
 const TEST_DB_PATH = path.join(TEST_DATA_DIR, 'e2e.db')
@@ -31,9 +32,9 @@ process.env.OLLAMA_HOST = '127.0.0.1'
 process.env.OLLAMA_PORT = String(replayProvider.port)
 
 // Seed the database in this process, then close the handle so the
-// server child process gets a clean SQLite connection.
-const db = require('@llmflow/db')
-const { seedDatabase } = require('./seed-data')
+// server child process gets a clean SQLite connection. @llmflow/db reads
+// DATA_DIR/DB_PATH on import, so it is imported after they are set.
+const db = await import('@llmflow/db')
 seedDatabase(db)
 db.insertTrace({
     id: 'replay-browser-fixture',
@@ -54,7 +55,7 @@ console.log('✓ Database seeded with test data')
 
 // Exercise the same bundle and static assets shipped through npm and Docker.
 const serverEntry = path.join(
-    path.dirname(require.resolve('llmflow/package.json')),
+    path.dirname(Bun.resolveSync('llmflow/package.json', import.meta.dir)),
     'dist/server.js',
 )
 
@@ -63,7 +64,7 @@ const server = spawn('bun', [serverEntry], {
     env: process.env,
 })
 
-const forward = (sig) => () => server.kill(sig)
+const forward = (sig: NodeJS.Signals) => () => server.kill(sig)
 process.on('SIGTERM', forward('SIGTERM'))
 process.on('SIGINT', forward('SIGINT'))
 server.on('exit', (code, signal) => {

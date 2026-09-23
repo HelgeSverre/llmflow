@@ -6,12 +6,12 @@
  */
 
 // Timestamps relative to now for consistent date filtering
-const NOW = Date.now()
-const HOUR = 60 * 60 * 1000
-const DAY = 24 * HOUR
+export const NOW = Date.now()
+export const HOUR = 60 * 60 * 1000
+export const DAY = 24 * HOUR
 
 // Known IDs for assertions
-const TRACE_IDS = {
+export const TRACE_IDS = {
     SEARCH_HIT: 'trace-e2e-search-hit',
     OLD_TRACE: 'trace-e2e-old-trace',
     MODEL_A_1: 'trace-e2e-model-a-1',
@@ -23,7 +23,7 @@ const TRACE_IDS = {
     AIDER_TOOL: 'trace-e2e-aider-tool',
 }
 
-const LOG_IDS = {
+export const LOG_IDS = {
     MATCH_1: 'log-e2e-match-1',
     MATCH_2: 'log-e2e-match-2',
     ERROR_LOG: 'log-e2e-error',
@@ -35,7 +35,7 @@ const LOG_IDS = {
     EVENT_BAR: 'log-e2e-event-bar',
 }
 
-const METRIC_IDS = {
+export const METRIC_IDS = {
     REQUESTS_TOTAL: 'metric-e2e-requests-total',
     LATENCY_MS: 'metric-e2e-latency-ms',
     TOKEN_USAGE: 'metric-e2e-token-usage',
@@ -46,7 +46,7 @@ const METRIC_IDS = {
 /**
  * Seed the database with test data
  */
-function seedDatabase(db) {
+export function seedDatabase(db: typeof import('@llmflow/db')) {
     // ==================== TRACES ====================
 
     // Trace for search filter test
@@ -64,22 +64,22 @@ function seedDatabase(db) {
         error: null,
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({ 'content-type': 'application/json' }),
-        request_body: JSON.stringify({
+        request_headers: { 'content-type': 'application/json' },
+        request_body: {
             model: 'gpt-e2e-search-hit',
             messages: [{ role: 'user', content: 'Hello' }],
-        }),
+        },
         response_status: 200,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({ choices: [{ message: { content: 'Hi!' } }] }),
-        tags: JSON.stringify(['e2e-test']),
+        response_headers: {},
+        response_body: { choices: [{ message: { content: 'Hi!' } }] },
+        tags: ['e2e-test'],
         trace_id: TRACE_IDS.SEARCH_HIT,
         parent_id: null,
         span_type: 'llm',
         span_name: 'E2E Search Target',
         input: 'Hello',
         output: 'Hi!',
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'e2e-test-service',
     })
 
@@ -98,19 +98,19 @@ function seedDatabase(db) {
         error: null,
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({}),
-        request_body: JSON.stringify({}),
+        request_headers: {},
+        request_body: {},
         response_status: 200,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({}),
-        tags: JSON.stringify([]),
+        response_headers: {},
+        response_body: {},
+        tags: [],
         trace_id: TRACE_IDS.OLD_TRACE,
         parent_id: null,
         span_type: 'llm',
         span_name: 'old-trace',
         input: null,
         output: null,
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'old-service',
     })
 
@@ -129,19 +129,19 @@ function seedDatabase(db) {
         error: null,
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({}),
-        request_body: JSON.stringify({ model: 'gpt-e2e-model-a' }),
+        request_headers: {},
+        request_body: { model: 'gpt-e2e-model-a' },
         response_status: 200,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({}),
-        tags: JSON.stringify([]),
+        response_headers: {},
+        response_body: {},
+        tags: [],
         trace_id: TRACE_IDS.MODEL_A_1,
         parent_id: null,
         span_type: 'llm',
         span_name: 'Model A Request 1',
         input: null,
         output: null,
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'svc-e2e-a',
     })
 
@@ -159,19 +159,19 @@ function seedDatabase(db) {
         error: null,
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({}),
-        request_body: JSON.stringify({ model: 'gpt-e2e-model-a' }),
+        request_headers: {},
+        request_body: { model: 'gpt-e2e-model-a' },
         response_status: 200,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({}),
-        tags: JSON.stringify([]),
+        response_headers: {},
+        response_body: {},
+        tags: [],
         trace_id: TRACE_IDS.MODEL_A_2,
         parent_id: null,
         span_type: 'llm',
         span_name: 'Model A Request 2',
         input: null,
         output: null,
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'svc-e2e-a',
     })
 
@@ -190,19 +190,19 @@ function seedDatabase(db) {
         error: null,
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({}),
-        request_body: JSON.stringify({ model: 'gpt-e2e-model-b' }),
+        request_headers: {},
+        request_body: { model: 'gpt-e2e-model-b' },
         response_status: 200,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({}),
-        tags: JSON.stringify([]),
+        response_headers: {},
+        response_body: {},
+        tags: [],
         trace_id: TRACE_IDS.MODEL_B_1,
         parent_id: null,
         span_type: 'llm',
         span_name: 'Model B Request',
         input: null,
         output: null,
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'svc-e2e-b',
     })
 
@@ -221,19 +221,19 @@ function seedDatabase(db) {
         error: 'Rate limit exceeded',
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({}),
-        request_body: JSON.stringify({}),
+        request_headers: {},
+        request_body: {},
         response_status: 500,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({ error: { message: 'Rate limit exceeded' } }),
-        tags: JSON.stringify([]),
+        response_headers: {},
+        response_body: { error: { message: 'Rate limit exceeded' } },
+        tags: [],
         trace_id: TRACE_IDS.ERROR_TRACE,
         parent_id: null,
         span_type: 'llm',
         span_name: 'Failed Request',
         input: null,
         output: null,
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'svc-e2e-a',
     })
 
@@ -252,19 +252,19 @@ function seedDatabase(db) {
         error: null,
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({}),
-        request_body: JSON.stringify({}),
+        request_headers: {},
+        request_body: {},
         response_status: 200,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({}),
-        tags: JSON.stringify([]),
+        response_headers: {},
+        response_body: {},
+        tags: [],
         trace_id: TRACE_IDS.TIMELINE_HIT,
         parent_id: null,
         span_type: 'llm',
         span_name: 'Timeline E2E Hit',
         input: null,
         output: null,
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'timeline-test',
     })
 
@@ -283,19 +283,19 @@ function seedDatabase(db) {
         error: null,
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({}),
-        request_body: JSON.stringify({}),
+        request_headers: {},
+        request_body: {},
         response_status: 200,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({}),
-        tags: JSON.stringify([]),
+        response_headers: {},
+        response_body: {},
+        tags: [],
         trace_id: TRACE_IDS.PROXY_TOOL,
         parent_id: null,
         span_type: 'llm',
         span_name: 'Proxy Request',
         input: null,
         output: null,
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'proxy',
     })
 
@@ -314,19 +314,19 @@ function seedDatabase(db) {
         error: null,
         request_method: 'POST',
         request_path: '/v1/chat/completions',
-        request_headers: JSON.stringify({ 'user-agent': 'aider/0.1.0' }),
-        request_body: JSON.stringify({}),
+        request_headers: { 'user-agent': 'aider/0.1.0' },
+        request_body: {},
         response_status: 200,
-        response_headers: JSON.stringify({}),
-        response_body: JSON.stringify({}),
-        tags: JSON.stringify([]),
+        response_headers: {},
+        response_body: {},
+        tags: [],
         trace_id: TRACE_IDS.AIDER_TOOL,
         parent_id: null,
         span_type: 'llm',
         span_name: 'Aider Request',
         input: null,
         output: null,
-        attributes: JSON.stringify({}),
+        attributes: {},
         service_name: 'aider',
     })
 
@@ -346,19 +346,19 @@ function seedDatabase(db) {
             error: null,
             request_method: 'POST',
             request_path: '/v1/chat/completions',
-            request_headers: JSON.stringify({}),
-            request_body: JSON.stringify({}),
+            request_headers: {},
+            request_body: {},
             response_status: 200,
-            response_headers: JSON.stringify({}),
-            response_body: JSON.stringify({}),
-            tags: JSON.stringify([]),
+            response_headers: {},
+            response_body: {},
+            tags: [],
             trace_id: `trace-e2e-day-${i}`,
             parent_id: null,
             span_type: 'llm',
             span_name: `Day ${i} trace`,
             input: null,
             output: null,
-            attributes: JSON.stringify({}),
+            attributes: {},
             service_name: i % 2 === 0 ? 'svc-e2e-a' : 'svc-e2e-b',
         })
     }
@@ -378,8 +378,8 @@ function seedDatabase(db) {
         event_name: 'e2e-event-foo',
         service_name: 'svc-e2e-a',
         scope_name: 'test-scope',
-        attributes: JSON.stringify({ key: 'value1' }),
-        resource_attributes: JSON.stringify({ host: 'test-host' }),
+        attributes: { key: 'value1' },
+        resource_attributes: { host: 'test-host' },
     })
 
     db.insertLog({
@@ -394,8 +394,8 @@ function seedDatabase(db) {
         event_name: 'e2e-event-bar',
         service_name: 'svc-e2e-b',
         scope_name: 'test-scope',
-        attributes: JSON.stringify({ key: 'value2' }),
-        resource_attributes: JSON.stringify({ host: 'test-host-2' }),
+        attributes: { key: 'value2' },
+        resource_attributes: { host: 'test-host-2' },
     })
 
     // Error log
@@ -411,8 +411,8 @@ function seedDatabase(db) {
         event_name: 'e2e-event-foo',
         service_name: 'svc-e2e-a',
         scope_name: 'error-scope',
-        attributes: JSON.stringify({ error_code: 500 }),
-        resource_attributes: JSON.stringify({}),
+        attributes: { error_code: 500 },
+        resource_attributes: {},
     })
 
     // Warning log
@@ -428,8 +428,8 @@ function seedDatabase(db) {
         event_name: 'e2e-event-bar',
         service_name: 'svc-e2e-a',
         scope_name: 'warn-scope',
-        attributes: JSON.stringify({}),
-        resource_attributes: JSON.stringify({}),
+        attributes: {},
+        resource_attributes: {},
     })
 
     // Debug log
@@ -445,8 +445,8 @@ function seedDatabase(db) {
         event_name: 'e2e-event-foo',
         service_name: 'svc-e2e-b',
         scope_name: 'debug-scope',
-        attributes: JSON.stringify({ debug: true }),
-        resource_attributes: JSON.stringify({}),
+        attributes: { debug: true },
+        resource_attributes: {},
     })
 
     // ==================== METRICS ====================
@@ -464,8 +464,8 @@ function seedDatabase(db) {
         histogram_data: null,
         service_name: 'svc-e2e-a',
         scope_name: 'metrics-scope',
-        attributes: JSON.stringify({ endpoint: '/api/test' }),
-        resource_attributes: JSON.stringify({ host: 'test-host' }),
+        attributes: { endpoint: '/api/test' },
+        resource_attributes: { host: 'test-host' },
     })
 
     // Gauge metric
@@ -481,8 +481,8 @@ function seedDatabase(db) {
         histogram_data: null,
         service_name: 'svc-e2e-a',
         scope_name: 'metrics-scope',
-        attributes: JSON.stringify({}),
-        resource_attributes: JSON.stringify({}),
+        attributes: {},
+        resource_attributes: {},
     })
 
     // Token usage metric
@@ -498,8 +498,8 @@ function seedDatabase(db) {
         histogram_data: null,
         service_name: 'svc-e2e-a',
         scope_name: 'metrics-scope',
-        attributes: JSON.stringify({ model: 'gpt-4', type: 'prompt' }),
-        resource_attributes: JSON.stringify({}),
+        attributes: { model: 'gpt-4', type: 'prompt' },
+        resource_attributes: {},
     })
 
     // Service B gauge
@@ -515,8 +515,8 @@ function seedDatabase(db) {
         histogram_data: null,
         service_name: 'svc-e2e-b',
         scope_name: 'metrics-scope',
-        attributes: JSON.stringify({}),
-        resource_attributes: JSON.stringify({}),
+        attributes: {},
+        resource_attributes: {},
     })
 
     // Histogram metric
@@ -537,8 +537,8 @@ function seedDatabase(db) {
         },
         service_name: 'svc-e2e-a',
         scope_name: 'metrics-scope',
-        attributes: JSON.stringify({}),
-        resource_attributes: JSON.stringify({}),
+        attributes: {},
+        resource_attributes: {},
     })
 
     // Add more metrics for filter testing
@@ -555,20 +555,10 @@ function seedDatabase(db) {
             histogram_data: null,
             service_name: i % 2 === 0 ? 'svc-e2e-a' : 'svc-e2e-b',
             scope_name: 'metrics-scope',
-            attributes: JSON.stringify({}),
-            resource_attributes: JSON.stringify({}),
+            attributes: {},
+            resource_attributes: {},
         })
     }
 
     console.log('✓ Seeded database with E2E test data')
-}
-
-module.exports = {
-    seedDatabase,
-    TRACE_IDS,
-    LOG_IDS,
-    METRIC_IDS,
-    NOW,
-    HOUR,
-    DAY,
 }

@@ -4,7 +4,14 @@ import {
     AnthropicPassthrough,
     GeminiPassthrough,
     OpenAIPassthrough,
+    type PassthroughRequest,
 } from './passthrough'
+
+const request = (fields: Partial<PassthroughRequest> = {}): PassthroughRequest => ({
+    path: '/',
+    headers: {},
+    ...fields,
+})
 
 describe('Base PassthroughHandler', () => {
     test('creates handler with default options', () => {
@@ -24,7 +31,7 @@ describe('Base PassthroughHandler', () => {
             targetHost: 'api.example.com',
         })
 
-        const target = handler.getTarget({ path: '/v1/messages' })
+        const target = handler.getTarget(request({ path: '/v1/messages' }))
 
         expect(target.hostname).toBe('api.example.com')
         expect(target.port).toBe(443)
@@ -34,9 +41,9 @@ describe('Base PassthroughHandler', () => {
     test('isStreamingRequest detects stream=true', () => {
         const handler = new PassthroughHandler({ targetHost: 'api.example.com' })
 
-        expect(handler.isStreamingRequest({ body: { stream: true } })).toBe(true)
-        expect(handler.isStreamingRequest({ body: { stream: false } })).toBeFalsy()
-        expect(handler.isStreamingRequest({ body: {} })).toBeFalsy()
+        expect(handler.isStreamingRequest(request({ body: { stream: true } }))).toBe(true)
+        expect(handler.isStreamingRequest(request({ body: { stream: false } }))).toBeFalsy()
+        expect(handler.isStreamingRequest(request({ body: {} }))).toBeFalsy()
     })
 })
 
@@ -50,7 +57,7 @@ describe('AnthropicPassthrough', () => {
 
     test('AnthropicPassthrough getTarget preserves path', () => {
         const handler = new AnthropicPassthrough()
-        const target = handler.getTarget({ path: '/v1/messages' })
+        const target = handler.getTarget(request({ path: '/v1/messages' }))
 
         expect(target.hostname).toBe('api.anthropic.com')
         expect(target.path).toBe('/v1/messages')
@@ -357,7 +364,7 @@ data: {"id":"chatcmpl-123","choices":[{"delta":{"content":" World"}}]}
     })
 })
 
-function parseStream(handler, chunk) {
+function parseStream(handler: PassthroughHandler, chunk: string) {
     const session = handler.createStreamSession({ path: '/', headers: {}, body: {} }, 'fixture')
     session.push(new TextEncoder().encode(chunk), true)
     return { content: session.content, usage: session.usage, done: session.done }

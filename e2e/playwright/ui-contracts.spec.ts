@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test')
+import { test, expect } from '@playwright/test'
 
 test('metric rows and cards display measured integers, decimals, histograms and zeros', async ({
     page,
@@ -6,7 +6,7 @@ test('metric rows and cards display measured integers, decimals, histograms and 
 }, testInfo) => {
     const prefix = `ui-contract-${crypto.randomUUID()}`
     const time = String(BigInt(Date.now()) * 1000000n)
-    const points = (value) =>
+    const points = (value: (i: number) => Record<string, unknown>) =>
         Array.from({ length: 20 }, (_, i) => ({ timeUnixNano: time, ...value(i) }))
     const result = await request.post('/v1/metrics', {
         data: {
@@ -160,7 +160,7 @@ test('unknown and zero span durations remain distinct in the table, tree and det
     for (const [duration, label] of [
         [null, '-'],
         [0, '0ms'],
-    ]) {
+    ] as const) {
         const row = page.locator(`[data-trace-id="${prefix + duration}"]`)
         await expect(row.getByTestId('trace-latency')).toHaveText(label)
         await expect(row.getByTestId('trace-tokens')).toHaveText('0')

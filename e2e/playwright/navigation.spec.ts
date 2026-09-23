@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test')
+import { test, expect } from '@playwright/test'
 
 test.describe('Navigation & URL Hash Persistence', () => {
     test('default load shows Timeline tab', async ({ page }) => {
