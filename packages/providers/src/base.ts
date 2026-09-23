@@ -54,77 +54,97 @@ export interface UsageLike {
     [key: string]: unknown
 }
 
+/**
+ * The API key a client sent: the first of `headerNames` that is set, else the Authorization
+ * header without its "Bearer " prefix.
+ */
+export function apiKeyFrom(
+    headers: Record<string, string | undefined> | undefined,
+    ...headerNames: string[]
+): string | undefined {
+    for (const name of headerNames) if (headers?.[name]) return headers[name]
+    return headers?.authorization?.replace(/^Bearer\s+/i, '') || undefined
+}
+
+/**
+ * One upstream LLM API. The proxy uses a provider in two modes:
+ * - translated (/v1/*, /<provider>/v1/*): OpenAI-format requests are translated to the
+ *   provider's API and responses back (getTarget, transformRequestBody, normalizeResponse);
+ * - passthrough (/passthrough/<provider>/*): the provider's native request is forwarded
+ *   unchanged to the same host (passthroughTarget) and the response returned as-is.
+ * Headers, usage, model and streaming detection work the same in both modes.
+ */
 export class BaseProvider {
     streamFormat: StreamFormat = 'openai'
-    identifyRequestModel(req: ProviderRequest): string {
-        return (req.body as { model?: string })?.model || 'unknown'
-    }
-    createStreamSession(req: ProviderRequest, id: string) {
-        return new StreamSession(this.streamFormat, this.identifyRequestModel(req), id)
-    }
+    name = 'base'
+    displayName = 'Base Provider'
+    hostname = ''
+    port = 443
+    protocol: 'http' | 'https' = 'https'
 
-    name: string
-    displayName: string
-
-    constructor() {
-        this.name = 'base'
-        this.displayName = 'Base Provider'
+    /** Upstream for a translated request; providers with other paths override this. */
+    getTarget(req: ProviderRequest): ProviderTarget {
+        return this.passthroughTarget(req)
     }
 
-    /** Get the target configuration for the upstream request */
-    getTarget(_req: ProviderRequest): ProviderTarget {
-        throw new Error('getTarget() must be implemented by provider')
+    /** Upstream for a passthrough request: same host, the client's path. */
+    passthroughTarget(req: ProviderRequest): ProviderTarget {
+        return { hostname: this.hostname, port: this.port, path: req.path, protocol: this.protocol }
     }
 
-    /** Transform request headers for the upstream provider */
+    /** Headers for the upstream request, in both modes. */
     transformRequestHeaders(
         headers: Record<string, string | undefined>,
-        _req: ProviderRequest,
+        _req?: ProviderRequest,
     ): Record<string, string | undefined> {
-        const result: Record<string, string | undefined> = {
-            'Content-Type': 'application/json',
-        }
-        if (headers.authorization) {
-            result['Authorization'] = headers.authorization
-        }
-        return result
+        return { 'Content-Type': 'application/json', Authorization: headers.authorization }
     }
 
-    /** Transform request body for the upstream provider */
+    /** Translated mode: OpenAI-format request body to the provider's format. */
     transformRequestBody(body: unknown, _req: ProviderRequest): unknown {
         return body
     }
 
-    /** Normalize response body to a common format for logging */
+    /** Translated mode: the provider's response to OpenAI format. */
     normalizeResponse(body: unknown, req: ProviderRequest): NormalizedResponse {
-        const b = (body || {}) as Record<string, unknown>
-        const reqBody = (req.body || {}) as Record<string, unknown>
         return {
             data: body,
-            usage: (b.usage as TokenUsage | undefined) || null,
-            model:
-                (b.model as string | undefined) ||
-                (reqBody.model as string | undefined) ||
-                'unknown',
+            usage: this.extractUsage(body),
+            model: this.responseModel(body, req),
         }
     }
 
-    /** Extract usage information from response */
+    /** Token usage from the provider's raw (not normalized) response body, in both modes. */
     extractUsage(response: unknown): TokenUsage {
-        const r = (response || {}) as Record<string, unknown>
-        const usage = (r.usage || {}) as UsageLike
-        const promptTokens = usage.prompt_tokens || 0
-        const completionTokens = usage.completion_tokens || 0
+        const usage = ((response || {}) as { usage?: UsageLike }).usage || {}
+        const prompt = usage.prompt_tokens || usage.input_tokens || 0
+        const completion = usage.completion_tokens || usage.output_tokens || 0
         return {
-            prompt_tokens: promptTokens,
-            completion_tokens: completionTokens,
-            total_tokens: usage.total_tokens || promptTokens + completionTokens,
+            prompt_tokens: prompt,
+            completion_tokens: completion,
+            total_tokens: usage.total_tokens || prompt + completion,
         }
     }
 
-    /** Check if streaming is requested */
+    /** The model that served a raw response, falling back to the requested one. */
+    responseModel(response: unknown, req: ProviderRequest): string | undefined {
+        return (response as { model?: string } | null)?.model || this.requestedModel(req)
+    }
+
+    /** The model a request asks for, if it names one. */
+    requestedModel(req: ProviderRequest): string | undefined {
+        return (req.body as { model?: string } | undefined)?.model || undefined
+    }
+
+    identifyRequestModel(req: ProviderRequest): string {
+        return this.requestedModel(req) || 'unknown'
+    }
+
+    createStreamSession(req: ProviderRequest, id: string) {
+        return new StreamSession(this.streamFormat, this.identifyRequestModel(req), id)
+    }
+
     isStreamingRequest(req: ProviderRequest): boolean {
-        const body = req.body as { stream?: boolean } | undefined
-        return body?.stream === true
+        return (req.body as { stream?: boolean } | undefined)?.stream === true
     }
 }

@@ -24,28 +24,15 @@ interface CohereTokens {
  */
 export class CohereProvider extends BaseProvider {
     override streamFormat = 'cohere' as const
-    hostname: string
-
-    constructor() {
-        super()
-        this.name = 'cohere'
-        this.displayName = 'Cohere'
-        this.hostname = 'api.cohere.com'
-    }
+    override name = 'cohere'
+    override displayName = 'Cohere'
+    override hostname = 'api.cohere.com'
 
     override getTarget(req: ProviderRequest): ProviderTarget {
-        let path = req.path
-
-        if (path === '/v1/chat/completions' || path === '/chat/completions') {
-            path = '/v2/chat'
-        }
-
-        return {
-            hostname: this.hostname,
-            port: 443,
-            path,
-            protocol: 'https',
-        }
+        const target = this.passthroughTarget(req)
+        return ['/v1/chat/completions', '/chat/completions'].includes(req.path)
+            ? { ...target, path: '/v2/chat' }
+            : target
     }
 
     override transformRequestHeaders(

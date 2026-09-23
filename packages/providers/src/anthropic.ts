@@ -1,4 +1,5 @@
 import {
+    apiKeyFrom,
     BaseProvider,
     type NormalizedResponse,
     type ProviderRequest,
@@ -20,50 +21,25 @@ interface AnthropicUsage {
  */
 export class AnthropicProvider extends BaseProvider {
     override streamFormat = 'anthropic' as const
-    hostname: string
-    apiVersion: string
-
-    constructor() {
-        super()
-        this.name = 'anthropic'
-        this.displayName = 'Anthropic Claude'
-        this.hostname = 'api.anthropic.com'
-        this.apiVersion = '2023-06-01'
-    }
+    override name = 'anthropic'
+    override displayName = 'Anthropic Claude'
+    override hostname = 'api.anthropic.com'
+    apiVersion = '2023-06-01'
 
     override getTarget(req: ProviderRequest): ProviderTarget {
-        let path = req.path
-
-        // Map OpenAI-style paths to Anthropic paths
-        if (path === '/v1/chat/completions') {
-            path = '/v1/messages'
-        }
-
-        return {
-            hostname: this.hostname,
-            port: 443,
-            path,
-            protocol: 'https',
-        }
+        const target = this.passthroughTarget(req)
+        return req.path === '/v1/chat/completions' ? { ...target, path: '/v1/messages' } : target
     }
 
+    // Anthropic takes the key as x-api-key; a client's version and beta flags are kept.
     override transformRequestHeaders(
         headers: Record<string, string | undefined>,
-        _req: ProviderRequest,
     ): Record<string, string | undefined> {
-        // Anthropic uses x-api-key instead of Authorization Bearer
-        let apiKey = headers.authorization
-        if (apiKey && apiKey.startsWith('Bearer ')) {
-            apiKey = apiKey.slice(7)
-        }
-
-        // Also check for x-api-key header directly
-        apiKey = headers['x-api-key'] || apiKey
-
         return {
             'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': this.apiVersion,
+            'x-api-key': apiKeyFrom(headers, 'x-api-key'),
+            'anthropic-version': headers['anthropic-version'] || this.apiVersion,
+            ...(headers['anthropic-beta'] ? { 'anthropic-beta': headers['anthropic-beta'] } : {}),
         }
     }
 
@@ -194,11 +170,7 @@ export class AnthropicProvider extends BaseProvider {
             tool_use: 'tool_calls',
         }
 
-        const normalizedUsage: TokenUsage = {
-            prompt_tokens: b.usage?.input_tokens || 0,
-            completion_tokens: b.usage?.output_tokens || 0,
-            total_tokens: (b.usage?.input_tokens || 0) + (b.usage?.output_tokens || 0),
-        }
+        const normalizedUsage = this.extractUsage(b)
 
         const normalized = {
             id: b.id,
@@ -239,15 +211,18 @@ export class AnthropicProvider extends BaseProvider {
         }
     }
 
+    // Prompt-cache counters are kept when present, as the stream capture does.
     override extractUsage(response: unknown): TokenUsage {
-        const r = (response || {}) as { usage?: AnthropicUsage }
-        const usage = r.usage || {}
+        const usage = ((response || {}) as { usage?: AnthropicUsage }).usage || {}
         const input = usage.input_tokens || usage.prompt_tokens || 0
         const output = usage.output_tokens || usage.completion_tokens || 0
-        return {
+        const result: TokenUsage = {
             prompt_tokens: input,
             completion_tokens: output,
             total_tokens: input + output,
         }
+        for (const key of ['cache_creation_input_tokens', 'cache_read_input_tokens'])
+            if (typeof usage[key] === 'number') result[key] = usage[key] as number
+        return result
     }
 }

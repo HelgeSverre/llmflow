@@ -5,6 +5,7 @@ import { AnthropicProvider } from './anthropic'
 import { GeminiProvider } from './gemini'
 import { CohereProvider } from './cohere'
 import { AzureOpenAIProvider } from './azure'
+import { HeliconeProvider } from './helicone'
 import {
     OpenAICompatibleProvider,
     GroqProvider,
@@ -48,6 +49,13 @@ export class ProviderRegistry {
         this.register('together', TogetherProvider)
         this.register('perplexity', PerplexityProvider)
         this.register('openrouter', OpenRouterProvider)
+    }
+
+    /** The provider registered under `prefix`, or the default (OpenAI) for 'openai'. */
+    get(prefix: string): BaseProvider | undefined {
+        return prefix === this.defaultProvider.name
+            ? this.defaultProvider
+            : this.providers.get(prefix)
     }
 
     /** Register a provider with a path prefix */
@@ -111,6 +119,18 @@ export class ProviderRegistry {
 // Singleton instance
 export const registry = new ProviderRegistry()
 
+/**
+ * Providers reachable at /passthrough/<name>/*: requests in the provider's native format are
+ * forwarded unchanged. They are the same instances as the translated routes, so both modes
+ * record the same provider name.
+ */
+export const passthroughProviders: Record<string, BaseProvider> = {
+    anthropic: registry.get('anthropic')!,
+    gemini: registry.get('gemini')!,
+    openai: registry.get('openai')!,
+    helicone: new HeliconeProvider(),
+}
+
 export {
     BaseProvider,
     OpenAIProvider,
@@ -119,6 +139,7 @@ export {
     GeminiProvider,
     CohereProvider,
     AzureOpenAIProvider,
+    HeliconeProvider,
     OpenAICompatibleProvider,
     GroqProvider,
     MistralProvider,

@@ -1,4 +1,5 @@
 import {
+    apiKeyFrom,
     BaseProvider,
     type NormalizedResponse,
     type ProviderRequest,
@@ -24,15 +25,37 @@ interface GeminiUsageMetadata {
  */
 export class GeminiProvider extends BaseProvider {
     override streamFormat = 'gemini' as const
-    hostname: string
-    apiVersion: string
+    override name = 'gemini'
+    override displayName = 'Google Gemini'
+    override hostname = 'generativelanguage.googleapis.com'
+    apiVersion = 'v1beta'
 
-    constructor() {
-        super()
-        this.name = 'gemini'
-        this.displayName = 'Google Gemini'
-        this.hostname = 'generativelanguage.googleapis.com'
-        this.apiVersion = 'v1beta'
+    // Native requests name the model and streaming in the path (/models/<m>:streamGenerateContent).
+    override requestedModel(req: ProviderRequest): string | undefined {
+        return req.path.match(/\/models\/([^/:?]+)/)?.[1] || super.requestedModel(req)
+    }
+
+    override isStreamingRequest(req: ProviderRequest): boolean {
+        return (
+            req.path.split('?')[0]!.endsWith(':streamGenerateContent') ||
+            super.isStreamingRequest(req)
+        )
+    }
+
+    override responseModel(response: unknown, req: ProviderRequest): string | undefined {
+        return (
+            (response as { modelVersion?: string } | null)?.modelVersion ||
+            super.responseModel(response, req)
+        )
+    }
+
+    // Gemini takes the key as a query parameter, in both modes.
+    override passthroughTarget(req: ProviderRequest): ProviderTarget {
+        const target = super.passthroughTarget(req)
+        const key = this.extractApiKey(req.headers)
+        if (!key) return target
+        const separator = target.path.includes('?') ? '&' : '?'
+        return { ...target, path: `${target.path}${separator}key=${encodeURIComponent(key)}` }
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {
@@ -58,35 +81,15 @@ export class GeminiProvider extends BaseProvider {
         }
     }
 
-    extractApiKey(headers: Record<string, string | undefined> | undefined): string | null {
-        if (!headers) return null
-
-        let apiKey = headers['x-goog-api-key']
-
-        if (!apiKey && headers.authorization) {
-            const auth = headers.authorization
-            if (auth.startsWith('Bearer ')) {
-                apiKey = auth.slice(7)
-            }
-        }
-
-        return apiKey || null
+    extractApiKey(headers: Record<string, string | undefined> | undefined): string | undefined {
+        return apiKeyFrom(headers, 'x-goog-api-key')
     }
 
+    // The key travels in the query string (see passthroughTarget), not a header.
     override transformRequestHeaders(
-        headers: Record<string, string | undefined>,
-        _req: ProviderRequest,
+        _headers: Record<string, string | undefined>,
     ): Record<string, string | undefined> {
-        const result: Record<string, string | undefined> = {
-            'Content-Type': 'application/json',
-        }
-
-        // If using OAuth, include Authorization header
-        if (headers.authorization && !this.extractApiKey(headers)) {
-            result['Authorization'] = headers.authorization
-        }
-
-        return result
+        return { 'Content-Type': 'application/json' }
     }
 
     override transformRequestBody(body: unknown, _req: ProviderRequest): unknown {

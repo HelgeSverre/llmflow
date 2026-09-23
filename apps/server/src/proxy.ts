@@ -1,7 +1,6 @@
 import * as db from '@llmflow/db'
 import { registry, type BaseProvider } from '@llmflow/providers'
 import type { ProviderRequest, TokenUsage } from '@llmflow/providers/base'
-import type { PassthroughHandler } from '@llmflow/providers/passthrough'
 import { calculateCost } from '@llmflow/pricing'
 import { readBoundedBody } from '@llmflow/shared/body'
 import { config } from '@llmflow/shared/config'
@@ -59,10 +58,15 @@ function downstreamHeaders(upstream: Headers, normalized: boolean) {
     return headers
 }
 
+/**
+ * Forwards one LLM API call and records it as a span. Without `passthrough` the request is
+ * OpenAI format, routed by path/header and translated; with it, the provider's native request
+ * is forwarded unchanged (the prefix is stripped) and the response returned as-is.
+ */
 export async function forwardProxyRequest(
     req: Request,
     url: URL,
-    native?: { handler: PassthroughHandler; prefix: string },
+    passthrough?: { provider: BaseProvider; prefix: string },
 ): Promise<Response> {
     const started = Date.now()
     const spanId = crypto.randomUUID().replaceAll('-', '').slice(0, 16)
@@ -74,6 +78,8 @@ export async function forwardProxyRequest(
         request_method: req.method,
         request_path: sanitizePath(url.pathname + url.search),
         request_headers: sanitizeHeaders(req.headers),
+        // The caller can name itself; otherwise proxied spans are grouped under the proxy.
+        service_name: req.headers.get('x-llmflow-service') || 'llmflow-proxy',
         tags: (req.headers.get('x-llmflow-tags') || req.headers.get('x-llmflow-tag') || '')
             .split(',')
             .map((tag) => tag.trim())
@@ -89,18 +95,18 @@ export async function forwardProxyRequest(
     }
     const request: ProviderRequest = {
         method: req.method,
-        path: native ? url.pathname.slice(native.prefix.length) : url.pathname,
+        path: passthrough ? url.pathname.slice(passthrough.prefix.length) : url.pathname,
         headers: Object.fromEntries(req.headers),
         body,
     }
-    let provider: BaseProvider | undefined
-    if (!native) {
+    let provider: BaseProvider
+    if (passthrough) provider = passthrough.provider
+    else {
         const resolved = registry.resolve(request)
         provider = resolved.provider
         request.path = resolved.cleanPath
     }
-    const adapter = native?.handler || provider!
-    const name = adapter.name
+    const name = provider.name
     const controller = new AbortController()
     const timeoutMs = config.proxyTimeoutMs
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
@@ -152,13 +158,14 @@ export async function forwardProxyRequest(
             log.error(`Failed to persist proxy span: ${(error as Error).message}`)
         }
     }
-    const fallbackModel = adapter.identifyRequestModel(request)
+    const fallbackModel = provider.identifyRequestModel(request)
     try {
-        const target = targetUrl(adapter.getTarget(request), url)
-        const transformed = native ? body : provider!.transformRequestBody(body, request)
-        const headers = native
-            ? native.handler.headerTransform(request.headers)
-            : provider!.transformRequestHeaders(request.headers, request)
+        const target = targetUrl(
+            passthrough ? provider.passthroughTarget(request) : provider.getTarget(request),
+            url,
+        )
+        const transformed = passthrough ? body : provider.transformRequestBody(body, request)
+        const headers = provider.transformRequestHeaders(request.headers, request)
         const upstream = await fetch(target, {
             method: req.method,
             headers: headersFrom(headers),
@@ -169,11 +176,11 @@ export async function forwardProxyRequest(
             signal: controller.signal,
         })
         const streaming =
-            adapter.isStreamingRequest(request) &&
+            provider.isStreamingRequest(request) &&
             upstream.ok &&
             (upstream.headers.get('content-type')?.includes('text/event-stream') ||
-                adapter.streamFormat === 'cohere' ||
-                adapter.streamFormat === 'gemini')
+                provider.streamFormat === 'cohere' ||
+                provider.streamFormat === 'gemini')
         if (!streaming) {
             const text = await responseText(upstream)
             let parsed: unknown
@@ -182,22 +189,15 @@ export async function forwardProxyRequest(
             } catch {
                 parsed = { error: 'Non-JSON upstream response', body: text }
             }
-            const normalized = !upstream.ok
-                ? { data: parsed, usage: {}, model: fallbackModel }
-                : native
-                  ? {
-                        data: parsed,
-                        usage: native.handler.extractUsage(parsed),
-                        model: native.handler.identifyModel(body, parsed),
-                    }
-                  : provider!.normalizeResponse(parsed, request)
-            const usage = native ? normalized.usage || {} : provider!.extractUsage(normalized.data)
-            const model =
-                normalized.model && !normalized.model.endsWith('-unknown')
-                    ? normalized.model
-                    : fallbackModel
+            // Usage and model come from the provider's raw response in both modes.
+            const data =
+                upstream.ok && !passthrough
+                    ? provider.normalizeResponse(parsed, request).data
+                    : parsed
+            const usage = upstream.ok ? provider.extractUsage(parsed) : {}
+            const model = (upstream.ok && provider.responseModel(parsed, request)) || fallbackModel
             record(
-                normalized.data,
+                data,
                 usage,
                 model,
                 upstream.status,
@@ -207,25 +207,17 @@ export async function forwardProxyRequest(
             const responseHeaders = downstreamHeaders(upstream.headers, false)
             if ([204, 205, 304].includes(upstream.status))
                 return new Response(null, { status: upstream.status, headers: responseHeaders })
-            if (!native) {
-                responseHeaders.set('content-type', 'application/json; charset=utf-8')
-                for (const name of ['etag', 'content-md5', 'digest']) responseHeaders.delete(name)
-            }
-            return native
-                ? new Response(text, {
-                      status: upstream.status,
-                      headers: responseHeaders,
-                  })
-                : Response.json(normalized.data, {
-                      status: upstream.status,
-                      headers: responseHeaders,
-                  })
+            if (passthrough)
+                return new Response(text, { status: upstream.status, headers: responseHeaders })
+            responseHeaders.set('content-type', 'application/json; charset=utf-8')
+            for (const name of ['etag', 'content-md5', 'digest']) responseHeaders.delete(name)
+            return Response.json(data, { status: upstream.status, headers: responseHeaders })
         }
         if (!upstream.body) throw new Error('Upstream returned an empty stream')
-        const session = adapter.createStreamSession(request, spanId)
+        const session = provider.createStreamSession(request, spanId)
         const reader = upstream.body.getReader()
         const encoder = new TextEncoder()
-        const passthroughStream = !!native || adapter.streamFormat === 'openai'
+        const passthroughStream = !!passthrough || provider.streamFormat === 'openai'
         let complete = false
         let captureError: string | undefined
         const finish = (error?: string) => {
@@ -260,7 +252,7 @@ export async function forwardProxyRequest(
                             if (chunk.value) output.enqueue(chunk.value)
                         } else for (const frame of frames) output.enqueue(encoder.encode(frame))
                         if (chunk.done) {
-                            if (!native && adapter.streamFormat !== 'openai' && !session.done)
+                            if (!passthrough && provider.streamFormat !== 'openai' && !session.done)
                                 output.enqueue(encoder.encode('data: [DONE]\n\n'))
                             finish()
                             output.close()
@@ -282,7 +274,7 @@ export async function forwardProxyRequest(
         })
         return new Response(stream, {
             status: upstream.status,
-            headers: downstreamHeaders(upstream.headers, !native),
+            headers: downstreamHeaders(upstream.headers, !passthrough),
         })
     } catch (error) {
         const message = (error as Error).message

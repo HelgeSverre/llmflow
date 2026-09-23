@@ -29,13 +29,13 @@ test('the proxy lists its passthrough providers and how to use them', async () =
         passthrough: Array<{ name: string }>
         usage: { passthrough?: string }
     }
-    expect(body.passthrough.map((handler) => handler.name)).toEqual(
-        expect.arrayContaining([
-            'anthropic-passthrough',
-            'gemini-passthrough',
-            'openai-passthrough',
-        ]),
-    )
+    // Passthrough routes use the same providers, and names, as the translated routes.
+    expect(body.passthrough.map((entry) => entry.name)).toEqual([
+        'anthropic',
+        'gemini',
+        'openai',
+        'helicone',
+    ])
     expect(body.usage.passthrough).toBeTruthy()
 })
 

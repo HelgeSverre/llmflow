@@ -2,8 +2,13 @@ import { test, expect, afterAll } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { AnthropicProvider, CohereProvider, BaseProvider, registry } from '@llmflow/providers'
-import { AnthropicPassthrough, GeminiPassthrough } from '@llmflow/providers/passthrough'
+import {
+    AnthropicProvider,
+    BaseProvider,
+    CohereProvider,
+    GeminiProvider,
+    registry,
+} from '@llmflow/providers'
 const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-proxy-'))
 Object.assign(process.env, {
     DATA_DIR: directory,
@@ -124,6 +129,21 @@ const upstream = Bun.serve({
             await Bun.sleep(1000)
             return new Response('late')
         }
+        if (mode === 'anthropic-json')
+            return Response.json({
+                id: 'msg_fixture',
+                type: 'message',
+                role: 'assistant',
+                model: 'claude-fixture',
+                content: [{ type: 'text', text: 'cached answer' }],
+                stop_reason: 'end_turn',
+                usage: {
+                    input_tokens: 40,
+                    output_tokens: 6,
+                    cache_creation_input_tokens: 3,
+                    cache_read_input_tokens: 30,
+                },
+            })
         if (mode === 'json')
             return Response.json({
                 model: 'fixture',
@@ -173,14 +193,10 @@ class MockCohere extends CohereProvider {
     }
 }
 registry.register('cohere-fixture', new MockCohere())
-const native = new AnthropicPassthrough()
-native.targetHost = '127.0.0.1'
-native.targetPort = upstream.port!
-native.protocol = 'http'
-const gemini = new GeminiPassthrough()
-gemini.targetHost = '127.0.0.1'
-gemini.targetPort = upstream.port!
-gemini.protocol = 'http'
+// Passthrough fixtures: the real providers, pointed at the local upstream.
+const local = { hostname: '127.0.0.1', port: upstream.port!, protocol: 'http' as const }
+const native = Object.assign(new AnthropicProvider(), local)
+const gemini = Object.assign(new GeminiProvider(), local)
 const proxy = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -191,9 +207,9 @@ const proxy = Bun.serve({
             req,
             url,
             url.pathname.startsWith('/native')
-                ? { handler: native, prefix: '/native' }
+                ? { provider: native, prefix: '/native' }
                 : url.pathname.startsWith('/google')
-                  ? { handler: gemini, prefix: '/google' }
+                  ? { provider: gemini, prefix: '/google' }
                   : undefined,
         )
     },
@@ -364,3 +380,45 @@ test('a quiet streaming gap stays open; cancelling downstream stops upstream wor
     for (let i = 0; i < 50 && !disconnected; i++) await Bun.sleep(10)
     expect(disconnected).toBe(true)
 }, 15000)
+
+test('translated and passthrough Anthropic calls share provider, service and cache-token capture', async () => {
+    const cacheFields = (row: any) => {
+        const attributes = JSON.parse(row.attributes)
+        return {
+            cache_creation_input_tokens: attributes.cache_creation_input_tokens,
+            cache_read_input_tokens: attributes.cache_read_input_tokens,
+        }
+    }
+    const rowsFor = (trace: string) => db.getSpansByTraceId(trace) as any[]
+
+    // Streaming: both modes against the same upstream.
+    mode = 'anthropic'
+    for (const route of ['/fixture/v1/chat/completions', '/native/v1/messages'])
+        await (await send(route, true, { 'x-trace-id': 'stream-cache-trace' })).text()
+    const streamed = rowsFor('stream-cache-trace')
+    expect(streamed.map((row) => row.provider)).toEqual(['anthropic', 'anthropic'])
+    expect(streamed.map((row) => row.service_name)).toEqual(['llmflow-proxy', 'llmflow-proxy'])
+    expect(cacheFields(streamed[0])).toEqual(cacheFields(streamed[1]))
+    expect(cacheFields(streamed[0]).cache_read_input_tokens).toBe(20)
+
+    // Non-streaming: the translated route used to drop the cache counters.
+    mode = 'anthropic-json'
+    for (const route of ['/fixture/v1/chat/completions', '/native/v1/messages'])
+        expect(
+            (await send(route, false, { 'x-trace-id': 'cache-trace', 'x-llmflow-service': 'cli' }))
+                .status,
+        ).toBe(200)
+    const plain = rowsFor('cache-trace')
+    expect(plain).toHaveLength(2)
+    for (const row of plain) {
+        expect(row.provider).toBe('anthropic')
+        expect(row.service_name).toBe('cli')
+        expect(row.model).toBe('claude-fixture')
+        expect(row.prompt_tokens).toBe(40)
+        expect(cacheFields(row)).toEqual({
+            cache_creation_input_tokens: 3,
+            cache_read_input_tokens: 30,
+        })
+    }
+    mode = 'anthropic'
+})

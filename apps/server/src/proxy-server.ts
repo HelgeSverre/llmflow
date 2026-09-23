@@ -1,22 +1,7 @@
 // The LLM proxy listener: provider routes, native passthrough routes, health and discovery.
 import * as db from '@llmflow/db'
-import { registry } from '@llmflow/providers'
-import {
-    AnthropicPassthrough,
-    GeminiPassthrough,
-    HeliconePassthrough,
-    OpenAIPassthrough,
-    type PassthroughHandler,
-} from '@llmflow/providers/passthrough'
+import { passthroughProviders, registry } from '@llmflow/providers'
 import { forwardProxyRequest } from './proxy'
-
-// /passthrough/<name>/* forwards native API formats unchanged.
-const passthroughHandlers: Record<string, PassthroughHandler> = {
-    anthropic: new AnthropicPassthrough(),
-    gemini: new GeminiPassthrough(),
-    openai: new OpenAIPassthrough(),
-    helicone: new HeliconePassthrough(),
-}
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -50,9 +35,9 @@ async function route(req: Request, url: URL, port: number): Promise<Response> {
     if (url.pathname === '/providers')
         return Response.json({
             providers: registry.list(),
-            passthrough: Object.entries(passthroughHandlers).map(([prefix, handler]) => ({
-                name: handler.name,
-                displayName: handler.displayName,
+            passthrough: Object.entries(passthroughProviders).map(([prefix, provider]) => ({
+                name: provider.name,
+                displayName: provider.displayName,
                 prefix: `/passthrough/${prefix}/*`,
             })),
             usage: {
@@ -66,10 +51,10 @@ async function route(req: Request, url: URL, port: number): Promise<Response> {
 
     if (req.method === 'OPTIONS') return new Response(null, { status: 200 })
 
-    for (const [name, handler] of Object.entries(passthroughHandlers)) {
+    for (const [name, provider] of Object.entries(passthroughProviders)) {
         const prefix = `/passthrough/${name}`
         if (url.pathname.startsWith(`${prefix}/`))
-            return forwardProxyRequest(req, url, { handler, prefix })
+            return forwardProxyRequest(req, url, { provider, prefix })
     }
     return forwardProxyRequest(req, url)
 }

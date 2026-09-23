@@ -1,12 +1,5 @@
 import { config } from '@llmflow/shared/config'
-import {
-    BaseProvider,
-    type NormalizedResponse,
-    type ProviderRequest,
-    type ProviderTarget,
-    type TokenUsage,
-    type UsageLike,
-} from './base'
+import { apiKeyFrom, BaseProvider, type ProviderRequest, type ProviderTarget } from './base'
 
 export interface AzureOpenAIProviderConfig {
     resource?: string
@@ -29,11 +22,11 @@ export class AzureOpenAIProvider extends BaseProvider {
     apiVersion: string
     deploymentMap: Record<string, string>
 
+    override name = 'azure'
+    override displayName = 'Azure OpenAI'
+
     constructor(options: AzureOpenAIProviderConfig = {}) {
         super()
-        this.name = 'azure'
-        this.displayName = 'Azure OpenAI'
-
         this.resource = options.resource || config.azureResource
         this.apiVersion = options.apiVersion || config.azureApiVersion
         this.deploymentMap = options.deploymentMap || {}
@@ -92,55 +85,7 @@ export class AzureOpenAIProvider extends BaseProvider {
 
     override transformRequestHeaders(
         headers: Record<string, string | undefined>,
-        _req: ProviderRequest,
     ): Record<string, string | undefined> {
-        let apiKey = headers?.authorization
-        if (apiKey && apiKey.startsWith('Bearer ')) {
-            apiKey = apiKey.slice(7)
-        }
-
-        apiKey = headers?.['api-key'] || apiKey
-
-        return {
-            'Content-Type': 'application/json',
-            'api-key': apiKey,
-        }
-    }
-
-    override transformRequestBody(body: unknown, _req: ProviderRequest): unknown {
-        return body
-    }
-
-    override normalizeResponse(body: unknown, req: ProviderRequest): NormalizedResponse {
-        const reqBody = (req.body || {}) as Record<string, unknown>
-        const b = body as
-            | {
-                  model?: string
-                  usage?: TokenUsage
-                  error?: unknown
-              }
-            | null
-            | undefined
-
-        if (!b || b.error) {
-            return { data: body, usage: null, model: reqBody.model as string | undefined }
-        }
-
-        return {
-            data: body,
-            usage: b.usage || null,
-            model: b.model || (reqBody.model as string | undefined) || 'unknown',
-        }
-    }
-
-    override extractUsage(response: unknown): TokenUsage {
-        const r = (response || {}) as { usage?: UsageLike }
-        const usage = r.usage || {}
-        return {
-            prompt_tokens: usage.prompt_tokens || 0,
-            completion_tokens: usage.completion_tokens || 0,
-            total_tokens:
-                usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
-        }
+        return { 'Content-Type': 'application/json', 'api-key': apiKeyFrom(headers, 'api-key') }
     }
 }

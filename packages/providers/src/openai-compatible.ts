@@ -14,8 +14,6 @@ export interface OpenAICompatibleConfig {
  * Used for Groq, Mistral, Together, etc.
  */
 export class OpenAICompatibleProvider extends BaseProvider {
-    hostname: string
-    port: number
     basePath: string
     extraHeaders: Record<string, string>
 
@@ -30,23 +28,13 @@ export class OpenAICompatibleProvider extends BaseProvider {
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {
-        return {
-            hostname: this.hostname,
-            port: this.port,
-            path: this.basePath + req.path,
-            protocol: 'https',
-        }
+        return { ...this.passthroughTarget(req), path: this.basePath + req.path }
     }
 
     override transformRequestHeaders(
         headers: Record<string, string | undefined>,
-        _req: ProviderRequest,
     ): Record<string, string | undefined> {
-        return {
-            'Content-Type': 'application/json',
-            Authorization: headers.authorization,
-            ...this.extraHeaders,
-        }
+        return { ...super.transformRequestHeaders(headers), ...this.extraHeaders }
     }
 }
 

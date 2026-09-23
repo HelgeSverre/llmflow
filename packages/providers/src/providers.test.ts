@@ -94,10 +94,7 @@ describe('OpenAI Provider', () => {
 
     test('OpenAI transforms headers correctly', () => {
         const provider = new OpenAIProvider()
-        const headers = provider.transformRequestHeaders(
-            { authorization: 'Bearer sk-test123' },
-            request(),
-        )
+        const headers = provider.transformRequestHeaders({ authorization: 'Bearer sk-test123' })
 
         expect(headers['Content-Type']).toBe('application/json')
         expect(headers['Authorization']).toBe('Bearer sk-test123')
@@ -212,7 +209,7 @@ describe('Ollama Provider', () => {
 
     test('Ollama does not require authorization header', () => {
         const provider = new OllamaProvider()
-        const headers = provider.transformRequestHeaders({}, request())
+        const headers = provider.transformRequestHeaders({})
 
         expect(headers['Content-Type']).toBe('application/json')
         expect(headers['Authorization']).toBeFalsy()
@@ -230,10 +227,7 @@ describe('Anthropic Provider', () => {
 
     test('Anthropic transforms headers with x-api-key', () => {
         const provider = new AnthropicProvider()
-        const headers = provider.transformRequestHeaders(
-            { authorization: 'Bearer sk-ant-test123' },
-            request(),
-        )
+        const headers = provider.transformRequestHeaders({ authorization: 'Bearer sk-ant-test123' })
 
         expect(headers['x-api-key']).toBe('sk-ant-test123')
         expect(headers['anthropic-version']).toBe('2023-06-01')
@@ -243,7 +237,7 @@ describe('Anthropic Provider', () => {
 
     test('Anthropic accepts x-api-key header directly', () => {
         const provider = new AnthropicProvider()
-        const headers = provider.transformRequestHeaders({ 'x-api-key': 'direct-key' }, request())
+        const headers = provider.transformRequestHeaders({ 'x-api-key': 'direct-key' })
 
         expect(headers['x-api-key']).toBe('direct-key')
     })
@@ -598,10 +592,7 @@ describe('Azure OpenAI Provider', () => {
 
     test('Azure transforms Authorization Bearer to api-key header', () => {
         const provider = new AzureOpenAIProvider()
-        const headers = provider.transformRequestHeaders(
-            { authorization: 'Bearer my-azure-key' },
-            request(),
-        )
+        const headers = provider.transformRequestHeaders({ authorization: 'Bearer my-azure-key' })
 
         expect(headers['api-key']).toBe('my-azure-key')
         expect(headers['Authorization']).toBeFalsy()
@@ -609,7 +600,7 @@ describe('Azure OpenAI Provider', () => {
 
     test('Azure uses api-key header directly if provided', () => {
         const provider = new AzureOpenAIProvider()
-        const headers = provider.transformRequestHeaders({ 'api-key': 'direct-key' }, request())
+        const headers = provider.transformRequestHeaders({ 'api-key': 'direct-key' })
 
         expect(headers['api-key']).toBe('direct-key')
     })

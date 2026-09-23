@@ -1,11 +1,5 @@
-import {
-    BaseProvider,
-    type NormalizedResponse,
-    type ProviderRequest,
-    type ProviderTarget,
-    type TokenUsage,
-    type UsageLike,
-} from './base'
+import type { NormalizedResponse, ProviderRequest, TokenUsage, UsageLike } from './base'
+import { OpenAICompatibleProvider } from './openai-compatible'
 
 interface OpenAIResponsesUsage extends UsageLike {
     input_tokens?: number
@@ -16,37 +10,9 @@ interface OpenAIResponsesUsage extends UsageLike {
  * OpenAI provider - the reference implementation.
  * Supports both Chat Completions (/v1/chat/completions) and Responses (/v1/responses) APIs.
  */
-export class OpenAIProvider extends BaseProvider {
-    hostname: string
-    port: number
-    basePath: string
-
+export class OpenAIProvider extends OpenAICompatibleProvider {
     constructor() {
-        super()
-        this.name = 'openai'
-        this.displayName = 'OpenAI'
-        this.hostname = 'api.openai.com'
-        this.port = 443
-        this.basePath = ''
-    }
-
-    override getTarget(req: ProviderRequest): ProviderTarget {
-        return {
-            hostname: this.hostname,
-            port: this.port,
-            path: this.basePath + req.path,
-            protocol: 'https',
-        }
-    }
-
-    override transformRequestHeaders(
-        headers: Record<string, string | undefined>,
-        _req: ProviderRequest,
-    ): Record<string, string | undefined> {
-        return {
-            'Content-Type': 'application/json',
-            Authorization: headers.authorization,
-        }
+        super({ name: 'openai', displayName: 'OpenAI', hostname: 'api.openai.com' })
     }
 
     /** Check if this is a Responses API request */
@@ -110,30 +76,6 @@ export class OpenAIProvider extends BaseProvider {
             usage: normalizedUsage,
             model: b.model || (reqBody.model as string | undefined) || 'unknown',
             _extractedContent: textContent,
-        }
-    }
-
-    /** Extract usage from response - handles both API formats */
-    override extractUsage(response: unknown): TokenUsage {
-        const r = (response || {}) as Record<string, unknown>
-        const usage = (r.usage || {}) as OpenAIResponsesUsage
-
-        // Responses API uses input_tokens/output_tokens
-        if (usage.input_tokens !== undefined) {
-            return {
-                prompt_tokens: usage.input_tokens || 0,
-                completion_tokens: usage.output_tokens || 0,
-                total_tokens:
-                    usage.total_tokens || (usage.input_tokens || 0) + (usage.output_tokens || 0),
-            }
-        }
-
-        // Chat Completions API
-        return {
-            prompt_tokens: usage.prompt_tokens || 0,
-            completion_tokens: usage.completion_tokens || 0,
-            total_tokens:
-                usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
         }
     }
 }

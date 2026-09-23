@@ -97,6 +97,16 @@ Use path prefixes or the `X-LLMFlow-Provider` header:
 | OpenRouter   | `http://localhost:8080/openrouter/v1` |
 | Perplexity   | `http://localhost:8080/perplexity/v1` |
 
+These routes take OpenAI-format requests and translate them. To send a provider's own API
+format unchanged, use a passthrough route: `/passthrough/anthropic/*`, `/passthrough/gemini/*`,
+`/passthrough/openai/*` or `/passthrough/helicone/*` (for example
+`ANTHROPIC_BASE_URL=http://localhost:8080/passthrough/anthropic`). Both kinds of route record
+the same provider name, so a provider shows up once in Analytics.
+
+Optional request headers: `X-LLMFlow-Service` names the calling application (default
+`llmflow-proxy`), `X-LLMFlow-Tags` adds comma-separated tags, and `X-Trace-Id` / `X-Parent-Id`
+attach the call to an existing trace (the SDK's `currentTraceHeaders()` sets these).
+
 ---
 
 ## OpenTelemetry Support

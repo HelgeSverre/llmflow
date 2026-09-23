@@ -1,37 +1,17 @@
 import { config } from '@llmflow/shared/config'
-import { BaseProvider, type ProviderRequest, type ProviderTarget } from './base'
+import { BaseProvider } from './base'
 
-/**
- * Ollama provider - local LLM server with OpenAI-compatible API.
- * Uses HTTP instead of HTTPS.
- */
+/** Ollama: a local LLM server with an OpenAI-compatible API over plain HTTP, no key. */
 export class OllamaProvider extends BaseProvider {
-    hostname: string
-    port: number
-
-    constructor() {
-        super()
-        this.name = 'ollama'
-        this.displayName = 'Ollama'
-        this.hostname = config.ollamaHost
-        this.port = config.ollamaPort
-    }
-
-    override getTarget(req: ProviderRequest): ProviderTarget {
-        return {
-            hostname: this.hostname,
-            port: this.port,
-            path: req.path,
-            protocol: 'http',
-        }
-    }
+    override name = 'ollama'
+    override displayName = 'Ollama'
+    override hostname = config.ollamaHost
+    override port = config.ollamaPort
+    override protocol = 'http' as const
 
     override transformRequestHeaders(
         _headers: Record<string, string | undefined>,
-        _req: ProviderRequest,
     ): Record<string, string | undefined> {
-        return {
-            'Content-Type': 'application/json',
-        }
+        return { 'Content-Type': 'application/json' }
     }
 }

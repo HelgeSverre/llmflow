@@ -40,7 +40,7 @@ describe('Anthropic passthrough', () => {
             expect(Array.isArray(data.content)).toBe(true)
             expect(data.content[0].type).toBe('text')
             expect(data.usage?.input_tokens).toBeGreaterThan(0)
-            await expectTraceLogged(server.url, 'anthropic-passthrough')
+            await expectTraceLogged(server.url, 'anthropic')
         },
         LIVE_TIMEOUT,
     )
@@ -118,7 +118,7 @@ test.skipIf(!(enabled('gemini') && !!geminiKey))(
         )
         expect(data.candidates?.[0]?.content?.parts).toBeDefined()
         expect(data.usageMetadata?.promptTokenCount).toBeGreaterThan(0)
-        await expectTraceLogged(server.url, 'gemini-passthrough')
+        await expectTraceLogged(server.url, 'gemini')
     },
     LIVE_TIMEOUT,
 )
@@ -136,7 +136,7 @@ test.skipIf(!enabled('openai', 'OPENAI_API_KEY'))(
             },
         )
         expect(data.choices?.[0]?.message?.content).toBeTruthy()
-        await expectTraceLogged(server.url, 'openai-passthrough')
+        await expectTraceLogged(server.url, 'openai')
     },
     LIVE_TIMEOUT,
 )
