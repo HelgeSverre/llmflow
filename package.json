@@ -26,7 +26,7 @@
     "demo": "bun run --filter llmflow demo",
     "demo:many": "bun run --filter llmflow demo:many",
     "test": "bun run test:server && bun run test:dashboard",
-    "test:server": "bun test --isolate --path-ignore-patterns='**/live/**' --path-ignore-patterns='**/*.test.js' apps/server packages",
+    "test:server": "bun test --isolate --path-ignore-patterns='**/live/**' apps/server packages",
     "test:dashboard": "bun run --filter @llmflow/dashboard test",
     "test:live": "bun test --isolate apps/server/test/live",
     "test:e2e": "bunx playwright test",

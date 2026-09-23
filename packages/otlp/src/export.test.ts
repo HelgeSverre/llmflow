@@ -1,29 +1,7 @@
-/**
- * Tests for OTLP Export Module
- */
+import { expect, test } from 'bun:test'
 
-const assert = require('assert')
-
-// Colors for output
-const green = (s) => `\x1b[32m${s}\x1b[0m`
-const red = (s) => `\x1b[31m${s}\x1b[0m`
-
-let passed = 0
-let failed = 0
-
-function test(name, fn) {
-    try {
-        fn()
-        console.log(green(`✓ ${name}`))
-        passed++
-    } catch (err) {
-        console.log(red(`✗ ${name}`))
-        console.log(`  ${err.message}`)
-        failed++
-    }
-}
-
-// Import the module
+// export.js reads LLMFLOW_OTLP_LEGACY_ATTRS on import; these tests expect the default (current names only).
+delete process.env.LLMFLOW_OTLP_LEGACY_ATTRS
 const {
     traceToOtlpSpan,
     logToOtlpRecord,
@@ -32,9 +10,7 @@ const {
     buildLogsPayload,
     buildMetricsPayload,
     getConfig,
-} = require('@llmflow/otlp/export')
-
-console.log('\n=== OTLP Export Tests ===\n')
+} = await import('./export')
 
 // Test trace conversion
 test('traceToOtlpSpan converts basic trace', () => {
@@ -56,13 +32,13 @@ test('traceToOtlpSpan converts basic trace', () => {
 
     const span = traceToOtlpSpan(trace)
 
-    assert.ok(span.traceId, 'should have traceId')
-    assert.ok(span.spanId, 'should have spanId')
-    assert.strictEqual(span.name, 'chat.completions', 'should have correct name')
-    assert.strictEqual(span.kind, 3, 'should be SPAN_KIND_CLIENT')
-    assert.ok(span.startTimeUnixNano, 'should have start time')
-    assert.ok(span.endTimeUnixNano, 'should have end time')
-    assert.ok(span.attributes.length > 0, 'should have attributes')
+    expect(span.traceId).toBeTruthy()
+    expect(span.spanId).toBeTruthy()
+    expect(span.name).toBe('chat.completions')
+    expect(span.kind).toBe(3)
+    expect(span.startTimeUnixNano).toBeTruthy()
+    expect(span.endTimeUnixNano).toBeTruthy()
+    expect(span.attributes.length).toBeGreaterThan(0)
 })
 
 test('traceToOtlpSpan normalizes trace ID to 32 chars', () => {
@@ -74,8 +50,8 @@ test('traceToOtlpSpan normalizes trace ID to 32 chars', () => {
 
     const span = traceToOtlpSpan(trace)
 
-    assert.strictEqual(span.traceId.length, 32, 'traceId should be 32 chars')
-    assert.strictEqual(span.spanId.length, 16, 'spanId should be 16 chars')
+    expect(span.traceId).toHaveLength(32)
+    expect(span.spanId).toHaveLength(16)
 })
 
 test('traceToOtlpSpan handles UUID format', () => {
@@ -88,8 +64,8 @@ test('traceToOtlpSpan handles UUID format', () => {
     const span = traceToOtlpSpan(trace)
 
     // Should strip dashes and normalize
-    assert.ok(!span.traceId.includes('-'), 'traceId should not have dashes')
-    assert.ok(!span.spanId.includes('-'), 'spanId should not have dashes')
+    expect(span.traceId.includes('-')).toBeFalsy()
+    expect(span.spanId.includes('-')).toBeFalsy()
 })
 
 test('traceToOtlpSpan extracts gen_ai attributes', () => {
@@ -108,14 +84,14 @@ test('traceToOtlpSpan extracts gen_ai attributes', () => {
     const attrMap = Object.fromEntries(span.attributes.map((a) => [a.key, a.value]))
 
     // Export emits current OTel GenAI semconv names by default
-    assert.strictEqual(attrMap['gen_ai.provider.name'].stringValue, 'anthropic')
-    assert.strictEqual(attrMap['gen_ai.operation.name'].stringValue, 'chat')
-    assert.strictEqual(attrMap['gen_ai.request.model'].stringValue, 'claude-3-haiku')
-    assert.strictEqual(attrMap['gen_ai.usage.input_tokens'].intValue, '50')
-    assert.strictEqual(attrMap['gen_ai.usage.output_tokens'].intValue, '100')
+    expect(attrMap['gen_ai.provider.name'].stringValue).toBe('anthropic')
+    expect(attrMap['gen_ai.operation.name'].stringValue).toBe('chat')
+    expect(attrMap['gen_ai.request.model'].stringValue).toBe('claude-3-haiku')
+    expect(attrMap['gen_ai.usage.input_tokens'].intValue).toBe('50')
+    expect(attrMap['gen_ai.usage.output_tokens'].intValue).toBe('100')
     // Deprecated names are NOT emitted unless LLMFLOW_OTLP_LEGACY_ATTRS=1
-    assert.strictEqual(attrMap['gen_ai.system'], undefined)
-    assert.strictEqual(attrMap['gen_ai.usage.prompt_tokens'], undefined)
+    expect(attrMap['gen_ai.system']).toBeUndefined()
+    expect(attrMap['gen_ai.usage.prompt_tokens']).toBeUndefined()
 })
 
 // Test log conversion
@@ -132,10 +108,10 @@ test('logToOtlpRecord converts basic log', () => {
 
     const record = logToOtlpRecord(log)
 
-    assert.ok(record.timeUnixNano, 'should have time')
-    assert.strictEqual(record.severityNumber, 9)
-    assert.strictEqual(record.severityText, 'INFO')
-    assert.strictEqual(record.body.stringValue, 'Test log message')
+    expect(record.timeUnixNano).toBeTruthy()
+    expect(record.severityNumber).toBe(9)
+    expect(record.severityText).toBe('INFO')
+    expect(record.body.stringValue).toBe('Test log message')
 })
 
 test('logToOtlpRecord extracts attributes', () => {
@@ -153,10 +129,10 @@ test('logToOtlpRecord extracts attributes', () => {
 
     const attrMap = Object.fromEntries(record.attributes.map((a) => [a.key, a.value]))
 
-    assert.strictEqual(attrMap['event.name'].stringValue, 'claude_code.prompt')
-    assert.strictEqual(attrMap['model'].stringValue, 'claude-3-haiku')
-    assert.strictEqual(attrMap['tokens'].doubleValue, 150)
-    assert.strictEqual(attrMap['cached'].boolValue, true)
+    expect(attrMap['event.name'].stringValue).toBe('claude_code.prompt')
+    expect(attrMap['model'].stringValue).toBe('claude-3-haiku')
+    expect(attrMap['tokens'].doubleValue).toBe(150)
+    expect(attrMap['cached'].boolValue).toBe(true)
 })
 
 // Test metric conversion
@@ -172,11 +148,11 @@ test('metricToOtlpMetric converts gauge metric', () => {
 
     const otlpMetric = metricToOtlpMetric(metric)
 
-    assert.strictEqual(otlpMetric.name, 'llm.latency')
-    assert.strictEqual(otlpMetric.description, 'LLM request latency')
-    assert.strictEqual(otlpMetric.unit, 's')
-    assert.ok(otlpMetric.gauge, 'should have gauge data')
-    assert.strictEqual(otlpMetric.gauge.dataPoints[0].asDouble, 1.5)
+    expect(otlpMetric.name).toBe('llm.latency')
+    expect(otlpMetric.description).toBe('LLM request latency')
+    expect(otlpMetric.unit).toBe('s')
+    expect(otlpMetric.gauge).toBeTruthy()
+    expect(otlpMetric.gauge.dataPoints[0].asDouble).toBe(1.5)
 })
 
 test('metricToOtlpMetric converts sum metric', () => {
@@ -189,9 +165,9 @@ test('metricToOtlpMetric converts sum metric', () => {
 
     const otlpMetric = metricToOtlpMetric(metric)
 
-    assert.ok(otlpMetric.sum, 'should have sum data')
-    assert.strictEqual(otlpMetric.sum.dataPoints[0].asInt, '42')
-    assert.strictEqual(otlpMetric.sum.isMonotonic, true)
+    expect(otlpMetric.sum).toBeTruthy()
+    expect(otlpMetric.sum.dataPoints[0].asInt).toBe('42')
+    expect(otlpMetric.sum.isMonotonic).toBe(true)
 })
 
 test('metricToOtlpMetric converts histogram metric', () => {
@@ -209,9 +185,9 @@ test('metricToOtlpMetric converts histogram metric', () => {
 
     const otlpMetric = metricToOtlpMetric(metric)
 
-    assert.ok(otlpMetric.histogram, 'should have histogram data')
-    assert.strictEqual(otlpMetric.histogram.dataPoints[0].count, 100)
-    assert.strictEqual(otlpMetric.histogram.dataPoints[0].sum, 5000)
+    expect(otlpMetric.histogram).toBeTruthy()
+    expect(otlpMetric.histogram.dataPoints[0].count).toBe(100)
+    expect(otlpMetric.histogram.dataPoints[0].sum).toBe(5000)
 })
 
 // Test payload builders
@@ -223,11 +199,11 @@ test('buildTracesPayload creates valid OTLP structure', () => {
 
     const payload = buildTracesPayload(traces)
 
-    assert.ok(payload.resourceSpans, 'should have resourceSpans')
-    assert.strictEqual(payload.resourceSpans.length, 1)
-    assert.ok(payload.resourceSpans[0].resource.attributes, 'should have resource attributes')
-    assert.ok(payload.resourceSpans[0].scopeSpans, 'should have scopeSpans')
-    assert.strictEqual(payload.resourceSpans[0].scopeSpans[0].spans.length, 2)
+    expect(payload.resourceSpans).toBeTruthy()
+    expect(payload.resourceSpans).toHaveLength(1)
+    expect(payload.resourceSpans[0].resource.attributes).toBeTruthy()
+    expect(payload.resourceSpans[0].scopeSpans).toBeTruthy()
+    expect(payload.resourceSpans[0].scopeSpans[0].spans).toHaveLength(2)
 })
 
 test('buildLogsPayload creates valid OTLP structure', () => {
@@ -238,10 +214,10 @@ test('buildLogsPayload creates valid OTLP structure', () => {
 
     const payload = buildLogsPayload(logs)
 
-    assert.ok(payload.resourceLogs, 'should have resourceLogs')
-    assert.strictEqual(payload.resourceLogs.length, 1)
-    assert.ok(payload.resourceLogs[0].scopeLogs, 'should have scopeLogs')
-    assert.strictEqual(payload.resourceLogs[0].scopeLogs[0].logRecords.length, 2)
+    expect(payload.resourceLogs).toBeTruthy()
+    expect(payload.resourceLogs).toHaveLength(1)
+    expect(payload.resourceLogs[0].scopeLogs).toBeTruthy()
+    expect(payload.resourceLogs[0].scopeLogs[0].logRecords).toHaveLength(2)
 })
 
 test('buildMetricsPayload creates valid OTLP structure', () => {
@@ -252,28 +228,18 @@ test('buildMetricsPayload creates valid OTLP structure', () => {
 
     const payload = buildMetricsPayload(metrics)
 
-    assert.ok(payload.resourceMetrics, 'should have resourceMetrics')
-    assert.strictEqual(payload.resourceMetrics.length, 1)
-    assert.ok(payload.resourceMetrics[0].scopeMetrics, 'should have scopeMetrics')
-    assert.strictEqual(payload.resourceMetrics[0].scopeMetrics[0].metrics.length, 2)
+    expect(payload.resourceMetrics).toBeTruthy()
+    expect(payload.resourceMetrics).toHaveLength(1)
+    expect(payload.resourceMetrics[0].scopeMetrics).toBeTruthy()
+    expect(payload.resourceMetrics[0].scopeMetrics[0].metrics).toHaveLength(2)
 })
 
 // Test config
 test('getConfig returns configuration object', () => {
     const config = getConfig()
 
-    assert.ok('enabled' in config, 'should have enabled')
-    assert.ok('endpoints' in config, 'should have endpoints')
-    assert.ok('batchSize' in config, 'should have batchSize')
-    assert.ok('flushIntervalMs' in config, 'should have flushIntervalMs')
+    expect(config).toHaveProperty('enabled')
+    expect(config).toHaveProperty('endpoints')
+    expect(config).toHaveProperty('batchSize')
+    expect(config).toHaveProperty('flushIntervalMs')
 })
-
-// Summary
-console.log('\n---')
-console.log(
-    `Tests: ${passed + failed} total, ${green(passed + ' passed')}, ${failed > 0 ? red(failed + ' failed') : '0 failed'}`,
-)
-
-if (failed > 0) {
-    process.exit(1)
-}
