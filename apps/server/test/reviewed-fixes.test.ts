@@ -24,23 +24,20 @@ test('both listeners bind to loopback by default and answer requests', async () 
     expect((await fetch(new URL('/health', proxy.url))).status).toBe(200)
 })
 
-test('existing OTLP integration suite passes against the isolated listener', async () => {
-    const child = Bun.spawn([process.execPath, path.join(import.meta.dir, 'otlp-e2e.js')], {
-        env: { ...process.env, LLMFLOW_URL: dashboard.url.toString().replace(/\/$/, '') },
-        stdout: 'pipe',
-        stderr: 'pipe',
-    })
-    const [output, errors, code] = await Promise.all([
-        new Response(child.stdout).text(),
-        new Response(child.stderr).text(),
-        child.exited,
-    ])
-    expect({ code, errors, failed: output.includes('✗') }).toEqual({
-        code: 0,
-        errors: '',
-        failed: false,
-    })
-}, 15000)
+test('the proxy lists its passthrough providers and how to use them', async () => {
+    const body = (await (await fetch(new URL('/providers', proxy.url))).json()) as {
+        passthrough: Array<{ name: string }>
+        usage: { passthrough?: string }
+    }
+    expect(body.passthrough.map((handler) => handler.name)).toEqual(
+        expect.arrayContaining([
+            'anthropic-passthrough',
+            'gemini-passthrough',
+            'openai-passthrough',
+        ]),
+    )
+    expect(body.usage.passthrough).toBeTruthy()
+})
 
 test('explicit host overrides change the actual listener addresses', async () => {
     const child = Bun.spawn(

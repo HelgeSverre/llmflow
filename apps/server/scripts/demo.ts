@@ -23,7 +23,7 @@
  *   bun run demo -- --no-metrics              # skip metric emission
  */
 
-const {
+import {
     traceId,
     spanId,
     SpanKind,
@@ -40,7 +40,25 @@ const {
     genAiWorkflowAttributes,
     genAiRetrievalAttributes,
     postOtlp,
-} = require('./helpers/otlp-builders.js')
+} from '../test/helpers/otlp-builders'
+
+type Json = Record<string, any>
+interface Operation {
+    op: string
+    provider: string
+    model: string
+    inputTokens: number
+    outputTokens: number
+    durationMs: number
+    timeToFirstChunk?: number
+}
+interface ScenarioResult {
+    label: string
+    operations: Operation[]
+    traceId: string
+    spans: Json[]
+    logs: Json[]
+}
 
 const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 
@@ -62,11 +80,12 @@ const c = {
     blue: '\x1b[34m',
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const jitter = (base, spread = 0.4) => Math.round(base * (1 - spread / 2 + Math.random() * spread))
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const jitter = (base: number, spread = 0.4) =>
+    Math.round(base * (1 - spread / 2 + Math.random() * spread))
 
 // Run-level state: collected metrics data points emitted at the end.
-const metricPoints = {
+const metricPoints: Record<'operationDuration' | 'tokenUsage' | 'timeToFirstChunk', Json[]> = {
     operationDuration: [],
     tokenUsage: [],
     timeToFirstChunk: [],
@@ -79,7 +98,7 @@ const metricPoints = {
 // was generated, so the orchestrator can roll up metrics and print a summary.
 // ────────────────────────────────────────────────────────────────────────────
 
-function scenarioChatBasic(now) {
+function scenarioChatBasic(now: number): ScenarioResult {
     const tid = traceId()
     const sid = spanId()
     const duration = jitter(420)
@@ -165,7 +184,7 @@ function scenarioChatBasic(now) {
     }
 }
 
-function scenarioChatLegacyNames(now) {
+function scenarioChatLegacyNames(now: number): ScenarioResult {
     const tid = traceId()
     const sid = spanId()
     const duration = jitter(340)
@@ -227,7 +246,7 @@ function scenarioChatLegacyNames(now) {
     }
 }
 
-function scenarioEmbeddings(now) {
+function scenarioEmbeddings(now: number): ScenarioResult {
     const tid = traceId()
     const sid = spanId()
     const duration = jitter(80)
@@ -267,7 +286,7 @@ function scenarioEmbeddings(now) {
     }
 }
 
-function scenarioRagPipeline(now) {
+function scenarioRagPipeline(now: number): ScenarioResult {
     const tid = traceId()
     const workflowSpan = spanId()
     const retrievalSpan = spanId()
@@ -404,7 +423,7 @@ function scenarioRagPipeline(now) {
     }
 }
 
-function scenarioAgentWithTools(now) {
+function scenarioAgentWithTools(now: number): ScenarioResult {
     const tid = traceId()
     const agentSpan = spanId()
     const chatDecideSpan = spanId()
@@ -622,7 +641,7 @@ function scenarioAgentWithTools(now) {
     }
 }
 
-function scenarioAnthropicCacheAndReasoning(now) {
+function scenarioAnthropicCacheAndReasoning(now: number): ScenarioResult {
     const tid = traceId()
     const cacheSpan = spanId()
     const reasoningSpan = spanId()
@@ -740,7 +759,7 @@ function scenarioAnthropicCacheAndReasoning(now) {
     }
 }
 
-function scenarioStreamingAndError(now) {
+function scenarioStreamingAndError(now: number): ScenarioResult {
     const tid = traceId()
     const streamSpan = spanId()
     const errorSpan = spanId()
@@ -833,7 +852,7 @@ function scenarioStreamingAndError(now) {
     }
 }
 
-const SCENARIOS = {
+const SCENARIOS: Record<string, (now: number) => ScenarioResult> = {
     'chat-basic': scenarioChatBasic,
     'chat-legacy-names': scenarioChatLegacyNames,
     embeddings: scenarioEmbeddings,
@@ -861,7 +880,7 @@ const TOKEN_BUCKETS = [
 const TTFC_BUCKETS = DURATION_BUCKETS
 
 /** Bucket a single observation into the explicit-bounds layout. */
-function bucketize(value, bounds) {
+function bucketize(value: number, bounds: number[]) {
     const counts = Array(bounds.length + 1).fill(0)
     let i = 0
     while (i < bounds.length && value > bounds[i]) i++
@@ -869,7 +888,17 @@ function bucketize(value, bounds) {
     return counts
 }
 
-function pointForObservation({ value, bounds, attributes, ms }) {
+function pointForObservation({
+    value,
+    bounds,
+    attributes,
+    ms,
+}: {
+    value: number
+    bounds: number[]
+    attributes: Record<string, unknown>
+    ms: number
+}) {
     return {
         startMs: ms,
         endMs: ms,
@@ -883,7 +912,7 @@ function pointForObservation({ value, bounds, attributes, ms }) {
     }
 }
 
-function recordOperation(op, now) {
+function recordOperation(op: Operation, now: number) {
     const durationSeconds = op.durationMs / 1000
     metricPoints.operationDuration.push(
         pointForObservation({
@@ -944,7 +973,7 @@ function recordOperation(op, now) {
 }
 
 async function emitMetrics() {
-    const metrics = []
+    const metrics: Json[] = []
     if (metricPoints.operationDuration.length > 0) {
         metrics.push(
             buildHistogramMetric({
@@ -984,7 +1013,7 @@ async function emitMetrics() {
 // Orchestration
 // ────────────────────────────────────────────────────────────────────────────
 
-async function runScenario(fn) {
+async function runScenario(fn: (now: number) => ScenarioResult) {
     const now = Date.now()
     const result = fn(now)
     const tracesPayload = buildTracesPayload({ spans: result.spans })
@@ -1037,7 +1066,7 @@ async function run() {
                 totalScenarios++
             } catch (err) {
                 console.log(
-                    `  ${c.red}✗${c.reset} ${scenarioName.padEnd(34)} ${c.red}${err.message}${c.reset}`,
+                    `  ${c.red}✗${c.reset} ${scenarioName.padEnd(34)} ${c.red}${(err as Error).message}${c.reset}`,
                 )
             }
             await sleep(jitter(120, 0.6))
@@ -1053,7 +1082,7 @@ async function run() {
                     `${metricPoints.timeToFirstChunk.length} ttfc points${c.reset}`,
             )
         } catch (err) {
-            console.log(`${c.red}metrics emit failed: ${err.message}${c.reset}`)
+            console.log(`${c.red}metrics emit failed: ${(err as Error).message}${c.reset}`)
         }
     }
 
@@ -1064,7 +1093,7 @@ async function run() {
     console.log(`${c.dim}Dashboard: ${LLMFLOW_URL}${c.reset}`)
 }
 
-run().catch((err) => {
-    console.error(`${c.red}Fatal: ${err.message}${c.reset}`)
+run().catch((err: Error) => {
+    console.error(`${c.red}Fatal: ${(err as Error).message}${c.reset}`)
     process.exit(1)
 })
