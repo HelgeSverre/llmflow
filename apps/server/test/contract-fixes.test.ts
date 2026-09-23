@@ -289,3 +289,19 @@ test('tool-heavy streams have bounded capture while forwarding every event and f
     expect(anthropic.tools.size).toBe(1024)
     expect(anthropic.response()._truncated).toBe(true)
 })
+
+test('a span posted without total_tokens totals its prompt and completion tokens', async () => {
+    const { id } = await post('/api/spans', {
+        span_name: 'token-total-fixture',
+        prompt_tokens: 12,
+        completion_tokens: 4,
+    })
+    expect((await get(`/api/spans/${id}`)).trace.total_tokens).toBe(16)
+    const explicit = await post('/api/spans', {
+        span_name: 'token-total-explicit',
+        prompt_tokens: 12,
+        completion_tokens: 4,
+        total_tokens: 20,
+    })
+    expect((await get(`/api/spans/${explicit.id}`)).trace.total_tokens).toBe(20)
+})

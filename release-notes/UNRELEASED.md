@@ -48,6 +48,10 @@ a `models` array; use `GET /api/models`.
   dashboard warns when it is more than 7 days old.
 - `llmflow-sdk` is built from TypeScript, ESM-only, and versioned with `llmflow`. `traced()`
   works with standard decorators as well as `experimentalDecorators`.
+- A span posted to `POST /api/spans` without `total_tokens` gets the sum of its prompt and
+  completion tokens instead of 0.
+- The Langfuse and Opik examples run each project's own self-hosting setup; the Helicone and
+  Aider examples are gone.
 
 ## Internal
 

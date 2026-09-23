@@ -1,83 +1,63 @@
-# Langfuse Integration
+# Langfuse
 
-[Langfuse](https://langfuse.com/) provides LLM observability with prompt management and evaluation features.
+Forward what LLMFlow records to a local [Langfuse](https://langfuse.com), running Langfuse's own
+self-hosting setup.
 
-## Quick Start
+## Start Langfuse
 
-1. Start Langfuse:
-
-   ```bash
-   docker compose up -d
-   ```
-
-2. Create account at http://localhost:3001:
-   - Sign up with email/password
-   - Create an organization
-   - Create a project
-   - Go to Settings → API Keys
-   - Copy the Public Key and Secret Key
-
-3. Configure LLMFlow (add to `.env` in project root):
-
-   ```bash
-   # Base64 encode your keys: echo -n "pk_xxx:sk_xxx" | base64
-   OTLP_EXPORT_ENDPOINT=http://localhost:3001/api/public/otel/v1/traces
-   OTLP_EXPORT_HEADERS=Authorization=Basic YOUR_BASE64_ENCODED_KEYS
-   ```
-
-4. Restart LLMFlow:
-
-   ```bash
-   bun run start
-   ```
-
-5. Make some LLM requests through the proxy
-
-6. View traces:
-   - **Langfuse UI**: http://localhost:3001
-   - **LLMFlow Dashboard**: http://127.0.0.1:1337
-
-## Langfuse Cloud
-
-For the hosted version:
-
-### EU Region (cloud.langfuse.com)
+From this directory, download Langfuse's `docker-compose.yml` and start it:
 
 ```bash
-OTLP_EXPORT_ENDPOINT=https://cloud.langfuse.com/api/public/otel/v1/traces
-OTLP_EXPORT_HEADERS=Authorization=Basic $(echo -n 'pk_xxx:sk_xxx' | base64)
+cd examples/observability/langfuse
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/langfuse/langfuse/main/docker-compose.yml
+docker compose --env-file langfuse.env up -d
 ```
 
-### US Region (us.cloud.langfuse.com)
+- `langfuse.env` uses Langfuse's headless initialisation to create an organisation, a project
+  with fixed API keys (`pk-lf-llmflow-local` / `sk-lf-llmflow-local`) and a login
+  (`admin@llmflow.local` / `llmflow-local`), so there is nothing to set up in the UI.
+- `docker-compose.override.yml`, which Compose merges automatically, keeps Postgres, Redis and
+  ClickHouse off host ports so they cannot clash with databases already running on your machine.
+  Only the UI and API (3000) and MinIO (9090) are published.
+- The downloaded `docker-compose.yml` is gitignored. Its secrets are Langfuse's local defaults; do
+  not expose this stack to a network.
+
+Langfuse is ready when `curl http://127.0.0.1:3000/api/public/health` returns `"status":"OK"`
+(about a minute on the first start, while images download).
+
+## Point LLMFlow at it
+
+Start LLMFlow with the settings in [`.env.example`](.env.example), for example by copying them
+into the project-root `.env`:
 
 ```bash
-OTLP_EXPORT_ENDPOINT=https://us.cloud.langfuse.com/api/public/otel/v1/traces
-OTLP_EXPORT_HEADERS=Authorization=Basic $(echo -n 'pk_xxx:sk_xxx' | base64)
+OTLP_EXPORT_TRACES_ENDPOINT=http://127.0.0.1:3000/api/public/otel/v1/traces
+OTLP_EXPORT_HEADERS="Authorization=Basic cGstbGYtbGxtZmxvdy1sb2NhbDpzay1sZi1sbG1mbG93LWxvY2Fs"
 ```
 
-## Features
-
-Langfuse provides:
-
-- LLM trace visualization
-- Prompt versioning and management
-- A/B testing prompts
-- User feedback collection
-- Cost tracking
-- Evaluation datasets
-
-## Generating Auth Header
+The header is `base64("<public key>:<secret key>")`. For a different project, encode its keys:
 
 ```bash
-# Linux/macOS
-echo -n "pk_your_public_key:sk_your_secret_key" | base64
-
-# Then use in .env:
-OTLP_EXPORT_HEADERS=Authorization=Basic cGtfeW91cl9wdWJsaWNfa2V5OnNrX3lvdXJfc2VjcmV0X2tleQ==
+printf 'pk-lf-...:sk-lf-...' | base64
 ```
 
-## Cleanup
+## Check it
+
+Send traffic through LLMFlow (or `bun run demo` from the repository root), then open
+<http://127.0.0.1:3000>, log in and open the LLMFlow project. Spans arrive as observations with
+their model, token usage, session and LLMFlow's attributes as metadata. To check from the command
+line:
 
 ```bash
-docker compose down -v
+curl -s -u pk-lf-llmflow-local:sk-lf-llmflow-local \
+  "http://127.0.0.1:3000/api/public/v2/observations?limit=5&fields=core,basic,usage,model"
 ```
+
+## Stop
+
+```bash
+docker compose down      # keep the data
+docker compose down -v   # delete it
+```
+
+Checked with Langfuse 4.43 (2026-09-23).

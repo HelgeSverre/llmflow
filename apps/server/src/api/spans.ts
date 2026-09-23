@@ -96,15 +96,17 @@ async function createSpan(req: Request) {
         (body.duration_ms as number | undefined) ??
         (body.end_time ? (body.end_time as number) - startTime : null)
     const traceId = (body.trace_id as string) || id
+    const promptTokens = (body.prompt_tokens as number) || 0
+    const completionTokens = (body.completion_tokens as number) || 0
     db.insertSpan({
         id,
         timestamp: startTime,
         duration_ms: duration ?? undefined,
         provider: (body.provider as string) || undefined,
         model: (body.model as string) || undefined,
-        prompt_tokens: (body.prompt_tokens as number) || 0,
-        completion_tokens: (body.completion_tokens as number) || 0,
-        total_tokens: (body.total_tokens as number) || 0,
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: (body.total_tokens as number) || promptTokens + completionTokens,
         estimated_cost: (body.estimated_cost as number) || 0,
         status: (body.status as number) || 200,
         error: (body.error as string) || undefined,

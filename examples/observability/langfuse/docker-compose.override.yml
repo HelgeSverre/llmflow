@@ -1,0 +1,15 @@
+# Compose merges this into Langfuse's docker-compose.yml. LLMFlow only needs the web UI/API
+# (3000) and MinIO (9090, used for media uploads); keep the databases off host ports so they
+# cannot clash with a local Postgres, Redis or ClickHouse.
+services:
+  langfuse-worker:
+    ports: !reset []
+  clickhouse:
+    ports: !reset []
+  minio:
+    ports: !override
+      - 9090:9000
+  redis:
+    ports: !reset []
+  postgres:
+    ports: !reset []

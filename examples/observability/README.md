@@ -4,50 +4,29 @@ This folder contains example configurations for integrating LLMFlow with popular
 
 ## Quick Reference
 
-| Backend                 | Docker Compose | Description                     |
-| ----------------------- | -------------- | ------------------------------- |
-| [Jaeger](./jaeger/)     | ✅             | Open-source distributed tracing |
-| [Phoenix](./phoenix/)   | ✅             | Arize's LLM observability       |
-| [Langfuse](./langfuse/) | ✅             | LLM monitoring & prompts        |
-| [Helicone](./helicone/) | -              | LLM cost tracking               |
-| [Opik](./opik/)         | ✅             | Comet experiment tracking       |
+| Backend                 | How it runs                                       | UI                       |
+| ----------------------- | ------------------------------------------------- | ------------------------ |
+| [Jaeger](./jaeger/)     | `docker compose up -d` in its folder              | <http://localhost:16686> |
+| [Phoenix](./phoenix/)   | `docker compose up -d` in its folder              | <http://localhost:6006>  |
+| [Langfuse](./langfuse/) | Langfuse's own `docker-compose.yml` with settings | <http://127.0.0.1:3000>  |
+| [Opik](./opik/)         | Opik's `opik.sh` launcher                         | <http://127.0.0.1:5173>  |
+
+Each folder's README has the start command, the LLMFlow settings (also in its `.env.example`) and
+a way to check that spans arrived.
 
 ## Setup
 
-1. Start LLMFlow:
+1. Start the backend as its README describes.
+2. Copy the settings from its `.env.example` into the project-root `.env`.
+3. Start LLMFlow from the project root:
 
    ```bash
-   cd ../..
    bun run start
    ```
 
-2. Start your observability backend:
-
-   ```bash
-   cd jaeger  # or phoenix, langfuse, etc.
-   docker compose up -d
-   ```
-
-3. Configure LLMFlow to export traces:
-
-   ```bash
-   # Add to .env
-   OTLP_EXPORT_ENDPOINT=http://localhost:4318/v1/traces
-   ```
-
-4. Send some traffic through LLMFlow, for example with the [RAG pipeline example](../rag-pipeline/):
-
-   ```bash
-   cd examples/rag-pipeline  # from the project root
-   bun install
-   bun run start
-   ```
-
-5. View traces:
-   - Jaeger: http://localhost:16686
-   - Phoenix: http://localhost:6006
-   - Langfuse: http://localhost:3001
-   - LLMFlow: http://127.0.0.1:1337
+4. Send some traffic through LLMFlow, for example with `bun run demo` from the project root or
+   the [RAG pipeline example](../rag-pipeline/).
+5. Open the backend's UI, and LLMFlow's dashboard at <http://127.0.0.1:1337>.
 
 ## Architecture
 
@@ -74,7 +53,7 @@ This folder contains example configurations for integrating LLMFlow with popular
    ┌──────────────┐                    ┌──────────────────┐
    │   LLM APIs   │                    │ Observability    │
    │ OpenAI, etc  │                    │ Jaeger, Phoenix  │
-   └──────────────┘                    │ Langfuse, etc    │
+   └──────────────┘                    │ Langfuse, Opik   │
                                        └──────────────────┘
 ```
 
@@ -93,32 +72,8 @@ This folder contains example configurations for integrating LLMFlow with popular
 
 ## Backend-Specific Notes
 
-### Jaeger
-
-- No authentication required for local development
-- Supports OTLP/HTTP natively
-- UI shows full trace timelines
-
-### Phoenix (Arize)
-
-- Free tier available at https://app.phoenix.arize.com
-- Specialized for LLM/ML traces
-- Built-in evaluation features
-
-### Langfuse
-
-- Supports OTLP as of recent versions
-- Also has REST API for programmatic access
-- Prompt management features
-
-### Helicone
-
-- Works as a proxy (not OTLP export)
-- Use `/passthrough/helicone/*` routes
-- Cost tracking and caching features
-
-### Opik (Comet)
-
-- Free tier available
-- Experiment tracking and comparison
-- Supports custom metrics
+- **Jaeger** needs no authentication locally and shows full trace timelines.
+- **Phoenix** needs `OTLP_EXPORT_PROTOCOL=http/protobuf`.
+- **Langfuse** authenticates with Basic auth built from the project's public and secret keys.
+- **Opik** picks the project from the `projectName` header and maps a span's conversation ID to
+  its thread.
