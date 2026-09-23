@@ -395,7 +395,8 @@ Open the Vite URL (5173 by default); it proxies `/api` and `/ws` to the server.
 | `bun run env:docs`                     | Regenerate the configuration docs from `packages/shared/src/config.ts`            |
 | `bun run pricing:refresh`              | Regenerate the bundled pricing fallback from LiteLLM                              |
 
-`just --list` shows the same commands as `just` recipes.
+`just --list` shows the same commands as `just` recipes, with `-` for `:` (`just dev-server`); `just check` also
+runs the tests, and `just test <path>` runs only matching server and package test files.
 
 ### Tests
 

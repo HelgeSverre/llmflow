@@ -2,41 +2,51 @@ set dotenv-load
 
 COMPOSE := "docker compose -f docker/docker-compose.yml"
 
+# Short aliases for the root package.json scripts; `bun run <script>` works the same.
 default:
     @just --list
 
-# Install deps and start server + dashboard together (Vite HMR + automatic port selection)
+# Install dependencies, then run the server and the Vite dashboard together
 [group('dev')]
 dev:
-    bun install
-    bun run dev
+    bun install && bun run dev
 
-# Start only the server (when you want to restart the backend by itself)
+# Run only the server (restart the backend on its own)
 [group('dev')]
 dev-server:
     bun run dev:server
 
-# Start only the dashboard dev server (when you want to restart Vite by itself)
+# Run only the Vite dashboard (restart it on its own)
 [group('dev')]
 dev-dashboard:
     bun run dev:dashboard
 
-# Generate a sample trace
+# Send sample traces, logs and metrics to the running server
 [group('dev')]
 demo:
     bun run demo
 
-# Generate 20 sample traces
+# Send 20 rounds of sample data to the running server
 [group('dev')]
 demo-many:
     bun run demo:many
 
-# Run server, package and dashboard tests
-[group('test')]
-test:
-    bun run test
+# Run the server from source
+[group('dev')]
+start:
+    bun run start
 
-# Run server and package tests (bun test --isolate)
+# Run the server from source with debug logging
+[group('dev')]
+start-verbose:
+    bun run start:verbose
+
+# Run all tests, or `just test <path>` for matching server and package test files
+[group('test')]
+test *args:
+    {{ if args == "" { "bun run test" } else { "bun test --isolate --path-ignore-patterns='**/live/**' " + args } }}
+
+# Run server and package tests
 [group('test')]
 test-server:
     bun run test:server
@@ -46,89 +56,106 @@ test-server:
 test-dashboard:
     bun run test:dashboard
 
-# Run live provider tests (skipped without API keys)
+# Run tests against real provider APIs (billable; skipped without API keys)
 [group('test')]
 test-live:
     bun run test:live
 
-# Run Playwright E2E tests
+# Run Playwright end-to-end tests
 [group('test')]
 test-e2e:
-    bunx playwright test
+    bun run test:e2e
 
-# Run E2E tests with browser visible
+# Run Playwright tests with the browser visible
 [group('test')]
 test-e2e-headed:
-    bunx playwright test --headed
+    bun run test:e2e:headed
 
 # Open the Playwright UI runner
 [group('test')]
-test-e2e-ui *args:
-    bunx playwright test --ui {{args}}
+test-e2e-ui:
+    bun run test:e2e:ui
 
-# Typecheck all workspaces
+# Pack llmflow and llmflow-sdk and test the tarballs in a clean project
 [group('test')]
+test-package:
+    bun run test:package
+
+# Typecheck, lint, check formatting, then run all tests
+[group('check')]
+check:
+    bun run check && bun run test
+
+# Typecheck every workspace
+[group('check')]
 typecheck:
     bun run typecheck
 
 # Lint with oxlint
-[group('test')]
+[group('check')]
 lint:
     bun run lint
 
 # Apply oxlint autofixes
-[group('test')]
+[group('check')]
 lint-fix:
     bun run lint:fix
 
-# Format the whole repo with oxfmt
-[group('test')]
+# Format the repository with oxfmt
+[group('check')]
 format:
     bun run format
 
 # Check formatting without writing
-[group('test')]
+[group('check')]
 format-check:
     bun run format:check
 
-# Typecheck, lint, and check formatting
-[group('test')]
-check:
-    bun run check
-
-# Build the dashboard and bundled server
+# Build the dashboard and the bundled server into apps/server/dist
 [group('build')]
 build:
     bun run build
 
-# Build and run with Docker Compose (foreground)
+# Regenerate .env.example, the README configuration table and llmflow --help
+[group('build')]
+env-docs:
+    bun run env:docs
+
+# Regenerate the bundled pricing fallback from LiteLLM
+[group('build')]
+pricing-refresh:
+    bun run pricing:refresh
+
+# Build and run with Docker Compose in the foreground, retrying on free ports
 [group('docker')]
 docker:
     bun scripts/docker-dev.ts
 
+# Stop the Docker Compose service
 [group('docker')]
 docker-stop:
     {{ COMPOSE }} down
 
+# Follow the Docker Compose logs
 [group('docker')]
 docker-logs:
     {{ COMPOSE }} logs -f
 
-# Show what's running on llmflow ports
+# Show the running development servers and Docker containers
 [group('ops')]
 status:
     @bun run dev:status
     @docker ps --filter name=llmflow --format 'Docker: {{"{{.Names}} {{.Ports}}"}}' 2>/dev/null || true
 
-# Remove every node_modules, build output and the local database
+# Remove every node_modules, the build output and the local database
 [group('ops')]
 clean:
     find . \( -path ./.git -o -path ./.claude \) -prune -o -type d -name node_modules -prune -exec rm -rf {} +
-    rm -rf dist apps/server/dist apps/dashboard/dist
+    rm -rf dist apps/server/dist apps/dashboard/dist packages/sdk/dist
     rm -f "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}" "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}-wal" "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}-shm"
     @echo "cleaned node_modules, dist and database"
 
-# Serve the marketing site locally at http://localhost:4000
+# Serve the marketing site locally
 [group('website')]
 website:
     bun run --cwd website dev
@@ -138,7 +165,7 @@ website:
 website-og:
     bun run --cwd website og
 
-# Deploy a preview build to Vercel
+# Deploy a preview build of the marketing site to Vercel
 [group('website')]
 website-preview:
     bun run --cwd website preview
