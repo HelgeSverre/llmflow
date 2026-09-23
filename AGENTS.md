@@ -53,6 +53,20 @@ docker/ examples/ website/ release-notes/ .backlog/
 
 `bun run check` and `bun run test` must pass; run `bun run test:e2e` when UI or API behaviour changed and `bun run test:package` when packaging changed. Record verified facts and decisions in the task (notes or comments) so the next task sees them.
 
+## Agent skills
+
+### Issue tracker
+
+Issues, specs and ADRs live in Backlog.md and change only through the `backlog` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default five roles (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) as Backlog task labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md`, ADRs as Backlog docs under `adr/`. See `docs/agents/domain.md`.
+
 <!-- BACKLOG.MD GUIDELINES START -->
 <!-- backlog.md-instructions-version: 1.52.0 -->
 
