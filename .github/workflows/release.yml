@@ -1,0 +1,139 @@
+name: Release
+# A pushed vX.Y.Z tag (made by `just release X.Y.Z`) publishes llmflow and llmflow-sdk to npm,
+# pushes helgesverre/llmflow:X.Y.Z and :latest for amd64 and arm64, and creates the GitHub
+# Release from release-notes/vX.Y.Z.md. Run it by hand (workflow_dispatch) for a dry run that
+# builds and packs everything but publishes nothing. See RELEASING.md.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to rehearse (X.Y.Z); defaults to the current package version
+        required: false
+      dry_run:
+        description: Build and pack only; publish nothing
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      dry_run: ${{ steps.version.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        env:
+          TAG: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            version="${TAG#v}"
+            dry_run=false
+          else
+            version="${INPUT_VERSION:-$(jq -r .version apps/server/package.json)}"
+            dry_run="$INPUT_DRY_RUN"
+          fi
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::'$version' is not X.Y.Z"; exit 1; }
+          for manifest in apps/server/package.json packages/sdk/package.json; do
+            actual="$(jq -r .version "$manifest")"
+            [ "$actual" = "$version" ] || { echo "::error::$manifest is $actual, expected $version"; exit 1; }
+          done
+          if [ ! -s "release-notes/v$version.md" ]; then
+            # A rehearsal on main runs before `just release` has written the notes file.
+            [ "$dry_run" = true ] || { echo "::error::release-notes/v$version.md is missing"; exit 1; }
+            echo "::warning::release-notes/v$version.md is missing; a real release needs it"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  npm:
+    needs: [prepare, checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: bun ci
+      # bun pm pack runs prepack and rewrites workspace:/catalog: specifiers; bun publish cannot
+      # add provenance, so npm publishes the packed tarball.
+      - name: Pack llmflow and llmflow-sdk
+        run: |
+          mkdir -p "$RUNNER_TEMP/packages"
+          (cd apps/server && bun pm pack --destination "$RUNNER_TEMP/packages")
+          (cd packages/sdk && bun pm pack --destination "$RUNNER_TEMP/packages")
+          ls -l "$RUNNER_TEMP/packages"
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+        run: |
+          flags=(--provenance --access public)
+          if [ "$DRY_RUN" = true ]; then flags+=(--dry-run); fi
+          for tarball in "$RUNNER_TEMP"/packages/*.tgz; do
+            npm publish "$tarball" "${flags[@]}"
+          done
+
+  docker:
+    needs: [prepare, checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - if: needs.prepare.outputs.dry_run != 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - id: created
+        run: echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      # The build stage runs once on the runner's platform; only the runtime stage is per platform.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.prepare.outputs.dry_run != 'true' }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            REVISION=${{ github.sha }}
+            CREATED=${{ steps.created.outputs.created }}
+          tags: |
+            helgesverre/llmflow:${{ needs.prepare.outputs.version }}
+            helgesverre/llmflow:latest
+
+  github-release:
+    needs: [prepare, npm, docker]
+    if: needs.prepare.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release create "v$VERSION" --verify-tag --latest \
+            --title "v$VERSION" --notes-file "release-notes/v$VERSION.md"

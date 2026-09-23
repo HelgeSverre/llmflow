@@ -426,6 +426,8 @@ The npm package is built from `apps/server`: `bun run build` bundles the server 
 (`apps/server/bin/llmflow.js`) runs `src/server.ts` in a checkout and `dist/server.js` in an npm
 install. Docker builds the same layout from source.
 
+Releases are cut with `just release <version>` and published by a GitHub Actions workflow when
+the tag is pushed; [RELEASING.md](RELEASING.md) has the steps and the required secrets.
 ---
 
 ## License
