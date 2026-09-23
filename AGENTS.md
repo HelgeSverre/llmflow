@@ -1,64 +1,74 @@
 # AGENTS.md
 
-## Build & Test
+LLMFlow is a local LLM observability tool: an HTTP proxy for LLM APIs (port 8080) plus a dashboard, JSON API, OTLP receiver and WebSocket feed (port 1337), backed by SQLite. Bun monorepo.
 
-- Runtime: **Bun** (required; Node is only used by the `npx llmflow` launcher and Playwright). Workspaces: see `workspaces` in the root `package.json`.
-- Install: `bun install` at repo root (isolated linker: each workspace gets its own `node_modules`).
-- Both at once: `bun run dev` (root) — `scripts/dev.ts` runs the server (with `--watch`) and the dashboard's Vite dev server together and picks free ports if the defaults are busy.
-- Server only: `bun run dev:server` (root) or `bun run --filter @llmflow/server dev`.
-- Dashboard only: `bun run dev:dashboard` (root) or `bun run --filter @llmflow/dashboard dev`.
-- Tests (server): `bun run test` (root). Dashboard unit tests: `bun run --filter @llmflow/dashboard test`.
-- E2E (Playwright): `bunx playwright test`.
-- Typecheck: `bun run typecheck` (all workspaces + `scripts/`).
+## Status: cleanup milestone in progress
+
+- Milestone `m-0` "Project Cleanup" (34 tasks, TASK-71…104) is restructuring the repo. Run `backlog milestone list` and `backlog task list --plain`; before changing build, tests, packaging, config or docs, read the task that owns that area — its comments carry the decisions and the facts we verified.
+- Decisions already made (do not re-open): Bun-only runtime, Node only for `bin/llmflow.js` and Playwright · everything becomes TypeScript ESM, no `require()` in TS · `bun test` for server + packages, Vitest for the dashboard, Playwright in `e2e/` · oxlint + oxfmt replace Prettier (TASK-87) · `apps/server` becomes the published `llmflow` package and the root goes private (TASK-104) · `website/` leaves the workspaces (TASK-101) · unused API routes are deleted (TASK-88).
+- Deleted on purpose, recreated by their tasks: `docs/`, `ARCHITECTURE.md` (TASK-102), `RELEASING.md` (TASK-98). Do not restore them from git.
+
+## Runtime and commands (as of 2026-09-23)
+
+- Bun ≥ 1.3.13 required (developed on 1.4.2). `bun install` at the root; the isolated linker gives each workspace its own `node_modules`.
+- `bun run dev` — server (`--watch`) and the Vite dashboard together, falling back to free ports; `bun run dev:server` / `bun run dev:dashboard` for one side.
+- `bun run test` — server suite (custom runner until TASK-76). `bun run --filter @llmflow/dashboard test` — Vitest. `bunx playwright test` — E2E (builds first).
+- `bun run typecheck` — every workspace plus `scripts/`. `just format` / `just format-check` — Prettier until TASK-87 lands.
+- `bun run build` → `dist/` (server bundle, dashboard assets, pricing fallback). `bun run test:package` smoke-tests the npm tarball. `just --list` shows all recipes by group.
 
 ## Layout
 
 ```
-apps/
-  server/       Bun server (TS): proxy on 8080, dashboard on 1337, OTLP ingest, websocket fanout
-  dashboard/    Svelte 5 + Vite SPA; build output → apps/dashboard/dist/, assembled into dist/public/ for shipping
-packages/
-  db/           bun:sqlite schema + queries (TS, ESM). The safeJson helper lives here.
-  providers/    LLM provider adapters (OpenAI, Anthropic, Gemini, …) + passthrough handlers (TypeScript, ESM).
-  otlp/         OTLP/HTTP ingestion (traces / logs / metrics) + export to upstream backends (CJS).
-                Sessions: `traces.session_id` (nullable) groups multiple traces. Filled by OTLP
-                ingest from `session.id`, `langsmith.trace.session_id`, `traceloop.association.properties.session_id`,
-                `ai.telemetry.metadata.sessionId`, or `service.instance.id`. `traces.conversation_id`
-                holds `gen_ai.conversation.id` for chat threads. See `packages/otlp/src/traces.js`.
-  pricing/      LiteLLM-backed cost calculation + bundled pricing.fallback.json (CJS).
-  shared/       logger + cross-cutting utilities (CJS).
-  sdk/          Published as `llmflow-sdk` on npm. Workspace-internal name still `llmflow-sdk`.
-bin/            CLI entry: `npx llmflow` → bin/llmflow.js (spawns bundled dist/server.js, or source in an unbuilt checkout).
-docker/         Dockerfile + docker-compose.yml.
-e2e/playwright/ Playwright specs + fixtures.
-dist/           Generated server bundle, dashboard assets in public/, and runtime data; ignored by Git.
-website/        Marketing site, screenshots, llms.txt, and image-generation scripts (private workspace).
-release-notes/  v*.md per release.
+apps/server/        Bun server (TS): proxy, dashboard/API/OTLP/WebSocket, replay
+apps/dashboard/     Svelte 5 + Vite SPA (Vitest unit tests colocated)
+packages/db/        bun:sqlite schema, migrations, queries (TS, ESM)
+packages/providers/ provider adapters + passthrough handlers (TS, ESM)
+packages/otlp/      OTLP ingest + upstream export (CJS JS, being ported: TASK-82/83)
+packages/pricing/   LiteLLM pricing + offline fallback (CJS JS, TASK-81)
+packages/shared/    logger + redaction (CJS JS, TASK-80)
+packages/sdk/       llmflow-sdk (JS, not yet published: TASK-84)
+e2e/playwright/     Playwright specs, seed data, test server
+scripts/            dev, build, docker-dev, test-package orchestration
+bin/llmflow.js      Node launcher for `npx llmflow`; spawns Bun
+docker/ website/ release-notes/ .backlog/
 ```
 
-## Cross-package import idiom
+## Conventions
 
-```ts
-// In TypeScript (apps/server/src/server.ts)
-import * as db from '@llmflow/db' // ESM, typed
-import { safeJson } from '@llmflow/db'
-const log = require('@llmflow/shared/logger') // CJS
-import { registry } from '@llmflow/providers' // ESM, typed
-const { processOtlpTraces } = require('@llmflow/otlp/traces') // CJS sub-path
-```
+- Internal dependencies use `workspace:*`; import packages by name, never by a relative path into another workspace (the remaining violations are tracked in TASK-85/104).
+- Style: no semicolons, single quotes, trailing commas, 4-space indent (2-space in `apps/dashboard/**` and Markdown/JSON/YAML). No comments unless the WHY is non-obvious. Minimal dependencies.
+- Naming: camelCase in code, UPPER_SNAKE constants, snake_case for DB columns and API JSON.
+- Request handlers return an error `Response`; they never throw. Providers extend `BaseProvider` (`packages/providers/src/base.ts`).
+- Environment variables are still read ad hoc; TASK-90 centralises them. Do not add new scattered `process.env` reads — extend the existing read site instead.
+- Never commit generated output (`dist/`, `apps/dashboard/dist/`, `test-results/`) or private files (`.env`, `*.db`, `.claude-config/`).
 
-`@llmflow/db` and `@llmflow/providers` are ESM/TypeScript; OTLP, pricing, and shared remain CJS.
+## Before marking a task Done
 
-## Code Style
+`bun run typecheck`, `bun run test`, the dashboard tests and `just format-check` must pass; run Playwright when UI or API behaviour changed and `bun run test:package` when packaging changed. Record verified facts and decisions as task comments so the next task sees them.
 
-- Backend: TS in `apps/server/src/`, `packages/db/src/`, and `packages/providers/src/`; CJS in OTLP, pricing, and shared (transitional).
-- Formatting: Prettier (`just format` / `just format-check`). No semicolons, single quotes, trailing commas, 4-space indent for backend / 2-space for `apps/dashboard/**` and Markdown/JSON/YAML.
-- No comments unless WHY is non-obvious. Minimal dependencies; OTLP protobuf decoding uses `protobufjs` with a pinned generated schema.
-- Naming: camelCase for variables/functions, UPPER_SNAKE for constants, snake_case for DB columns/trace fields.
-- Error handling: try/catch with `log.error(...)`, never throw in request handlers — return error Response.
-- Provider modules follow the `BaseProvider` class pattern in `packages/providers/src/base.ts`.
-- All workspace dep paths use `workspace:*`. Don't hardcode versions for internal packages.
+<!-- BACKLOG.MD GUIDELINES START -->
+<!-- backlog.md-instructions-version: 1.52.0 -->
 
-## Backlog
+<CRITICAL_INSTRUCTION>
 
-Tasks live in `.backlog/` and are managed only through the `backlog` CLI (`backlog --help`, `backlog task list --plain`, `backlog task edit <id> ...`). Never edit task files by hand. The current milestone is `backlog milestone list`.
+## Backlog.md Workflow
+
+This project uses Backlog.md for task and project management.
+
+**At the beginning of each conversation in this project, run `backlog instructions overview` before answering or taking action. Re-read it only if you have not read it yet in the current conversation.**
+
+Use the overview to decide whether to search, read, create, or update Backlog tasks.
+
+Before task lifecycle actions, read the matching detailed guide:
+
+- `backlog instructions task-creation` before creating or splitting tasks
+- `backlog instructions task-execution` before planning, changing status or assignee, adding a plan or implementation notes, or implementing task work
+- `backlog instructions task-finalization` before checking acceptance criteria, writing final summaries, or moving tasks to terminal statuses
+
+Use `backlog <command> --help` before running unfamiliar commands. Help shows options, fields, and examples.
+
+Do not edit Backlog task, draft, document, decision, or milestone markdown files directly. Use the `backlog` CLI so metadata, relationships, and history stay consistent.
+
+</CRITICAL_INSTRUCTION>
+
+<!-- BACKLOG.MD GUIDELINES END -->
