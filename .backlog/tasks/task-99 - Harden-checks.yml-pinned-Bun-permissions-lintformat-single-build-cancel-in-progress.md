@@ -3,10 +3,10 @@ id: TASK-99
 title: >-
   Harden checks.yml: pinned Bun, permissions, lint+format, single build,
   cancel-in-progress
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 10:31'
+updated_date: '2026-09-23 12:15'
 labels:
   - ci
 milestone: m-0
