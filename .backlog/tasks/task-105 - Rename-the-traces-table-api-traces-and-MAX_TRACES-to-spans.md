@@ -1,10 +1,11 @@
 ---
 id: TASK-105
 title: 'Rename the traces table, /api/traces and MAX_TRACES to spans'
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-23 19:17'
+updated_date: '2026-09-23 19:30'
 labels:
   - naming
   - db
@@ -25,10 +26,10 @@ The traces table stores one row per span, /api/traces/:id takes a span id, MAX_T
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Existing databases migrate by renaming the table in place with all rows, indexes and triggers kept (tested from the v0.4.1 fixture)
-- [ ] #2 The span API is GET /api/spans, GET /api/spans/:id, GET /api/spans/:id/tree and POST /api/spans/:id/replay; /api/traces no longer exists
-- [ ] #3 DB functions, types, the dashboard, e2e specs and docs use span names; MAX_SPANS replaces MAX_TRACES (which is still read as a fallback)
-- [ ] #4 The breaking changes are listed in release-notes/UNRELEASED.md
+- [x] #1 Existing databases migrate by renaming the table in place with all rows, indexes and triggers kept (tested from the v0.4.1 fixture)
+- [x] #2 The span API is GET /api/spans, GET /api/spans/:id, GET /api/spans/:id/tree and POST /api/spans/:id/replay; /api/traces no longer exists
+- [x] #3 DB functions, types, the dashboard, e2e specs and docs use span names; MAX_SPANS replaces MAX_TRACES (which is still read as a fallback)
+- [x] #4 The breaking changes are listed in release-notes/UNRELEASED.md
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -36,3 +37,22 @@ The traces table stores one row per span, /api/traces/:id takes a span id, MAX_T
 <!-- SECTION:PLAN:BEGIN -->
 1. Migration step 7: ALTER TABLE traces RENAME TO spans (SQLite >= 3.26 rewrites indexes, triggers and the COALESCE index); steps 1-6 keep the traces name because they run before it. 2. DB module: SQL FROM/JOIN/INTO traces -> spans; insertTrace/getTraces/getTraceById/getTraceCount/traceSummary/subscribeTraces/Trace -> span names (trace-level helpers such as getSpansByTraceId, wasTraceEvicted, trace_groups keep trace names). 3. API routes /api/spans, /:id, /:id/tree, /:id/replay; proxy /health span count key. 4. Dashboard API calls; e2e specs and seed; tests. 5. MAX_SPANS in config with MAX_TRACES fallback; env docs regenerated. 6. Release notes; gate, test:package, Playwright.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Verified facts:
+- Migration step 7 = ALTER TABLE traces RENAME TO spans. Steps 1-6 still name 'traces' because they run before it (fresh and old databases take the same path). SQLite 3.43 (Bun 1.4.2) moves the idx_traces_* indexes, idx_trace_group and the trace_group_insert/delete triggers with the table; index names keep their historical idx_traces_ prefix.
+- packages/db/src/migrations.test.ts: the v0.4.1 fixture migrates to versions 1-7, has 'spans' and no 'traces', keeps its rows, and a row inserted after the rename still updates retention_counts and trace_groups (triggers followed); schema parity with a fresh DB holds.
+- DB API: insertSpan, getSpans, getSpanById, getSpanCount, spanSummary, subscribeSpans, types Span/SpanSummary/SpanFilters. Unchanged on purpose (they are about traces): getSpansByTraceId, wasTraceEvicted, trace_groups, evicted_traces, trace_id columns.
+- API: /api/spans (list, GET), /api/spans/:id, /api/spans/:id/tree, POST /api/spans/:id/replay, POST /api/spans (create, unchanged). apps/server/src/api/traces.ts -> spans.ts (spanRoutes). Proxy /health key 'spans'. The dashboard Traces tab keeps its name (it lists traces by root span) and calls /api/spans; e2e specs that derived the endpoint from the tab name map traces -> spans.
+- Config: MAX_SPANS (default 10000); MAX_TRACES declared as its former name and read only when MAX_SPANS is unset (config.test covers both). Env docs regenerated; DOCKER_HUB and README retention text updated.
+- release-notes/UNRELEASED.md lists the API, health, table and env renames.
+Validation: bun run check green; bun run test 228 pass/1 skip + dashboard 116; test:package passed; Playwright 125 passed (after mapping the traces tab to /api/spans in two specs).
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Renamed the traces table to spans with an in-place migration (rows, indexes and triggers preserved, tested from the v0.4.1 fixture), moved the span API to /api/spans, renamed the DB functions and types, replaced MAX_TRACES with MAX_SPANS (old name still honoured), and updated the dashboard, tests, docs and release notes. Verified with migration tests, bun run check/test, test:package and Playwright.
+<!-- SECTION:FINAL_SUMMARY:END -->
