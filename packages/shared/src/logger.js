@@ -51,8 +51,13 @@ const logger = {
         console.log(`${c.yellow}[llmflow]${c.reset} ${message}`)
     },
 
-    error(message) {
-        console.log(`${c.red}[llmflow]${c.reset} ${message}`)
+    // Optional cause: an Error prints its stack (which includes the message), anything else is stringified.
+    error(message, cause) {
+        const detail =
+            cause === undefined
+                ? ''
+                : `: ${cause instanceof Error ? cause.stack || cause.message : String(cause)}`
+        console.log(`${c.red}[llmflow]${c.reset} ${message}${detail}`)
     },
 
     // Request logging - compact by default

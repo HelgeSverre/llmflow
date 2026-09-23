@@ -5,8 +5,13 @@ import fs from 'fs'
 import os from 'os'
 const { sanitizeHeaders, sanitizePath } = require('@llmflow/shared/redaction')
 
-const DATA_DIR = process.env.DATA_DIR || path.join(os.homedir(), '.llmflow')
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'data.db')
+// .env files are not shell-expanded, so expand a leading ~ here instead of creating a literal ./~ directory.
+function expandHome(value: string | undefined) {
+    if (!value) return undefined
+    return value === '~' || /^~[\\/]/.test(value) ? path.join(os.homedir(), value.slice(1)) : value
+}
+const DATA_DIR = expandHome(process.env.DATA_DIR) || path.join(os.homedir(), '.llmflow')
+const DB_PATH = expandHome(process.env.DB_PATH) || path.join(DATA_DIR, 'data.db')
 const MAX_TRACES = Math.max(1, parseInt(process.env.MAX_TRACES || '10000', 10) || 10000)
 const MAX_LOGS = parseInt(process.env.MAX_LOGS || '100000', 10)
 const MAX_METRICS = parseInt(process.env.MAX_METRICS || '1000000', 10)
