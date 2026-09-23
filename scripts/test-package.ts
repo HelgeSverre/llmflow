@@ -41,7 +41,6 @@ try {
         'bin/llmflow.js',
         'dist/server.js',
         'dist/public/index.html',
-        'dist/pricing.fallback.json',
         'dist/licenses/opentelemetry-proto.txt',
     ])
         if (!paths.includes(required)) throw new Error(`Missing packed artifact: ${required}`)

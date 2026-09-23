@@ -14,9 +14,9 @@ import {
     OpenAIPassthrough,
     HeliconePassthrough,
 } from '@llmflow/providers/passthrough'
+import { getPricingStatus } from '@llmflow/pricing'
 import { log } from '@llmflow/shared/logger'
 // CommonJS workspace packages
-const { getPricingStatus } = require('@llmflow/pricing')
 const { processOtlpTraces } = require('@llmflow/otlp/traces')
 const { decodeOtlpRequest } = require('@llmflow/otlp/transport')
 const { processOtlpLogs } = require('@llmflow/otlp/logs')

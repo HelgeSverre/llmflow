@@ -2,7 +2,7 @@ import * as db from '@llmflow/db'
 import { registry, type BaseProvider } from '@llmflow/providers'
 import type { ProviderRequest, TokenUsage } from '@llmflow/providers/base'
 import type { PassthroughHandler } from '@llmflow/providers/passthrough'
-const { calculateCost } = require('@llmflow/pricing')
+import { calculateCost } from '@llmflow/pricing'
 import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
 import { log } from '@llmflow/shared/logger'
 

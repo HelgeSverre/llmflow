@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { cp, copyFile, mkdir, rm } from 'node:fs/promises'
+import { cp, mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 
 const packageRoot = path.resolve(import.meta.dir, '..')
@@ -35,7 +35,7 @@ const result = await Bun.build({
     format: 'esm',
     sourcemap: 'external',
     packages: 'bundle',
-    // CJS __dirname retains the source location when bundled; assets follow the output file.
+    // Static assets (dist/public) are located relative to the bundle; pricing is embedded.
     banner: 'const LLMFLOW_BUNDLE_DIR = import.meta.dir;',
 })
 if (!result.success) {
@@ -46,8 +46,4 @@ await mkdir(output, { recursive: true })
 await cp(path.join(workspace('@llmflow/dashboard'), 'dist'), path.join(output, 'public'), {
     recursive: true,
 })
-await copyFile(
-    Bun.resolveSync('@llmflow/pricing/fallback', packageRoot),
-    path.join(output, 'pricing.fallback.json'),
-)
 await cp(path.join(packageRoot, 'licenses'), path.join(output, 'licenses'), { recursive: true })

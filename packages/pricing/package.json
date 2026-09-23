@@ -2,12 +2,13 @@
   "name": "@llmflow/pricing",
   "version": "0.0.0",
   "private": true,
-  "main": "./src/index.js",
+  "type": "module",
   "exports": {
-    ".": "./src/index.js",
-    "./fallback": "./pricing.fallback.json"
+    ".": "./src/index.ts"
   },
-  "type": "commonjs",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@llmflow/shared": "workspace:*"
   }

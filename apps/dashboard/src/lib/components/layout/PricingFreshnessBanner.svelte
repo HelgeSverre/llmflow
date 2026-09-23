@@ -1,21 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api } from '$lib/api/client'
-
-  type PricingStatus = {
-    source: 'litellm' | 'fallback' | 'unknown'
-    last_updated: number | null
-    model_count: number
-    upstream_url: string
-  }
+  import { stalePricingDays, type PricingStatus } from '$lib/utils/pricing'
 
   type HealthResponse = {
     status: string
     timestamp: number
     pricing?: PricingStatus
   }
-
-  const STALE_MS = 7 * 24 * 60 * 60 * 1000
 
   let pricing = $state<PricingStatus | null>(null)
   let dismissed = $state(false)
@@ -29,18 +21,8 @@
     }
   })
 
-  let staleDays = $derived(
-    pricing?.last_updated
-      ? Math.floor((Date.now() - pricing.last_updated) / (24 * 60 * 60 * 1000))
-      : 0,
-  )
-
-  let show = $derived(
-    !dismissed &&
-      pricing?.source === 'fallback' &&
-      pricing.last_updated !== null &&
-      Date.now() - pricing.last_updated > STALE_MS,
-  )
+  let staleDays = $derived(stalePricingDays(pricing, Date.now()))
+  let show = $derived(!dismissed && staleDays !== null)
 </script>
 
 {#if show}
