@@ -385,3 +385,186 @@ test('structured log bodies and nested attributes survive actual ingest and coll
         arrayValue: { values: [{ stringValue: 'one' }, { stringValue: 'two' }] },
     })
 })
+
+test('recursive AnyValue attributes survive JSON and protobuf ingestion for every signal', async () => {
+    const values = [
+        {
+            key: 'nested',
+            value: {
+                kvlistValue: {
+                    values: [
+                        {
+                            key: 'items',
+                            value: {
+                                arrayValue: {
+                                    values: [
+                                        { boolValue: false },
+                                        { intValue: '0' },
+                                        {
+                                            kvlistValue: {
+                                                values: [
+                                                    {
+                                                        key: 'text',
+                                                        value: { stringValue: 'hello' },
+                                                    },
+                                                ],
+                                            },
+                                        },
+                                        { arrayValue: { values: [{ doubleValue: 1.5 }] } },
+                                    ],
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+        },
+        { key: 'emptyObject', value: { kvlistValue: {} } },
+        { key: 'emptyArray', value: { arrayValue: {} } },
+        { key: 'bytes', value: { bytesValue: 'aGk=' } },
+    ]
+    const expected = {
+        nested: { items: [false, 0, { text: 'hello' }, [1.5]] },
+        emptyObject: {},
+        emptyArray: [],
+        bytes: 'aGk=',
+    }
+    for (const protobuf of [false, true]) {
+        for (const signal of ['trace', 'logs', 'metrics']) {
+            const id = protobuf ? 'aabbccdd00000002' : 'aabbccdd00000001'
+            const body: any = payload(signal, id)
+            if (signal === 'trace') body.resourceSpans[0].scopeSpans[0].spans[0].attributes = values
+            else if (signal === 'logs')
+                body.resourceLogs[0].scopeLogs[0].logRecords[0].attributes = values
+            else
+                body.resourceMetrics[0].scopeMetrics[0].metrics[0].gauge.dataPoints[0].attributes =
+                    values
+            const response = await fetch(
+                new URL(`/v1/${signal === 'trace' ? 'traces' : signal}`, server.url),
+                {
+                    method: 'POST',
+                    headers: {
+                        'content-type': protobuf ? 'application/x-protobuf' : 'application/json',
+                    },
+                    body: protobuf ? encode(signal, body) : JSON.stringify(body),
+                },
+            )
+            expect(response.status).toBe(200)
+            const row: any =
+                signal === 'trace'
+                    ? db.getTraceById(id)
+                    : signal === 'logs'
+                      ? db.getLogs({ limit: 100 }).find((row: any) => row.body === id)
+                      : db.getMetrics({ limit: 100 }).find((row: any) => row.name === id)
+            expect(JSON.parse(row.attributes)).toMatchObject(expected)
+        }
+    }
+})
+
+test('cumulative sums use series identity, resets and chronological samples in totals and export', async () => {
+    await flushAll()
+    received.length = 0
+    const name = 'review.token.cumulative'
+    async function ingest(time: number, value: number, options: any = {}) {
+        const attributes = [attr('type', 'input'), attr('model', 'fixture')]
+        const resourceAttrs = [
+            attr('service.name', 'counter-test'),
+            attr('service.instance.id', options.instance || 'a'),
+        ]
+        if (options.reverse) {
+            attributes.reverse()
+            resourceAttrs.reverse()
+        }
+        const body = {
+            resourceMetrics: [
+                {
+                    resource: { attributes: resourceAttrs },
+                    scopeMetrics: [
+                        {
+                            scope: { name: 'fixture', version: options.version || '1' },
+                            metrics: [
+                                {
+                                    name: options.name || name,
+                                    sum: {
+                                        aggregationTemporality: options.temporality ?? 2,
+                                        isMonotonic: options.monotonic ?? true,
+                                        dataPoints: [
+                                            {
+                                                attributes,
+                                                startTimeUnixNano: String(options.start ?? 1000000),
+                                                timeUnixNano: String(time),
+                                                ...(options.double
+                                                    ? { asDouble: value }
+                                                    : { asInt: String(value) }),
+                                            },
+                                        ],
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+        const response = await fetch(new URL('/v1/metrics', server.url), {
+            method: 'POST',
+            headers: {
+                'content-type': options.protobuf ? 'application/x-protobuf' : 'application/json',
+            },
+            body: options.protobuf ? encode('metrics', body) : JSON.stringify(body),
+        })
+        expect(response.status).toBe(200)
+        if (options.protobuf)
+            expect(
+                messageType('metrics', 'Response').toObject(
+                    messageType('metrics', 'Response').decode(
+                        new Uint8Array(await response.arrayBuffer()),
+                    ),
+                ),
+            ).toEqual({})
+        else expect(await response.json()).toEqual({})
+    }
+    // Arrive out of order, retry the final sample, and reverse attribute ordering.
+    await ingest(2000000, 150, { protobuf: true })
+    await ingest(1000000, 100, { reverse: true })
+    await ingest(2000000, 150)
+    await ingest(3000000, 5, { start: 2500000 })
+    await ingest(4000000, 15, { start: 2500000 })
+    await ingest(1000000, 20, { instance: 'b' })
+    await ingest(2000000, 40, { instance: 'b' })
+    await ingest(1000000, 7, { temporality: 1 })
+    await ingest(2000000, 8, { temporality: 1 })
+    await ingest(1000000, 3, { version: '2' })
+    const summary: any = db.getMetricsSummary({ name })[0]
+    expect(summary.sum_value).toBe(223) // 165 + 40 + 15 + 3
+    expect(summary.sum_int).toBe(223)
+    expect(
+        db.getTokenUsage().find((row: any) => row.service_name === 'counter-test'),
+    ).toMatchObject({ total_tokens: 223 })
+    expect(db.getMetricsSummary({ name, date_from: 2, date_to: 2 })[0]).toMatchObject({
+        sum_value: 78,
+    })
+    expect(db.getMetrics({ filters: { name } }).some((row: any) => row.value_int === 150)).toBe(
+        true,
+    )
+    await flushAll()
+    const exported = received.flatMap((body: any) =>
+        (body.resourceMetrics || []).flatMap((r: any) =>
+            r.scopeMetrics.flatMap((s: any) => s.metrics),
+        ),
+    )
+    expect(
+        exported.find(
+            (metric: any) => metric.name === name && metric.sum.aggregationTemporality === 1,
+        )?.sum,
+    ).toMatchObject({ isMonotonic: true, dataPoints: [{ startTimeUnixNano: '1000000' }] })
+    const resets = 'review.token.resets'
+    await ingest(1000001, 10, { name: resets, start: 0 })
+    await ingest(1000002, 3, { name: resets, start: 0 })
+    await ingest(1000003, 5, { name: resets, start: 0 })
+    expect(db.getMetricsSummary({ name: resets })[0]).toMatchObject({ sum_value: 15 })
+    const signed = 'review.token.signed'
+    await ingest(1000001, 10.5, { name: signed, double: true, monotonic: false })
+    await ingest(1000002, 8.25, { name: signed, double: true, monotonic: false })
+    expect(db.getMetricsSummary({ name: signed })[0]).toMatchObject({ sum_value: 8.25 })
+})

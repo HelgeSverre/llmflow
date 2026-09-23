@@ -53,6 +53,14 @@ export function migrate(db: Database) {
                 UPDATE retention_counts SET span_count=span_count-1 WHERE id=1;
             END;
         `),
+        () =>
+            db.exec(`
+            ALTER TABLE metrics ADD COLUMN aggregation_temporality INTEGER;
+            ALTER TABLE metrics ADD COLUMN is_monotonic INTEGER;
+            ALTER TABLE metrics ADD COLUMN start_time_unix_nano TEXT;
+            ALTER TABLE metrics ADD COLUMN time_unix_nano TEXT;
+            ALTER TABLE metrics ADD COLUMN series_key TEXT;
+        `),
     ]
     let scrubbed = false
     for (const [index, step] of steps.entries()) {

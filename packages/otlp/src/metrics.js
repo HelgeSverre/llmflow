@@ -16,32 +16,27 @@ const db = require('@llmflow/db')
 /**
  * Extract attributes from OTLP KeyValue array format
  */
-function extractAttributes(attrs) {
-    if (!attrs || !Array.isArray(attrs)) return {}
-
-    const result = {}
-    for (const attr of attrs) {
-        const key = attr.key
-        const val = attr.value
-        if (!val) continue
-
-        if (val.stringValue !== undefined) result[key] = val.stringValue
-        else if (val.intValue !== undefined) result[key] = parseInt(val.intValue, 10)
-        else if (val.doubleValue !== undefined) result[key] = val.doubleValue
-        else if (val.boolValue !== undefined) result[key] = val.boolValue
-        else if (val.arrayValue?.values) {
-            result[key] = val.arrayValue.values.map(
-                (v) => v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue ?? null,
-            )
-        }
-    }
-    return result
-}
+const { extractAttributes } = require('./attributes')
 
 /**
  * Convert nanoseconds timestamp to milliseconds
  */
 const { nanoToMs } = require('./timestamps')
+
+function canonical(value) {
+    if (Array.isArray(value)) return value.map(canonical)
+    if (value && typeof value === 'object')
+        return Object.fromEntries(
+            Object.keys(value)
+                .sort()
+                .map((key) => [key, canonical(value[key])]),
+        )
+    return value
+}
+
+function nanoString(value) {
+    return nanoToMs(value) === null ? null : BigInt(value).toString()
+}
 
 /**
  * Extract value from data point
@@ -85,6 +80,23 @@ function processSum(metric, resourceAttrs, scopeInfo) {
             description: metric.description || null,
             unit: metric.unit || null,
             metric_type: 'sum',
+            aggregation_temporality: sum.aggregationTemporality ?? 0,
+            is_monotonic: sum.isMonotonic ?? false,
+            start_time_unix_nano: nanoString(dp.startTimeUnixNano),
+            time_unix_nano: nanoString(dp.timeUnixNano),
+            series_key: JSON.stringify(
+                canonical({
+                    name: metric.name,
+                    unit: metric.unit || '',
+                    resource: resourceAttrs,
+                    scope: {
+                        name: scopeInfo.name || '',
+                        version: scopeInfo.version || '',
+                        attributes: extractAttributes(scopeInfo.attributes),
+                    },
+                    attributes: attrs,
+                }),
+            ),
             value_int,
             value_double,
             histogram_data: null,

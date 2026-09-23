@@ -46,6 +46,8 @@ const anthropic = [
 ]
     .map((x) => `event: ${x.type}\r\ndata: ${JSON.stringify(x)}\r\n\r\n`)
     .join('')
+const namedEvents =
+    ': heartbeat\r\n\r\nid: item-1\r\nretry: 1000\r\nevent: response.output_text.delta\r\ndata: {"type":"response.output_text.delta","delta":"héllo 🌍"}\r\n\r\nevent: response.completed\r\ndata: {"type":"response.completed","response":{"model":"fixture","usage":{"input_tokens":8,"output_tokens":4,"total_tokens":12}}}\r\n\r\n'
 const upstream = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -57,6 +59,33 @@ const upstream = Bun.serve({
             disconnected = true
         })
         if (mode === 'text') return new Response('not JSON: upstream unavailable', { status: 503 })
+        if (mode.startsWith('headers-')) {
+            const status = Number(mode.slice('headers-'.length))
+            const headers = {
+                'retry-after': '60',
+                'x-request-id': 'upstream-fixture',
+                'x-ratelimit-remaining-requests': '0',
+                connection: 'keep-alive, x-upstream-only',
+                'x-upstream-only': 'remove-me',
+                etag: 'upstream-body',
+            }
+            return status === 204
+                ? new Response(null, { status, headers })
+                : Response.json({ model: 'fixture' }, { status, headers })
+        }
+        if (mode === 'named-events') {
+            const bytes = new TextEncoder().encode(namedEvents)
+            let offset = 0
+            return new Response(
+                new ReadableStream({
+                    pull(controller) {
+                        if (offset === bytes.length) controller.close()
+                        else controller.enqueue(bytes.slice(offset, ++offset))
+                    },
+                }),
+                { headers: { 'content-type': 'text/event-stream' } },
+            )
+        }
         if (mode === 'cohere-error')
             return Response.json(
                 { id: 'cohere-error', message: 'Model not found' },
@@ -280,6 +309,30 @@ test('Responses stream is forwarded intact while tool calls and usage are persis
             ],
         },
     })
+})
+test('OpenAI streams preserve named events, IDs, retry fields and comments across byte boundaries', async () => {
+    mode = 'named-events'
+    const response = await send('/plain/v1/responses', true, { 'x-trace-id': 'named-events' })
+    expect(await response.text()).toBe(namedEvents)
+    const row: any = db.getSpansByTraceId('named-events')[0]
+    expect(row.total_tokens).toBe(12)
+    expect(JSON.parse(row.response_body).choices[0].message.content).toBe('héllo 🌍')
+})
+test('normalized responses preserve upstream retry and request headers without hop-by-hop fields', async () => {
+    for (const status of [200, 429, 204]) {
+        mode = `headers-${status}`
+        const response = await send('/plain/v1/chat/completions', false)
+        expect(response.status).toBe(status)
+        expect(response.headers.get('retry-after')).toBe('60')
+        expect(response.headers.get('x-request-id')).toBe('upstream-fixture')
+        expect(response.headers.get('x-ratelimit-remaining-requests')).toBe('0')
+        expect(response.headers.has('x-upstream-only')).toBe(false)
+        if (status !== 204) {
+            expect(response.headers.has('etag')).toBe(false)
+            expect(response.headers.get('content-type')).toContain('application/json')
+            expect(await response.json()).toEqual({ model: 'fixture' })
+        } else expect(await response.text()).toBe('')
+    }
 })
 test('configured deadline terminates stalled upstream and persists one failure', async () => {
     mode = 'stall'

@@ -64,7 +64,8 @@ test('historical credential scrub and observed timestamp repair execute once', (
     const filename = path.join(directory, 'historical.db'),
         historical = new Database(filename)
     historical.exec(`CREATE TABLE traces(id TEXT PRIMARY KEY,timestamp INTEGER,trace_id TEXT,request_headers TEXT,response_headers TEXT,request_path TEXT);
-        CREATE TABLE logs(timestamp INTEGER,observed_timestamp INTEGER);`)
+        CREATE TABLE logs(timestamp INTEGER,observed_timestamp INTEGER);
+        CREATE TABLE metrics(id TEXT PRIMARY KEY, value_int INTEGER);`)
     historical
         .query('INSERT INTO traces VALUES(?,?,?,?,?,?)')
         .run(
@@ -76,12 +77,22 @@ test('historical credential scrub and observed timestamp repair execute once', (
             '/v1?key=query-secret',
         )
     historical.exec('INSERT INTO logs VALUES(0,12345),(99,888)')
+    historical.exec("INSERT INTO metrics VALUES('legacy',42)")
     migrate(historical)
     expect(historical.query('SELECT timestamp FROM logs ORDER BY timestamp').all()).toEqual([
         { timestamp: 99 },
         { timestamp: 12345 },
     ])
-    expect(historical.query('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 3 })
+    expect(historical.query('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 4 })
+    expect(historical.query('SELECT * FROM metrics').get()).toEqual({
+        id: 'legacy',
+        value_int: 42,
+        aggregation_temporality: null,
+        is_monotonic: null,
+        start_time_unix_nano: null,
+        time_unix_nano: null,
+        series_key: null,
+    })
     historical.exec('INSERT INTO logs VALUES(0,54321)')
     migrate(historical)
     expect(

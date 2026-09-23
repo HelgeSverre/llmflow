@@ -17,27 +17,7 @@ const db = require('@llmflow/db')
  * Extract attributes from OTLP KeyValue array format
  * OTLP attributes are: [{ key: "foo", value: { stringValue: "bar" } }, ...]
  */
-function extractAttributes(attrs) {
-    if (!attrs || !Array.isArray(attrs)) return {}
-
-    const result = {}
-    for (const attr of attrs) {
-        const key = attr.key
-        const val = attr.value
-        if (!val) continue
-
-        if (val.stringValue !== undefined) result[key] = val.stringValue
-        else if (val.intValue !== undefined) result[key] = parseInt(val.intValue, 10)
-        else if (val.doubleValue !== undefined) result[key] = val.doubleValue
-        else if (val.boolValue !== undefined) result[key] = val.boolValue
-        else if (val.arrayValue?.values) {
-            result[key] = val.arrayValue.values.map(
-                (v) => v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue ?? null,
-            )
-        }
-    }
-    return result
-}
+const { extractAttributes } = require('./attributes')
 
 /**
  * Convert hex string to normalized format

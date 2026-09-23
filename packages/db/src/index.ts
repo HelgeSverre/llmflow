@@ -264,13 +264,15 @@ const insertMetricStmt = db.query(`
         name, description, unit, metric_type,
         value_int, value_double, histogram_data,
         service_name, scope_name,
-        attributes, resource_attributes
+        attributes, resource_attributes,
+        aggregation_temporality, is_monotonic, start_time_unix_nano, time_unix_nano, series_key
     ) VALUES (
         $id, $timestamp,
         $name, $description, $unit, $metric_type,
         $value_int, $value_double, $histogram_data,
         $service_name, $scope_name,
-        $attributes, $resource_attributes
+        $attributes, $resource_attributes,
+        $aggregation_temporality, $is_monotonic, $start_time_unix_nano, $time_unix_nano, $series_key
     )
 `)
 
@@ -443,6 +445,11 @@ export interface Metric {
     scope_name?: string
     attributes?: Record<string, unknown>
     resource_attributes?: Record<string, unknown>
+    aggregation_temporality?: number
+    is_monotonic?: boolean
+    start_time_unix_nano?: string
+    time_unix_nano?: string
+    series_key?: string
 }
 
 export interface MetricSummary {
@@ -934,6 +941,11 @@ export function insertMetric(metric: Metric) {
         $scope_name: metric.scope_name || null,
         $attributes: JSON.stringify(metric.attributes || {}),
         $resource_attributes: JSON.stringify(metric.resource_attributes || {}),
+        $aggregation_temporality: metric.aggregation_temporality ?? null,
+        $is_monotonic: metric.is_monotonic == null ? null : Number(metric.is_monotonic),
+        $start_time_unix_nano: metric.start_time_unix_nano ?? null,
+        $time_unix_nano: metric.time_unix_nano ?? null,
+        $series_key: metric.series_key ?? null,
     })
 
     const count = getMetricCount()
@@ -978,7 +990,8 @@ export function getMetrics({ limit = 50, offset = 0, filters = {} as MetricFilte
         SELECT 
             id, timestamp, name, description, unit, metric_type,
             value_int, value_double, histogram_data,
-            service_name, scope_name, attributes, resource_attributes
+            service_name, scope_name, attributes, resource_attributes,
+            aggregation_temporality, is_monotonic, start_time_unix_nano, time_unix_nano
         FROM metrics
         ${whereSql}
         ORDER BY timestamp DESC
@@ -1043,6 +1056,28 @@ export function getMetricCount(filters: Partial<MetricFilters> = {}) {
     return result.cnt
 }
 
+// Compute increments before date filtering so a window uses the preceding sample as its baseline.
+// Keeping raw samples also makes late arrivals and retries independent of ingestion order.
+const metricValues = `
+    WITH cumulative AS (
+        SELECT id, LAG(COALESCE(value_double, value_int)) OVER (
+            PARTITION BY COALESCE(series_key, id), start_time_unix_nano
+            ORDER BY timestamp, LENGTH(time_unix_nano), time_unix_nano, rowid
+        ) AS previous_value
+        FROM metrics WHERE metric_type = 'sum' AND aggregation_temporality = 2
+    ), metric_values AS (
+        SELECT metrics.*, CASE
+            WHEN aggregation_temporality = 2 AND metric_type = 'sum' THEN
+                CASE WHEN previous_value IS NULL
+                    OR (is_monotonic = 1 AND COALESCE(value_double, value_int) < previous_value)
+                    THEN COALESCE(value_double, value_int)
+                    ELSE COALESCE(value_double, value_int) - previous_value END
+            ELSE COALESCE(value_double, value_int)
+        END AS increment
+        FROM metrics LEFT JOIN cumulative ON metrics.id = cumulative.id
+    )
+`
+
 export function getMetricsSummary(filters: MetricFilters = {}) {
     const where = ['timestamp >= $fromTs', 'timestamp <= $toTs']
     const params: Record<string, string | number> = {
@@ -1057,14 +1092,16 @@ export function getMetricsSummary(filters: MetricFilters = {}) {
     }
     return db
         .query(
-            `
+            `${metricValues}
         SELECT name, service_name, metric_type, unit,
             COUNT(*) as data_points,
             MIN(timestamp) as first_seen, MAX(timestamp) as last_seen,
-            SUM(value_int) as sum_int,
+            SUM(CASE WHEN metric_type = 'sum' AND aggregation_temporality = 2
+                THEN CASE WHEN value_int IS NOT NULL THEN increment END
+                ELSE value_int END) as sum_int,
             AVG(COALESCE(value_double, value_int)) as avg_value,
-            SUM(COALESCE(value_double, value_int)) as sum_value
-        FROM metrics
+            SUM(increment) as sum_value
+        FROM metric_values
         WHERE ${where.join(' AND ')}
         GROUP BY name, service_name, metric_type, unit
         ORDER BY data_points DESC
@@ -1076,13 +1113,13 @@ export function getMetricsSummary(filters: MetricFilters = {}) {
 export function getTokenUsage() {
     return db
         .query(
-            `
+            `${metricValues}
         SELECT 
             service_name,
             json_extract(attributes, '$.model') as model,
             json_extract(attributes, '$.type') as token_type,
-            SUM(value_int) as total_tokens
-        FROM metrics
+            SUM(CASE WHEN metric_type = 'sum' THEN increment ELSE value_int END) as total_tokens
+        FROM metric_values
         WHERE name LIKE '%token%' OR name LIKE '%usage%'
         GROUP BY service_name, model, token_type
     `,

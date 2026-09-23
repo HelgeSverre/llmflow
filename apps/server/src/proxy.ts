@@ -52,7 +52,22 @@ function headersFrom(values: Record<string, string | undefined>): Headers {
 function downstreamHeaders(upstream: Headers, normalized: boolean) {
     const headers = new Headers(upstream)
     // Fetch has already decoded the body, and stream transformations change its length.
-    for (const name of ['content-length', 'content-encoding', 'transfer-encoding', 'connection'])
+    for (const name of [
+        ...(headers.get('connection') || '')
+            .split(',')
+            .map((name) => name.trim())
+            .filter(Boolean),
+        'content-length',
+        'content-encoding',
+        'transfer-encoding',
+        'connection',
+        'keep-alive',
+        'proxy-authenticate',
+        'proxy-authorization',
+        'te',
+        'trailer',
+        'upgrade',
+    ])
         headers.delete(name)
     if (normalized) headers.set('content-type', 'text/event-stream; charset=utf-8')
     return headers
@@ -203,19 +218,28 @@ export async function forwardProxyRequest(
                 upstream.headers,
                 upstream.ok ? undefined : `Upstream HTTP ${upstream.status}`,
             )
+            const responseHeaders = downstreamHeaders(upstream.headers, false)
             if ([204, 205, 304].includes(upstream.status))
-                return new Response(null, { status: upstream.status })
+                return new Response(null, { status: upstream.status, headers: responseHeaders })
+            if (!native) {
+                responseHeaders.set('content-type', 'application/json; charset=utf-8')
+                for (const name of ['etag', 'content-md5', 'digest']) responseHeaders.delete(name)
+            }
             return native
                 ? new Response(text, {
                       status: upstream.status,
-                      headers: downstreamHeaders(upstream.headers, false),
+                      headers: responseHeaders,
                   })
-                : Response.json(normalized.data, { status: upstream.status })
+                : Response.json(normalized.data, {
+                      status: upstream.status,
+                      headers: responseHeaders,
+                  })
         }
         if (!upstream.body) throw new Error('Upstream returned an empty stream')
         const session = adapter.createStreamSession(request, spanId)
         const reader = upstream.body.getReader()
         const encoder = new TextEncoder()
+        const passthroughStream = !!native || adapter.streamFormat === 'openai'
         let complete = false
         let captureError: string | undefined
         const finish = (error?: string) => {
@@ -242,12 +266,13 @@ export async function forwardProxyRequest(
                             try {
                                 frames = session.push(chunk.value || new Uint8Array(), chunk.done)
                             } catch (error) {
-                                if (!native) throw error
+                                if (!passthroughStream) throw error
                                 captureError = (error as Error).message
                             }
                         }
-                        if (native && chunk.value) output.enqueue(chunk.value)
-                        else for (const frame of frames) output.enqueue(encoder.encode(frame))
+                        if (passthroughStream) {
+                            if (chunk.value) output.enqueue(chunk.value)
+                        } else for (const frame of frames) output.enqueue(encoder.encode(frame))
                         if (chunk.done) {
                             if (!native && adapter.streamFormat !== 'openai' && !session.done)
                                 output.enqueue(encoder.encode('data: [DONE]\n\n'))
@@ -255,7 +280,7 @@ export async function forwardProxyRequest(
                             output.close()
                             return
                         }
-                        if (native || frames.length) return
+                        if (passthroughStream || frames.length) return
                     }
                 } catch (error) {
                     await reader.cancel().catch(() => {})

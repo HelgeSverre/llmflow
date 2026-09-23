@@ -216,7 +216,8 @@ function metricToOtlpMetric(metric) {
 
     const dataPoint = {
         attributes,
-        timeUnixNano: timeNano.toString(),
+        timeUnixNano: metric.time_unix_nano || timeNano.toString(),
+        ...(metric.start_time_unix_nano ? { startTimeUnixNano: metric.start_time_unix_nano } : {}),
     }
 
     if (metric.value_int !== null && metric.value_int !== undefined) {
@@ -235,8 +236,8 @@ function metricToOtlpMetric(metric) {
         case 'sum':
             metricData.sum = {
                 dataPoints: [dataPoint],
-                aggregationTemporality: 2, // CUMULATIVE
-                isMonotonic: true,
+                aggregationTemporality: metric.aggregation_temporality ?? 2,
+                isMonotonic: metric.is_monotonic == null ? true : !!metric.is_monotonic,
             }
             break
         case 'histogram':
