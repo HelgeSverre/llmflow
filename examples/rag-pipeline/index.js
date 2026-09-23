@@ -23,7 +23,7 @@
  *   3. Run: bun run start (from this directory)
  */
 
-import { trace, span, wrapOpenAI } from '../../packages/sdk/index.js'
+import { span, trace, wrapOpenAI } from 'llmflow-sdk'
 import OpenAI from 'openai'
 
 const LLMFLOW_PROXY_URL = process.env.LLMFLOW_PROXY_URL || 'http://127.0.0.1:8080/v1'

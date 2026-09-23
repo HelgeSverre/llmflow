@@ -59,7 +59,7 @@ agent-task (trace)
 ### Creating a trace with nested spans
 
 ```javascript
-import { trace, span, wrapOpenAI } from '../../packages/sdk/index.js'
+import { trace, span, wrapOpenAI } from 'llmflow-sdk'
 import OpenAI from 'openai'
 
 // Wrap OpenAI client to auto-inject trace headers
@@ -115,7 +115,7 @@ await trace(
 ### Using wrapOpenAI for automatic header injection
 
 ```javascript
-import { wrapOpenAI } from '../../packages/sdk/index.js';
+import { wrapOpenAI } from 'llmflow-sdk';
 
 const openai = wrapOpenAI(new OpenAI({
     baseURL: 'http://127.0.0.1:8080/v1'
@@ -128,7 +128,7 @@ await openai.chat.completions.create({ ... });
 ### Manual header injection
 
 ```javascript
-import { currentTraceHeaders } from '../../packages/sdk/index.js';
+import { currentTraceHeaders } from 'llmflow-sdk';
 
 await openai.chat.completions.create({
     model: 'gpt-4o-mini',

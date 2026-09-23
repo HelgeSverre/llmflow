@@ -14,6 +14,7 @@
 
    ```bash
    OTLP_EXPORT_ENDPOINT=http://localhost:6006/v1/traces
+   OTLP_EXPORT_PROTOCOL=http/protobuf
    ```
 
 3. Restart LLMFlow:
@@ -35,6 +36,7 @@ For the hosted version at https://app.phoenix.arize.com:
 ```bash
 # .env
 OTLP_EXPORT_ENDPOINT=https://app.phoenix.arize.com/v1/traces
+OTLP_EXPORT_PROTOCOL=http/protobuf
 OTLP_EXPORT_HEADERS=api_key=your-api-key
 ```
 
@@ -63,3 +65,5 @@ LLMFlow exports OpenInference-compatible attributes:
 ```bash
 docker compose down -v
 ```
+
+Phoenix accepts OTLP protobuf only; with the default `http/json` it answers 415 Unsupported Media Type.

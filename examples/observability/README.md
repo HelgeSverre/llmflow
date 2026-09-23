@@ -87,6 +87,7 @@ This folder contains example configurations for integrating LLMFlow with popular
 | `OTLP_EXPORT_LOGS_ENDPOINT`     | Logs-specific endpoint         | `http://loki:3100/v1/logs`          |
 | `OTLP_EXPORT_METRICS_ENDPOINT`  | Metrics-specific endpoint      | `http://prometheus:9090/v1/metrics` |
 | `OTLP_EXPORT_HEADERS`           | Auth headers (comma-separated) | `Authorization=Bearer xxx`          |
+| `OTLP_EXPORT_PROTOCOL`          | `http/json` or `http/protobuf` | `http/protobuf` (Phoenix)           |
 | `OTLP_EXPORT_BATCH_SIZE`        | Batch size before flush        | `100`                               |
 | `OTLP_EXPORT_FLUSH_INTERVAL_MS` | Flush interval (ms)            | `5000`                              |
 

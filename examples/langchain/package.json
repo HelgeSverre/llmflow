@@ -8,8 +8,8 @@
     "start": "bun --env-file=../../.env index.js"
   },
   "dependencies": {
-    "@langchain/core": "^0.3.0",
-    "@langchain/openai": "^0.3.0",
-    "langchain": "^0.3.0"
+    "@langchain/core": "^1.2.12",
+    "@langchain/openai": "^1.5.13",
+    "langchain": "^1.5.12"
   }
 }

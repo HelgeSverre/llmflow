@@ -8,7 +8,7 @@
     "start": "bun --env-file=../../.env index.js"
   },
   "dependencies": {
-    "ai": "^4.0.0",
-    "@ai-sdk/openai": "^1.0.0"
+    "@ai-sdk/openai": "^4.0.73",
+    "ai": "^7.0.112"
   }
 }

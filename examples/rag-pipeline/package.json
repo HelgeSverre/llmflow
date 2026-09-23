@@ -5,9 +5,11 @@
   "description": "RAG pipeline with LLMFlow SDK for hierarchical span tracking",
   "main": "index.js",
   "scripts": {
+    "prestart": "bun run --cwd ../../packages/sdk build",
     "start": "bun --env-file=../../.env index.js"
   },
   "dependencies": {
-    "openai": "^4.0.0"
+    "llmflow-sdk": "file:../../packages/sdk",
+    "openai": "^7.23.0"
   }
 }

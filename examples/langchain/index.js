@@ -29,7 +29,7 @@ console.log(`LangChain routing through LLMFlow proxy at ${LLMFLOW_PROXY_URL}`)
 async function runExample() {
     // Configure LangChain to use LLMFlow proxy
     const model = new ChatOpenAI({
-        modelName: 'gpt-4o-mini',
+        model: 'gpt-4o-mini',
         temperature: 0.7,
         configuration: {
             baseURL: LLMFLOW_PROXY_URL,

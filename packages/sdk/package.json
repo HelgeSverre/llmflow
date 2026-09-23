@@ -46,8 +46,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "devDependencies": {
-    "typescript": "catalog:"
   }
 }

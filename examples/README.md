@@ -4,12 +4,16 @@ This folder contains working examples of LLMFlow integrations with popular LLM f
 
 ## Examples
 
-| Example                        | Description                       | Features                                                                 |
-| ------------------------------ | --------------------------------- | ------------------------------------------------------------------------ |
-| [langchain](./langchain)       | LangChain.js via LLMFlow proxy    | Basic tracing                                                            |
-| [ai-sdk-proxy](./ai-sdk-proxy) | Vercel AI SDK via LLMFlow proxy   | Basic tracing                                                            |
-| [rag-pipeline](./rag-pipeline) | RAG pipeline with LLMFlow SDK     | **Hierarchical spans**, parent-child relationships, input/output capture |
-| [claude-code](./claude-code)   | Claude Code OTLP and native proxy | Logs/metrics and native request capture                                  |
+| Example                          | Description                                                | Features                                                                 |
+| -------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [langchain](./langchain)         | LangChain.js via LLMFlow proxy                             | Basic tracing                                                            |
+| [ai-sdk-proxy](./ai-sdk-proxy)   | Vercel AI SDK via LLMFlow proxy                            | Basic tracing                                                            |
+| [rag-pipeline](./rag-pipeline)   | RAG pipeline with LLMFlow SDK                              | **Hierarchical spans**, parent-child relationships, input/output capture |
+| [claude-code](./claude-code)     | Claude Code via OTLP and the passthrough proxy             | Logs/metrics and passthrough request capture                             |
+| [codex-cli](./codex-cli)         | OpenAI Codex CLI telemetry                                 | OTLP logs (traces optional)                                              |
+| [gemini-cli](./gemini-cli)       | Google Gemini CLI telemetry                                | OTLP logs and metrics                                                    |
+| [aider](./aider)                 | Aider via the LLMFlow proxy                                | Proxy tracing                                                            |
+| [observability](./observability) | Forwarding to Jaeger, Langfuse, Phoenix, Opik and Helicone | OTLP export (`OTLP_EXPORT_*`)                                            |
 
 ## Quick Start
 
