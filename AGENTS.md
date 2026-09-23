@@ -13,7 +13,7 @@ LLMFlow is a local LLM observability tool: an HTTP proxy for LLM APIs (port 8080
 - Bun ≥ 1.3.13 required (developed on 1.4.2). `bun install` at the root; the isolated linker gives each workspace its own `node_modules`.
 - `bun run dev` — server (`--watch`) and the Vite dashboard together, falling back to free ports; `bun run dev:server` / `bun run dev:dashboard` for one side.
 - `bun run test` — server suite (custom runner until TASK-76). `bun run --filter @llmflow/dashboard test` — Vitest. `bunx playwright test` — E2E (builds first).
-- `bun run typecheck` — every workspace plus `scripts/`. `just format` / `just format-check` — Prettier until TASK-87 lands.
+- `bun run typecheck` — every workspace plus `scripts/`. `bun run lint` (oxlint, `.oxlintrc.json`; `lint:fix` autofixes) · `bun run format` / `bun run format:check` (oxfmt, `.oxfmtrc.json`; Svelte goes through oxfmt's bundled Prettier) · `bun run check` = typecheck + lint + format:check. oxlint only sees `.svelte` `<script>` blocks; `svelte-check` in the dashboard typecheck covers templates.
 - `bun run build` → `dist/` (server bundle, dashboard assets, pricing fallback). `bun run test:package` smoke-tests the npm tarball. `just --list` shows all recipes by group.
 
 ## Layout
@@ -44,7 +44,7 @@ docker/ website/ release-notes/ .backlog/
 
 ## Before marking a task Done
 
-`bun run typecheck`, `bun run test`, the dashboard tests and `just format-check` must pass; run Playwright when UI or API behaviour changed and `bun run test:package` when packaging changed. Record verified facts and decisions as task comments so the next task sees them.
+`bun run check` (typecheck + lint + format:check), `bun run test` and the dashboard tests must pass; run Playwright when UI or API behaviour changed and `bun run test:package` when packaging changed. Record verified facts and decisions as task comments so the next task sees them.
 
 <!-- BACKLOG.MD GUIDELINES START -->
 <!-- backlog.md-instructions-version: 1.52.0 -->

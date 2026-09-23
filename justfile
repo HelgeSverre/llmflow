@@ -86,15 +86,30 @@ test-e2e-ui *args:
 typecheck:
     bun run typecheck
 
-# Format all source, dashboard, and markdown files with Prettier
+# Lint with oxlint
+[group('test')]
+lint:
+    bun run lint
+
+# Apply oxlint autofixes
+[group('test')]
+lint-fix:
+    bun run lint:fix
+
+# Format the whole repo with oxfmt
 [group('test')]
 format:
-    bunx prettier --write .
+    bun run format
 
 # Check formatting without writing
 [group('test')]
 format-check:
-    bunx prettier --check .
+    bun run format:check
+
+# Typecheck, lint, and check formatting
+[group('test')]
+check:
+    bun run check
 
 # Build the dashboard and bundled server
 [group('build')]

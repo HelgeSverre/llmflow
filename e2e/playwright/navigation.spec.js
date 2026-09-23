@@ -124,7 +124,6 @@ test.describe('Navigation & URL Hash Persistence', () => {
         await page.click('[data-testid="theme-toggle"]')
 
         // Wait for theme attribute to change (indicates toggle completed)
-        const html = page.locator('html')
         await expect(async () => {
             const theme = await page.evaluate(() => localStorage.getItem('llmflow-theme'))
             expect(['light', 'dark']).toContain(theme)

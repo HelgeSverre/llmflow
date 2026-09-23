@@ -315,12 +315,7 @@ async function runTests() {
     // Test 5: Verify span types are correctly detected
     console.log(`\n${c.yellow}Test 5: Span Type Detection${c.reset}`)
 
-    // Check retrieval span
-    const retrievalCheck = await httpRequest('GET', `/api/traces/${retrievalSpanId}`)
-
-    // Parse the response body to get span_type
-    const retrievalSpanData = retrievalCheck.data.trace
-    // Since span_type isn't in the default trace response, check via tree
+    // span_type isn't in the default trace response, so check via the tree
     const ragTree = await httpRequest('GET', `/api/traces/${rootSpanId}/tree`)
     const retrievalInTree = ragTree.data.spans?.[0]?.children?.find((s) => s.id === retrievalSpanId)
     assert(

@@ -80,7 +80,7 @@ test('getTokenTrends respects days parameter', () => {
     const trends30 = db.getTokenTrends({ interval: 'day', days: 30 })
 
     // 30 days should have >= buckets than 7 days (or equal if no data)
-    assert(trends30.length >= 0, 'Should return non-negative bucket count')
+    assert(trends30.length >= trends7.length, '30-day window should have at least as many buckets')
 })
 
 // ============ Cost by Tool Tests ============

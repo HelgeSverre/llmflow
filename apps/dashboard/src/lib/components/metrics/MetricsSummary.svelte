@@ -15,7 +15,7 @@
 
 {#if metricsSummary.length > 0}
   <div class="metrics-summary" data-testid="metrics-summary">
-    {#each metricsSummary.slice(0, 8) as m (JSON.stringify( [m.name, m.service_name, m.metric_type, m.unit], ))}
+    {#each metricsSummary.slice(0, 8) as m (JSON.stringify( [m.name, m.service_name, m.metric_type, m.unit] ))}
       <div class="metric-card">
         <div class="metric-card-header">
           <span class="metric-card-name" title={m.name}>{m.name}</span>

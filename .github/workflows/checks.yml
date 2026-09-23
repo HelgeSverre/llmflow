@@ -11,6 +11,8 @@ jobs:
           node-version: 22
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run format:check
       - run: pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
       - run: bun run test
         env:

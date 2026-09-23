@@ -30,7 +30,9 @@
   })
 
   let staleDays = $derived(
-    pricing?.last_updated ? Math.floor((Date.now() - pricing.last_updated) / (24 * 60 * 60 * 1000)) : 0,
+    pricing?.last_updated
+      ? Math.floor((Date.now() - pricing.last_updated) / (24 * 60 * 60 * 1000))
+      : 0,
   )
 
   let show = $derived(
@@ -45,16 +47,11 @@
   <div class="pricing-banner" role="status" data-testid="pricing-banner">
     <span>
       <strong>Cost estimates may be stale.</strong>
-      LLMFlow couldn't reach the LiteLLM pricing source, so it's using a bundled fallback
-      that's {staleDays} days old. Costs and tokens are still recorded; per-model rates
-      may not reflect current provider pricing. Restart with network access to refresh.
+      LLMFlow couldn't reach the LiteLLM pricing source, so it's using a bundled fallback that's {staleDays}
+      days old. Costs and tokens are still recorded; per-model rates may not reflect current provider
+      pricing. Restart with network access to refresh.
     </span>
-    <button
-      type="button"
-      class="dismiss"
-      aria-label="Dismiss"
-      onclick={() => (dismissed = true)}
-    >
+    <button type="button" class="dismiss" aria-label="Dismiss" onclick={() => (dismissed = true)}>
       ×
     </button>
   </div>

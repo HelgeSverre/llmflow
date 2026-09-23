@@ -71,7 +71,6 @@ function httpRequest(method, path, body = null) {
  * Simulates what Claude Code or Gemini CLI would send
  */
 function createOtlpMetricsPayload(serviceName, metrics) {
-    const now = Date.now()
     return {
         resourceMetrics: [
             {

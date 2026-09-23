@@ -1,8 +1,4 @@
-import {
-    BaseProvider,
-    type ProviderRequest,
-    type ProviderTarget,
-} from './base'
+import { BaseProvider, type ProviderRequest, type ProviderTarget } from './base'
 
 export interface OpenAICompatibleConfig {
     name: string

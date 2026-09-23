@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "tabWidth": 4,
+  "useTabs": false,
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "sortPackageJson": false,
+  "svelte": true,
+  "overrides": [
+    {
+      "files": ["apps/dashboard/**/*.{ts,js,svelte,css}"],
+      "options": { "tabWidth": 2 }
+    },
+    {
+      "files": ["**/*.{md,json,jsonc,yml,yaml}"],
+      "options": { "tabWidth": 2 }
+    }
+  ],
+  "ignorePatterns": [
+    "bun.lock",
+    "**/dist",
+    "**/.svelte-kit",
+    "**/.vite",
+    "test-results",
+    "playwright-report",
+    "test-data",
+    ".backlog/",
+    "packages/pricing/pricing.fallback.json",
+    "packages/otlp/src/proto.json",
+    "release-notes"
+  ]
+}

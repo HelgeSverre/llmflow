@@ -51,14 +51,6 @@ function assertEqual(actual, expected, message) {
     }
 }
 
-function assertDeepEqual(actual, expected, message) {
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-        throw new Error(
-            `${message || 'Expected'}: ${JSON.stringify(expected)}, got: ${JSON.stringify(actual)}`,
-        )
-    }
-}
-
 // ============ Base PassthroughHandler Tests ============
 
 console.log(`\n${c.cyan}Base PassthroughHandler${c.reset}\n`)
@@ -99,8 +91,6 @@ test('isStreamingRequest detects stream=true', () => {
 })
 
 test('sanitizeHeaders removes sensitive headers', () => {
-    const handler = new PassthroughHandler({ targetHost: 'api.example.com' })
-
     const sanitized = require('@llmflow/shared/redaction').sanitizeHeaders({
         'content-type': 'application/json',
         'x-api-key': 'secret-key',

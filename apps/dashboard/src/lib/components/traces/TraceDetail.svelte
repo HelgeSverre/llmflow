@@ -33,7 +33,6 @@
   let selectedId = $state<string | null>(null)
   // Reset span selection when the trace changes so we don't keep an id pointing into the old trace.
   $effect(() => {
-    selectedTraceId.value
     selectedId = selectedTraceId.value
   })
 
