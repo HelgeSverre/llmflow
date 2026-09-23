@@ -4,6 +4,7 @@
   "private": true,
   "type": "commonjs",
   "dependencies": {
-    "@llmflow/db": "workspace:*"
+    "@llmflow/db": "workspace:*",
+    "llmflow": "workspace:*"
   }
 }

@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { StreamSession } from '../../../packages/providers/src/stream'
+import { StreamSession } from '@llmflow/providers/stream'
 
 test('Cohere NDJSON fragments retain billed usage and length termination', () => {
     const stream = new StreamSession('cohere', 'fixture', 'fixture')

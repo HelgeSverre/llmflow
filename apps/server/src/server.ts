@@ -104,7 +104,10 @@ declare const LLMFLOW_BUNDLE_DIR: string
 const publicDir =
     typeof LLMFLOW_BUNDLE_DIR !== 'undefined'
         ? path.join(LLMFLOW_BUNDLE_DIR, 'public')
-        : path.resolve(import.meta.dir, '../../dashboard/dist')
+        : path.join(
+              path.dirname(Bun.resolveSync('@llmflow/dashboard/package.json', import.meta.dir)),
+              'dist',
+          )
 
 function serveStaticFile(filePath: string): Response {
     const fullPath = path.join(publicDir, filePath)

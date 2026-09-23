@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
-import { root } from './dev-runtime'
+import path from 'node:path'
 
+const root = path.resolve(import.meta.dir, '..')
 const args = ['compose', '-f', `${root}/docker/docker-compose.yml`]
 let env = { ...process.env }
 let active: ReturnType<typeof spawn> | undefined

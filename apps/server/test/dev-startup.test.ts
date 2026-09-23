@@ -72,10 +72,12 @@ async function fixture() {
             .filter((file) => file.endsWith('.json'))
             .map((file) => JSON.parse(readFileSync(path.join(state, file), 'utf8')))
     }
-    async function ready(run: ReturnType<typeof launch>) {
+    // The server and dashboard dev processes each publish a record once they are listening.
+    async function ready(run: ReturnType<typeof launch>, kinds: string[]) {
         await waitFor(() => {
             if (run.child.exitCode !== null || run.child.signalCode) throw new Error(run.output())
-            return run.output().includes('[llmflow] Ready.')
+            const live = records().filter((record) => record.pid !== 2147483647)
+            return kinds.every((kind) => live.some((record) => record.kind === kind))
         }, 'Startup did not become ready: ' + run.output())
         return records()
     }
@@ -127,7 +129,7 @@ test.skipIf(!Bun.which('just'))(
         const f = await fixture()
         try {
             const run = f.launch(['just', 'dev'])
-            const records = await f.ready(run)
+            const records = await f.ready(run, ['backend', 'frontend'])
             const backend = records.find((r: any) => r.kind === 'backend')
             const frontend = records.find((r: any) => r.kind === 'frontend')
             for (const url of [backend.url, backend.proxy, frontend.url])
@@ -198,10 +200,10 @@ test.skipIf(!Bun.which('just'))(
                 }),
             )
             const front = f.launch(['just', 'dev-dashboard'])
-            await f.ready(front)
+            await f.ready(front, ['frontend'])
             const frontend = f.records().find((r: any) => r.kind === 'frontend')
             const first = f.launch(['just', 'dev-server'])
-            await f.ready(first)
+            await f.ready(first, ['backend'])
             const backend = f
                 .records()
                 .find((r: any) => r.kind === 'backend' && r.pid !== 2147483647)
@@ -222,7 +224,7 @@ test.skipIf(!Bun.which('just'))(
                 fetch: () => new Response('old port now occupied', { status: 418 }),
             })
             const second = f.launch(['just', 'dev-server'])
-            await f.ready(second)
+            await f.ready(second, ['backend'])
             expect((await fetch(frontend.url + '/api/health')).ok).toBe(true)
             await websocket(frontend.url)
         } finally {
@@ -233,37 +235,29 @@ test.skipIf(!Bun.which('just'))(
     60000,
 )
 
-test('invalid configuration fails clearly without leaving dev listeners behind', async () => {
-    const f = await fixture()
-    try {
-        const run = f.launch(['bun', 'scripts/dev.ts', 'all'], { VITE_PORT: 'not-a-port' })
-        await waitFor(() => run.child.exitCode !== null, 'Invalid configuration did not exit')
-        expect(run.child.exitCode).toBe(1)
-        expect(run.output()).toContain('VITE_PORT must be a port')
-        expect(f.records()).toHaveLength(0)
-    } finally {
-        await f.cleanup()
-    }
-}, 20000)
-
-test('frontend bind failures clean up backend listeners opened earlier in startup', async () => {
-    const f = await fixture()
-    try {
-        const run = f.launch(['bun', 'scripts/dev.ts', 'all'], { VITE_HOST: '256.256.256.256' })
-        await waitFor(() => run.child.exitCode !== null, 'Failed startup did not exit')
-        expect(run.child.exitCode).toBe(1)
-        expect(run.output()).toContain('Startup failed:')
-        const url = run.output().match(/Dashboard\/OTLP: (http:\/\/[^\s]+)/)?.[1]
-        expect(url).toBeDefined()
-        let closed = false
+for (const [name, overrides, message] of [
+    ['invalid configuration', { VITE_PORT: 'not-a-port' }, 'VITE_PORT must be a port'],
+    ['a frontend bind failure', { VITE_HOST: '256.256.256.256' }, 'Startup failed:'],
+] as const)
+    test(`${name} stops the combined dev command without leaving listeners behind`, async () => {
+        const f = await fixture()
         try {
-            await fetch(url! + '/api/health')
-        } catch {
-            closed = true
+            const run = f.launch(['bun', 'run', 'dev'], overrides)
+            await waitFor(() => run.child.exitCode !== null, 'Failed startup did not exit')
+            expect(run.child.exitCode).not.toBe(0)
+            expect(run.output()).toContain(message)
+            await waitFor(() => f.records().length === 0, 'Discovery records leaked')
+            const url = run.output().match(/Dashboard\/OTLP: (http:\/\/[^\s]+)/)?.[1]
+            if (url)
+                await waitFor(async () => {
+                    try {
+                        await fetch(url + '/api/health')
+                        return false
+                    } catch {
+                        return true
+                    }
+                }, 'Backend listener leaked')
+        } finally {
+            await f.cleanup()
         }
-        expect(closed).toBe(true)
-        expect(f.records()).toHaveLength(0)
-    } finally {
-        await f.cleanup()
-    }
-}, 20000)
+    }, 20000)

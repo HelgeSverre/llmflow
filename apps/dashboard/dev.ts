@@ -1,11 +1,10 @@
 import { createServer, type ProxyOptions, type ViteDevServer } from 'vite'
 import { createServer as createHttpServer } from 'node:http'
 import { fileURLToPath } from 'node:url'
-import { backendUrl, port, publish } from '../../scripts/dev-runtime'
+import { backendUrl, port, publish } from '@llmflow/dev-runtime'
 
-export async function startFrontend(ownBackend?: string) {
-  const target = () =>
-    ownBackend || backendUrl() || `http://127.0.0.1:${port('DASHBOARD_PORT', 1337)}`
+async function startFrontend() {
+  const target = () => backendUrl() || `http://127.0.0.1:${port('DASHBOARD_PORT', 1337)}`
   function proxyOptions(): ProxyOptions {
     return {
       target: target(),
@@ -89,4 +88,28 @@ export async function startFrontend(ownBackend?: string) {
     await close()
     throw error
   }
+}
+
+let close: (() => Promise<void>) | undefined
+let stopping = false
+async function stop(code = 0) {
+  if (stopping) return
+  stopping = true
+  const timeout = setTimeout(() => process.exit(code), 5000)
+  try {
+    await close?.()
+  } catch (error) {
+    console.error('[llmflow] Cleanup failed:', error)
+  }
+  clearTimeout(timeout)
+  process.exit(code)
+}
+process.on('SIGINT', () => void stop())
+process.on('SIGTERM', () => void stop())
+try {
+  close = await startFrontend()
+  console.log('[llmflow] Ready. Press Ctrl+C to stop.')
+} catch (error) {
+  console.error(`[llmflow] Startup failed: ${(error as Error).message}`)
+  await stop(1)
 }

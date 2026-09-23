@@ -9,6 +9,7 @@ async function freePort() {
 }
 const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-package-'))
 const root = path.resolve(import.meta.dir, '..')
+const packageRoot = path.join(root, 'apps/server')
 let server: ReturnType<typeof Bun.spawn> | undefined
 async function run(args: string[], cwd: string, env = process.env) {
     const child = Bun.spawn(args, { cwd, env, stdout: 'pipe', stderr: 'pipe' })
@@ -21,42 +22,39 @@ async function run(args: string[], cwd: string, env = process.env) {
     return stdout
 }
 try {
-    const packed = JSON.parse(
-        await run(
-            [
-                'npm',
-                'pack',
-                '--foreground-scripts=false',
-                '--json',
-                '--pack-destination',
-                directory,
-            ],
-            root,
-        ),
+    // bun pm pack is the publish path: it runs prepack and rewrites workspace:/catalog: specifiers.
+    const tarball = (
+        await run(['bun', 'pm', 'pack', '--quiet', '--destination', directory], packageRoot)
     )
-    const paths = packed[0].files.map((file: { path: string }) => file.path)
+        .trim()
+        .split('\n')
+        .at(-1)!
+    const tarballPath = path.isAbsolute(tarball)
+        ? tarball
+        : path.join(directory, path.basename(tarball))
+    const paths = (await run(['tar', '-tzf', tarballPath], directory))
+        .trim()
+        .split('\n')
+        .map((file) => file.replace(/^package\//, ''))
     for (const required of [
+        'package.json',
+        'bin/llmflow.js',
         'dist/server.js',
         'dist/public/index.html',
         'dist/pricing.fallback.json',
         'dist/licenses/opentelemetry-proto.txt',
     ])
         if (!paths.includes(required)) throw new Error(`Missing packed artifact: ${required}`)
-    if (paths.some((file: string) => /^(apps|packages|website|public)\//.test(file)))
-        throw new Error('Tarball includes source or obsolete assets')
+    const allowed = /^(bin\/|dist\/|package\.json$|README\.md$|LICENSE$)/
+    const unexpected = paths.filter((file) => !allowed.test(file))
+    if (unexpected.length) throw new Error(`Tarball includes unexpected files: ${unexpected}`)
+    const manifest = await run(['tar', '-xzOf', tarballPath, 'package/package.json'], directory)
+    const specifier = manifest.match(/"(workspace|catalog):[^"]*"/)
+    if (specifier) throw new Error(`Packed manifest keeps a ${specifier[0]} specifier`)
     const consumer = path.join(directory, 'consumer')
     mkdirSync(consumer)
     writeFileSync(path.join(consumer, 'package.json'), '{"private":true}')
-    await run(
-        [
-            'npm',
-            'install',
-            '--ignore-scripts',
-            '--offline',
-            path.join(directory, packed[0].filename),
-        ],
-        consumer,
-    )
+    await run(['npm', 'install', '--ignore-scripts', '--offline', tarballPath], consumer)
     const cli = path.join(consumer, 'node_modules/.bin/llmflow')
     const dashboardPort = await freePort(),
         proxyPort = await freePort()

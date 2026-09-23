@@ -14,7 +14,15 @@ playwright-report/
 
 # Workspace per-package build artifacts that should be regenerated locally
 apps/*/dist/
+
+# Copied from the repository root by the llmflow prepack script
+apps/server/README.md
+apps/server/LICENSE
 packages/*/dist/
+
+# Copied from the repository root by the llmflow prepack script
+apps/server/README.md
+apps/server/LICENSE
 
 # Local codedb MCP index
 codedb.snapshot
@@ -23,3 +31,7 @@ codedb.snapshot
 .compound-engineering/*.local.yaml
 
 /dist/
+
+# Copied from the repository root by the llmflow prepack script
+apps/server/README.md
+apps/server/LICENSE

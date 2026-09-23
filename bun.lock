@@ -3,36 +3,42 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "llmflow",
+      "name": "llmflow-workspace",
       "devDependencies": {
-        "@playwright/test": "^1.60.0",
+        "@playwright/test": "catalog:",
         "@types/bun": "^1.3.14",
         "bun-types": "^1.3.14",
         "oxfmt": "0.70.0",
         "oxlint": "1.85.0",
-        "typescript": "^6.0.3",
+        "typescript": "catalog:",
       },
     },
     "apps/dashboard": {
       "name": "@llmflow/dashboard",
       "version": "0.0.0",
       "devDependencies": {
+        "@llmflow/dev-runtime": "workspace:*",
         "@sveltejs/vite-plugin-svelte": "^7.1.2",
         "@tsconfig/svelte": "^5.0.6",
         "@types/node": "^25.9.1",
         "jsdom": "^29.1.1",
         "svelte": "^5.43.8",
         "svelte-check": "^4.3.4",
-        "typescript": "^6.0.3",
+        "typescript": "catalog:",
         "vite": "^8.0.13",
         "vitest": "^4.1.6",
       },
     },
     "apps/server": {
-      "name": "@llmflow/server",
-      "version": "0.0.0",
-      "dependencies": {
+      "name": "llmflow",
+      "version": "0.4.1",
+      "bin": {
+        "llmflow": "./bin/llmflow.js",
+      },
+      "devDependencies": {
+        "@llmflow/dashboard": "workspace:*",
         "@llmflow/db": "workspace:*",
+        "@llmflow/dev-runtime": "workspace:*",
         "@llmflow/otlp": "workspace:*",
         "@llmflow/pricing": "workspace:*",
         "@llmflow/providers": "workspace:*",
@@ -44,6 +50,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@llmflow/db": "workspace:*",
+        "llmflow": "workspace:*",
       },
     },
     "packages/db": {
@@ -52,6 +59,10 @@
       "dependencies": {
         "@llmflow/shared": "workspace:*",
       },
+    },
+    "packages/dev-runtime": {
+      "name": "@llmflow/dev-runtime",
+      "version": "0.0.0",
     },
     "packages/otlp": {
       "name": "@llmflow/otlp",
@@ -82,9 +93,13 @@
     "website": {
       "name": "@llmflow/website",
       "devDependencies": {
-        "@playwright/test": "^1.60.0",
+        "@playwright/test": "catalog:",
       },
     },
+  },
+  "catalog": {
+    "@playwright/test": "^1.60.0",
+    "typescript": "^6.0.3",
   },
   "packages": {
     "@asamuzakjp/css-color": ["@asamuzakjp/css-color@5.1.11", "", { "dependencies": { "@asamuzakjp/generational-cache": "^1.0.1", "@csstools/css-calc": "^3.2.0", "@csstools/css-color-parser": "^4.1.0", "@csstools/css-parser-algorithms": "^4.0.0", "@csstools/css-tokenizer": "^4.0.0" } }, "sha512-KVw6qIiCTUQhByfTd78h2yD1/00waTmm9uy/R7Ck/ctUyAPj+AEDLkQIdJW0T8+qGgj3j5bpNKK7Q3G+LedJWg=="],
@@ -131,6 +146,8 @@
 
     "@llmflow/db": ["@llmflow/db@workspace:packages/db"],
 
+    "@llmflow/dev-runtime": ["@llmflow/dev-runtime@workspace:packages/dev-runtime"],
+
     "@llmflow/e2e": ["@llmflow/e2e@workspace:e2e/playwright"],
 
     "@llmflow/otlp": ["@llmflow/otlp@workspace:packages/otlp"],
@@ -138,8 +155,6 @@
     "@llmflow/pricing": ["@llmflow/pricing@workspace:packages/pricing"],
 
     "@llmflow/providers": ["@llmflow/providers@workspace:packages/providers"],
-
-    "@llmflow/server": ["@llmflow/server@workspace:apps/server"],
 
     "@llmflow/shared": ["@llmflow/shared@workspace:packages/shared"],
 
@@ -374,6 +389,8 @@
     "lightningcss-win32-arm64-msvc": ["lightningcss-win32-arm64-msvc@1.32.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw=="],
 
     "lightningcss-win32-x64-msvc": ["lightningcss-win32-x64-msvc@1.32.0", "", { "os": "win32", "cpu": "x64" }, "sha512-Amq9B/SoZYdDi1kFrojnoqPLxYhQ4Wo5XiL8EVJrVsB8ARoC1PWW6VGtT0WKCemjy8aC+louJnjS7U18x3b06Q=="],
+
+    "llmflow": ["llmflow@workspace:apps/server"],
 
     "llmflow-sdk": ["llmflow-sdk@workspace:packages/sdk"],
 

@@ -1,14 +1,27 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import {
+    mkdirSync,
+    readFileSync,
+    readdirSync,
+    realpathSync,
+    renameSync,
+    rmSync,
+    writeFileSync,
+} from 'node:fs'
 import { tmpdir, userInfo } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-export const root = path.resolve(import.meta.dir, '..')
+// Keyed by checkout so split dev commands in one clone find each other and ignore other clones.
+const checkout = path.resolve(
+    realpathSync(fileURLToPath(new URL('.', import.meta.url))),
+    '../../..',
+)
 export const stateDirectory =
     process.env.LLMFLOW_DEV_STATE_DIR ||
     path.join(
         tmpdir(),
-        `llmflow-dev-${userInfo().uid}-${createHash('sha256').update(root).digest('hex').slice(0, 16)}`,
+        `llmflow-dev-${userInfo().uid}-${createHash('sha256').update(checkout).digest('hex').slice(0, 16)}`,
     )
 export interface Runtime {
     pid: number
