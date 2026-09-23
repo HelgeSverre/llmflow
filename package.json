@@ -41,6 +41,7 @@
     "test:package": "bun run scripts/test-package.ts"
   },
   "devDependencies": {
+    "@llmflow/shared": "workspace:*",
     "@playwright/test": "catalog:",
     "@types/bun": "^1.3.14",
     "oxfmt": "0.70.0",

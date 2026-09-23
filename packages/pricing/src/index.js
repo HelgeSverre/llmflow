@@ -1,12 +1,12 @@
 const https = require('https')
 const fs = require('fs')
 const path = require('path')
+const { log } = require('@llmflow/shared/logger')
 
 const DEFAULT_PRICING_URL =
     'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
 const PRICING_URL = process.env.PRICING_URL || DEFAULT_PRICING_URL
 const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
-const VERBOSE = process.env.VERBOSE === '1' || process.argv.includes('--verbose')
 
 const fallbackPricingPath =
     typeof LLMFLOW_BUNDLE_DIR !== 'undefined'
@@ -63,9 +63,7 @@ async function loadPricing() {
         pricingData = json
         lastFetchTime = Date.now()
         pricingSource = 'litellm'
-        if (VERBOSE) {
-            console.log(`\x1b[2m[pricing] Loaded ${Object.keys(pricingData).length} models\x1b[0m`)
-        }
+        log.debug(`[pricing] Loaded ${Object.keys(pricingData).length} models`)
     } catch (err) {
         if (Object.keys(pricingData).length === 0) {
             loadFallbackPricing()

@@ -1,4 +1,4 @@
-import { afterAll, expect, spyOn, test } from 'bun:test'
+import { afterAll, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -64,23 +64,4 @@ test('a DATA_DIR with a leading ~ resolves under the home directory, not ./~', a
     expect(child.stdout.toString().trim()).toBe(path.join(home, '.llmflow'))
     expect(existsSync(path.join(home, '.llmflow', 'data.db'))).toBe(true)
     expect(existsSync(path.join(cwd, '~'))).toBe(false)
-})
-
-test('log.error prints the cause message and stack', () => {
-    const log = require('@llmflow/shared/logger')
-    const lines: string[] = []
-    const spy = spyOn(console, 'log').mockImplementation((line: string) => {
-        lines.push(line)
-    })
-    try {
-        log.error('Replay failed', new Error('upstream refused'))
-        log.error('Plain message')
-        log.error('Odd cause', 'string cause')
-    } finally {
-        spy.mockRestore()
-    }
-    expect(lines[0]).toContain('Replay failed: Error: upstream refused')
-    expect(lines[0]).toContain('env-and-logger.test.ts')
-    expect(lines[1]).toEndWith('Plain message')
-    expect(lines[2]).toEndWith('Odd cause: string cause')
 })

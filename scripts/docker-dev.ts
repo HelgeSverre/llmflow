@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
+import { log } from '@llmflow/shared/logger'
 
 const root = path.resolve(import.meta.dir, '..')
 const args = ['compose', '-f', `${root}/docker/docker-compose.yml`]
@@ -48,7 +49,7 @@ if (
     result.code &&
     /port is already allocated|address already in use|failed to bind host port/i.test(result.output)
 ) {
-    console.log('[llmflow] Docker host ports are busy; requesting available ports from Docker.')
+    log.warn('Docker host ports are busy; requesting available ports from Docker.')
     env = { ...env, DASHBOARD_PORT: '0', PROXY_PORT: '0' }
     result = await run(['up', '--build', '-d'], true)
 }
@@ -63,7 +64,7 @@ if (result.code) {
     ]) {
         const address = await run(['port', 'llmflow', port!], true)
         if (address.code) console.error(address.output)
-        else console.log(`[llmflow] ${label}: http://${address.output.trim()}`)
+        else log.info(`${label}: http://${address.output.trim()}`)
     }
     const logs = await run(['logs', '--follow'])
     if (!stopping) process.exitCode = logs.code

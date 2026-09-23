@@ -3,7 +3,7 @@ import { migrate } from './migrations'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
-const { sanitizeHeaders, sanitizePath } = require('@llmflow/shared/redaction')
+import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
 
 // .env files are not shell-expanded, so expand a leading ~ here instead of creating a literal ./~ directory.
 function expandHome(value: string | undefined) {

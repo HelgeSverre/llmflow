@@ -2,11 +2,12 @@
   "name": "@llmflow/shared",
   "version": "0.0.0",
   "private": true,
-  "main": "./src/index.js",
+  "type": "module",
   "exports": {
-    ".": "./src/index.js",
-    "./logger": "./src/logger.js",
-    "./redaction": "./src/redaction.js"
+    "./logger": "./src/logger.ts",
+    "./redaction": "./src/redaction.ts"
   },
-  "type": "commonjs"
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
 }

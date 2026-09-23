@@ -2,6 +2,7 @@ import { createServer, type ProxyOptions, type ViteDevServer } from 'vite'
 import { createServer as createHttpServer } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { backendUrl, port, publish } from '@llmflow/dev-runtime'
+import { log } from '@llmflow/shared/logger'
 
 async function startFrontend() {
   const target = () => backendUrl() || `http://127.0.0.1:${port('DASHBOARD_PORT', 1337)}`
@@ -57,7 +58,7 @@ async function startFrontend() {
       await listen(preferred)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EADDRINUSE' || preferred === 0) throw error
-      console.log(`[llmflow] Vite port ${preferred} is busy; choosing an available port.`)
+      log.warn(`Vite port ${preferred} is busy; choosing an available port.`)
       await listen(0)
     }
     const address = http.address()
@@ -81,8 +82,8 @@ async function startFrontend() {
       },
     })
     unpublish = publish({ kind: 'frontend', url })
-    console.log(`[llmflow] Vite:       ${url}`)
-    console.log(`[llmflow] API target: ${target()}`)
+    log.info(`Vite:       ${url}`)
+    log.info(`API target: ${target()}`)
     return close
   } catch (error) {
     await close()
@@ -99,7 +100,7 @@ async function stop(code = 0) {
   try {
     await close?.()
   } catch (error) {
-    console.error('[llmflow] Cleanup failed:', error)
+    log.error('Cleanup failed', error)
   }
   clearTimeout(timeout)
   process.exit(code)
@@ -108,8 +109,8 @@ process.on('SIGINT', () => void stop())
 process.on('SIGTERM', () => void stop())
 try {
   close = await startFrontend()
-  console.log('[llmflow] Ready. Press Ctrl+C to stop.')
+  log.info('Ready. Press Ctrl+C to stop.')
 } catch (error) {
-  console.error(`[llmflow] Startup failed: ${(error as Error).message}`)
+  log.error(`Startup failed: ${(error as Error).message}`)
   await stop(1)
 }

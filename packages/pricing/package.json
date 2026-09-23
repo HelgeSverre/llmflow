@@ -7,5 +7,8 @@
     ".": "./src/index.js",
     "./fallback": "./pricing.fallback.json"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "@llmflow/shared": "workspace:*"
+  }
 }

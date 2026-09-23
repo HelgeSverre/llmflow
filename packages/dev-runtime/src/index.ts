@@ -11,6 +11,7 @@ import {
 import { tmpdir, userInfo } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { log } from '@llmflow/shared/logger'
 
 // Keyed by checkout so split dev commands in one clone find each other and ignore other clones.
 const checkout = path.resolve(
@@ -41,7 +42,7 @@ export function available<T>(label: string, preferred: number, listen: (port: nu
         return listen(preferred)
     } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EADDRINUSE' || preferred === 0) throw error
-        console.log(`[llmflow] ${label} port ${preferred} is busy; choosing an available port.`)
+        log.warn(`${label} port ${preferred} is busy; choosing an available port.`)
         return listen(0)
     }
 }

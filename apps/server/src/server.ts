@@ -14,9 +14,9 @@ import {
     OpenAIPassthrough,
     HeliconePassthrough,
 } from '@llmflow/providers/passthrough'
+import { log } from '@llmflow/shared/logger'
 // CommonJS workspace packages
 const { getPricingStatus } = require('@llmflow/pricing')
-const log = require('@llmflow/shared/logger')
 const { processOtlpTraces } = require('@llmflow/otlp/traces')
 const { decodeOtlpRequest } = require('@llmflow/otlp/transport')
 const { processOtlpLogs } = require('@llmflow/otlp/logs')
@@ -1039,8 +1039,8 @@ function main() {
     process.on('SIGINT', shutdown)
     process.on('SIGTERM', shutdown)
 
-    console.log(`[llmflow] Dashboard: ${dashboard.url}`)
-    console.log(`[llmflow] Proxy:     ${proxy.url}`)
+    log.info(`Dashboard: ${dashboard.url}`)
+    log.info(`Proxy:     ${proxy.url}`)
 }
 
 if (import.meta.main) {

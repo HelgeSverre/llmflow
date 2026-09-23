@@ -3,8 +3,8 @@ import { registry, type BaseProvider } from '@llmflow/providers'
 import type { ProviderRequest, TokenUsage } from '@llmflow/providers/base'
 import type { PassthroughHandler } from '@llmflow/providers/passthrough'
 const { calculateCost } = require('@llmflow/pricing')
-const { sanitizeHeaders, sanitizePath } = require('@llmflow/shared/redaction')
-const log = require('@llmflow/shared/logger')
+import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
+import { log } from '@llmflow/shared/logger'
 
 const BODY_LIMIT = 16 * 1024 * 1024
 

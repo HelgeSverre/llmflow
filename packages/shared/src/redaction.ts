@@ -1,14 +1,16 @@
 const SENSITIVE =
     /authorization|cookie|api[-_]?key|(?:^|[-_])(?:token|secret|password|credential)(?:$|[-_])|helicone-auth/i
 
-function sanitizeHeaders(headers) {
+type HeaderInput = Headers | Record<string, string> | null | undefined
+
+export function sanitizeHeaders(headers: HeaderInput): Record<string, string> {
     const entries = headers instanceof Headers ? headers.entries() : Object.entries(headers || {})
     return Object.fromEntries(
         Array.from(entries, ([key, value]) => [key, SENSITIVE.test(key) ? '[REDACTED]' : value]),
     )
 }
 
-function sanitizePath(value) {
+export function sanitizePath<T extends string | null | undefined>(value: T): T | string {
     if (!value) return value
     try {
         const url = new URL(value, 'http://redaction.invalid')
@@ -21,5 +23,3 @@ function sanitizePath(value) {
         return '[INVALID URL]'
     }
 }
-
-module.exports = { sanitizeHeaders, sanitizePath }

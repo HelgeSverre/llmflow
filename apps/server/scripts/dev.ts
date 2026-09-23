@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { log } from '@llmflow/shared/logger'
 import {
     available,
     backendUrl,
@@ -46,7 +47,7 @@ if (['--help', '-h'].includes(mode)) {
             try {
                 await close()
             } catch (error) {
-                console.error('[llmflow] Cleanup failed:', error)
+                log.error('Cleanup failed', error)
             }
         }
         clearTimeout(timeout)
@@ -71,11 +72,11 @@ if (['--help', '-h'].includes(mode)) {
         cleanup.push(() => proxy.stop(true))
         const url = clientUrl(dashboard.url)
         cleanup.push(publish({ kind: 'backend', url, proxy: clientUrl(proxy.url) }))
-        console.log(`[llmflow] Dashboard/OTLP: ${url}`)
-        console.log(`[llmflow] Proxy:          ${clientUrl(proxy.url)}`)
-        console.log('[llmflow] Ready. Press Ctrl+C to stop.')
+        log.info(`Dashboard/OTLP: ${url}`)
+        log.info(`Proxy:          ${clientUrl(proxy.url)}`)
+        log.info('Ready. Press Ctrl+C to stop.')
     } catch (error) {
-        console.error(`[llmflow] Startup failed: ${(error as Error).message}`)
+        log.error(`Startup failed: ${(error as Error).message}`)
         await stop(1)
     }
 } else {

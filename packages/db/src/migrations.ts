@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite'
-const { sanitizeHeaders, sanitizePath } = require('@llmflow/shared/redaction')
+import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
 
 export function migrate(db: Database) {
     db.exec(
