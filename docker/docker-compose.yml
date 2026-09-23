@@ -12,13 +12,13 @@ services:
       - '127.0.0.1:${PROXY_PORT:-8080}:8080'
       - '127.0.0.1:${DASHBOARD_PORT:-1337}:1337'
     volumes:
-      - llmflow-data:/root/.llmflow
+      - llmflow-data:/home/bun/.llmflow
     environment:
       - PROXY_PORT=8080
       - DASHBOARD_PORT=1337
       - PROXY_HOST=0.0.0.0
       - DASHBOARD_HOST=0.0.0.0
-      - DATA_DIR=/root/.llmflow
+      - DATA_DIR=/home/bun/.llmflow
       - MAX_TRACES=${MAX_TRACES:-10000}
     restart: unless-stopped
 

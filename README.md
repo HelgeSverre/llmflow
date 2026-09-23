@@ -203,7 +203,7 @@ DASHBOARD_HOST=0.0.0.0 PROXY_HOST=0.0.0.0 npx llmflow
 docker run -p 127.0.0.1:1337:1337 -p 127.0.0.1:8080:8080 helgesverre/llmflow
 ```
 
-The supplied Compose configuration explicitly binds both listeners to `0.0.0.0` inside the container and publishes both ports on host loopback. Run it with `docker compose -f docker/docker-compose.yml up --build`. Changing the host-side publishing address enables network access; it does not add authentication.
+The supplied Compose configuration explicitly binds both listeners to `0.0.0.0` inside the container and publishes both ports on host loopback. Run it with `docker compose -f docker/docker-compose.yml up --build`. The image runs as the non-root user `bun` (uid 1000) with its data in `/home/bun/.llmflow`; volumes created for `/root/.llmflow` by images up to 0.4.1 need the one-time migration in [DOCKER_HUB.md](DOCKER_HUB.md#migrating-from-rootllmflow). Changing the host-side publishing address enables network access; it does not add authentication.
 
 **Provider keys.** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc. live in the environment of the LLMFlow process. Anyone who can hit `/v1/*` can spend against them — treat the listening surface accordingly.
 
