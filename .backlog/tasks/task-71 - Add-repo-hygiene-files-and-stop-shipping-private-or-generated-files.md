@@ -1,10 +1,10 @@
 ---
 id: TASK-71
 title: Add repo hygiene files and stop shipping private or generated files
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-23 08:50'
-updated_date: '2026-09-23 09:55'
+updated_date: '2026-09-23 11:41'
 labels:
   - hygiene
 milestone: m-0
