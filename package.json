@@ -5,8 +5,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "e2e/*",
-    "website"
+    "e2e/*"
   ],
   "catalog": {
     "@playwright/test": "^1.60.0",
