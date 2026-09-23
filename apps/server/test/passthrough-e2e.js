@@ -7,7 +7,7 @@
  * Requires API keys set in environment variables.
  *
  * Usage:
- *   node test/run-tests.js passthrough-e2e.js
+ *   bun run test:live
  *
  * Environment variables:
  *   ANTHROPIC_API_KEY  - For Anthropic passthrough tests

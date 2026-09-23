@@ -1,20 +1,6 @@
 import { afterAll, expect, mock, test } from 'bun:test'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
-
-const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-reviewed-'))
-process.env.DATA_DIR = directory
-process.env.DB_PATH = path.join(directory, 'test.db')
-process.env.DASHBOARD_PORT = '0'
-process.env.PROXY_PORT = '0'
-delete process.env.DASHBOARD_HOST
-delete process.env.PROXY_HOST
-process.env.OTLP_EXPORT_ENABLED = 'false'
-delete process.env.OTLP_EXPORT_ENDPOINT
-delete process.env.OTLP_EXPORT_TRACES_ENDPOINT
-delete process.env.OTLP_EXPORT_LOGS_ENDPOINT
-delete process.env.OTLP_EXPORT_METRICS_ENDPOINT
+import { startTestServer } from './helpers/test-server'
 
 mock.module('@llmflow/pricing', () => ({
     calculateCost: (_model: string, input: number, output: number) =>
@@ -22,17 +8,14 @@ mock.module('@llmflow/pricing', () => ({
     getPricingStatus: () => ({ source: 'fixture' }),
 }))
 
-const { startDashboardServer, startProxyServer } = await import('../src/server')
-const db = await import('@llmflow/db')
-const dashboard = startDashboardServer()
-const proxy = startProxyServer()
-
-afterAll(() => {
-    dashboard.stop(true)
-    proxy.stop(true)
-    db.close()
-    rmSync(directory, { recursive: true, force: true })
+const testServer = await startTestServer({
+    proxy: true,
+    prefix: 'llmflow-reviewed-',
+    env: { DASHBOARD_HOST: undefined, PROXY_HOST: undefined },
 })
+const { db, dashboard, directory } = testServer
+const proxy = testServer.proxy!
+afterAll(() => testServer.stop())
 
 test('both listeners bind to loopback by default and answer requests', async () => {
     expect(dashboard.hostname).toBe('127.0.0.1')

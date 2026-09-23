@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { migrate } from '@llmflow/db/migrations'
 import { trustedWebSocketOrigin } from '../src/websocket-origin'
-const { runChild } = require('./run-tests.js')
+import { childEnv, runChild } from './helpers/test-server'
 const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-db-'))
 Object.assign(process.env, {
     DATA_DIR: directory,
@@ -104,7 +104,7 @@ test('historical credential scrub and observed timestamp repair execute once', (
 })
 test('websocket origin validation ignores hostile forwarding and rejects absent/null origins', () => {
     const request = (origin?: string) =>
-        new Request('http://127.0.0.1:1337/ws', {
+        new Request('http://127.0.0.1:41337/ws', {
             headers: { ...(origin ? { origin } : {}), 'x-forwarded-host': 'evil.example' },
         })
     for (const origin of [
@@ -112,31 +112,48 @@ test('websocket origin validation ignores hostile forwarding and rejects absent/
         'null',
         'https://evil.example',
         'http://127.0.0.1:9999',
-        'http://localhost:1337/path',
+        'http://localhost:41337/path',
     ])
-        expect(trustedWebSocketOrigin(request(origin), '127.0.0.1', 1337)).toBe(false)
-    for (const origin of ['http://localhost:1337', 'http://127.0.0.1:1337'])
-        expect(trustedWebSocketOrigin(request(origin), '127.0.0.1', 1337)).toBe(true)
+        expect(trustedWebSocketOrigin(request(origin), '127.0.0.1', 41337)).toBe(false)
+    for (const origin of ['http://localhost:41337', 'http://127.0.0.1:41337'])
+        expect(trustedWebSocketOrigin(request(origin), '127.0.0.1', 41337)).toBe(true)
     process.env.WS_ALLOWED_ORIGINS = 'https://dashboard.example'
-    expect(trustedWebSocketOrigin(request('https://dashboard.example'), '0.0.0.0', 1337)).toBe(true)
+    expect(trustedWebSocketOrigin(request('https://dashboard.example'), '0.0.0.0', 41337)).toBe(
+        true,
+    )
     delete process.env.WS_ALLOWED_ORIGINS
 })
-test('test runner reports signal termination and launch errors as failures', async () => {
+test('runChild reports signal termination and launch errors as failures', async () => {
     expect(await runChild(process.execPath, ['-e', 'process.exit(0)'])).toBe(0)
     expect(await runChild(process.execPath, ['-e', 'process.exit(3)'])).toBe(1)
     expect(await runChild(process.execPath, ['-e', "process.kill(process.pid,'SIGTERM')"])).toBe(1)
     expect(await runChild('/nonexistent/llmflow-test', [])).toBe(1)
 })
 
-test('concurrent runner invocations cannot touch inherited personal data', async () => {
+test('concurrent test servers cannot touch inherited personal data', async () => {
     const sentinel = path.join(directory, 'personal.db')
     writeFileSync(sentinel, 'DO NOT CHANGE')
     const before = readFileSync(sentinel)
+    const helper = path.join(import.meta.dir, 'helpers/test-server.ts')
     const run = async () => {
         const child = Bun.spawn(
-            [process.execPath, path.join(import.meta.dir, 'run-tests.js'), 'providers.js'],
+            [
+                process.execPath,
+                '-e',
+                `
+        const { startTestServer } = await import(${JSON.stringify(helper)})
+        const server = await startTestServer({ proxy: true })
+        const response = await fetch(server.url + '/api/spans', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id: 'isolated', span_name: 'isolated' }),
+        })
+        console.log(JSON.stringify({ ok: response.ok, dbPath: server.dbPath }))
+        await server.stop()
+    `,
+            ],
             {
-                env: { ...process.env, DATA_DIR: directory, DB_PATH: sentinel },
+                env: childEnv({ DATA_DIR: directory, DB_PATH: sentinel }),
                 stdout: 'pipe',
                 stderr: 'pipe',
             },
@@ -146,12 +163,13 @@ test('concurrent runner invocations cannot touch inherited personal data', async
             new Response(child.stderr).text(),
             child.exited,
         ])
-        expect({ code, errors, passed: output.includes('All tests passed') }).toEqual({
-            code: 0,
-            errors: '',
-            passed: true,
-        })
+        expect({ code, errors }).toEqual({ code: 0, errors: '' })
+        const result = JSON.parse(output.trim().split('\n').at(-1)!)
+        expect(result.ok).toBe(true)
+        expect(result.dbPath).not.toBe(sentinel)
+        return result.dbPath as string
     }
-    await Promise.all([run(), run()])
+    const [first, second] = await Promise.all([run(), run()])
+    expect(first).not.toBe(second)
     expect(readFileSync(sentinel)).toEqual(before)
 }, 15000)

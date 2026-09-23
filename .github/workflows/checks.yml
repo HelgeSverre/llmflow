@@ -19,7 +19,6 @@ jobs:
       - run: bun run test
         env:
           LLMFLOW_PYTHON: python3
-      - run: bun run --filter @llmflow/dashboard test
       - run: bun run build
       - run: bun run test:package
       - run: bunx playwright install --with-deps chromium

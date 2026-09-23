@@ -7,7 +7,7 @@
  * Requires API keys set in environment variables.
  *
  * Usage:
- *   node test/run-tests.js providers-e2e.js
+ *   bun run test:live
  *
  * Or test specific providers:
  *   PROVIDERS=openai,anthropic node test/providers-e2e.js
