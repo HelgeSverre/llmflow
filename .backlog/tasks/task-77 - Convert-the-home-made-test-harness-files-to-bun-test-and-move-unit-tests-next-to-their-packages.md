@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-09-23 08:50'
-updated_date: '2026-09-23 12:32'
+updated_date: '2026-09-23 12:37'
 labels:
   - tests
 milestone: m-0
@@ -35,7 +35,7 @@ Existing `bun:test` files in apps/server/test keep their names for now.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 No test file defines its own test()/assert() helper or calls process.exit; all use bun:test
+- [x] #1 No test file defines its own test()/assert() helper or calls process.exit; all use bun:test
 - [x] #2 The three previously orphaned files run as part of `bun run test:server` and pass
 - [x] #3 packages/providers, packages/otlp and packages/db each contain colocated *.test.ts and `bun test ./packages` runs them
 <!-- AC:END -->
@@ -56,6 +56,8 @@ Verified facts and decisions:
 - TASK-78: legacy-scripts.test.ts now lists only otlp-e2e.js, otlp-logs-e2e.js, otlp-metrics-e2e.js, sessions-e2e.js and websocket-e2e.js. Delete it once that list is empty. The root test:server script no longer has the '**/*.test.js' ignore, so any new *.test.js file that calls process.exit would end the whole run.
 - TASK-80: packages/shared now has src/redaction.test.ts, which imports sanitizeHeaders from './redaction' (CJS today). It keeps working after the ESM port.
 - TASK-81/82/83: the otlp tests import './export' and './traces' as CJS modules from TS. Keep those import paths working, or update them, when porting.
+
+AC1 verified after TASK-78 removed the *-e2e.js files: no test file defines its own test()/assert(); the only process.exit calls are inside child-process scripts (recipe-contracts mock, database-regressions runChild), not the test files themselves.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

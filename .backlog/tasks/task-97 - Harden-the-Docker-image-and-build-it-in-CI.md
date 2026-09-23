@@ -4,7 +4,7 @@ title: Harden the Docker image and build it in CI
 status: Done
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 12:10'
+updated_date: '2026-09-23 12:37'
 labels:
   - docker
   - ci
@@ -39,8 +39,8 @@ The new multi-stage `docker/Dockerfile` has never been built (no daemon in eithe
 - [x] #1 `docker build` succeeds in CI for linux/amd64 and linux/arm64 and the container answers /api/health on the documented ports
 - [x] #2 Image pins the Bun tag, runs as non-root, carries OCI labels with the version, and rebuilds without reinstalling when only source changes
 - [x] #3 DOCKER_HUB.md matches the image (ports, hosts, providers, domain, volume path)
-- [ ] #4 Runtime stage copies apps/server/dist only; build stage installs with bun ci
-- [ ] #5 Container runs as uid 1000 (USER bun) and the volume path change from /root/.llmflow is documented with a migration note
+- [x] #4 Runtime stage copies apps/server/dist only; build stage installs with bun ci
+- [x] #5 Container runs as uid 1000 (USER bun) and the volume path change from /root/.llmflow is documented with a migration note
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -59,6 +59,8 @@ Verified facts and decisions:
 - DOCKER_HUB.md still says MAX_TRACES and "traces". If TASK-95 renames the env var, update it there.
 
 Validation on merged main: bun install, typecheck, lint, format:check, server tests (14 passed), dashboard tests (113 passed). Local docker build for linux/arm64 (native) and linux/amd64 (emulated): both containers answer /api/health on 1337, run as uid 1000 (bun), and carry OCI labels with the VERSION build arg. Changing a source file (apps/server/src/proxy.ts) and rebuilding left the `bun ci` layer CACHED. The CI docker job itself has not run yet because nothing was pushed.
+
+AC4/AC5 verified in docker/Dockerfile (runtime copies only /app/apps/server/dist; build stage runs bun ci; USER bun uid 1000) and DOCKER_HUB.md 'Migrating from /root/.llmflow' section.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
