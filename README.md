@@ -12,7 +12,7 @@ npx llmflow
 
 Dashboard: [127.0.0.1:1337](http://127.0.0.1:1337) · Proxy: [127.0.0.1:8080](http://127.0.0.1:8080)
 
-![LLMFlow Dashboard](website/screenshot-dark.png)
+![LLMFlow Dashboard](https://raw.githubusercontent.com/HelgeSverre/llmflow/main/website/screenshot-dark.png)
 
 ---
 

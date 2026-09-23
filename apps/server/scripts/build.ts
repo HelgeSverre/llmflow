@@ -34,7 +34,8 @@ const result = await Bun.build({
     outdir: output,
     target: 'bun',
     format: 'esm',
-    sourcemap: 'external',
+    // Linked, so Bun maps stack traces in bug reports back to the source files.
+    sourcemap: 'linked',
     packages: 'bundle',
     // Static assets (dist/public) are located relative to the bundle; pricing is embedded.
     banner: 'const LLMFLOW_BUNDLE_DIR = import.meta.dir;',

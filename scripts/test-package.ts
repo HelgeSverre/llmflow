@@ -1,5 +1,5 @@
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { freePort, waitForHealth } from '@llmflow/shared/net'
 const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-package-'))
@@ -42,6 +42,10 @@ try {
     const allowed = /^(bin\/|dist\/|package\.json$|README\.md$|LICENSE$)/
     const unexpected = paths.filter((file) => !allowed.test(file))
     if (unexpected.length) throw new Error(`Tarball includes unexpected files: ${unexpected}`)
+    // Size limits catch accidental bloat (node_modules, fixtures); today ~310 kB packed, ~1.5 MB unpacked.
+    const packedBytes = Bun.file(tarballPath).size
+    if (packedBytes > 700_000)
+        throw new Error(`Tarball is ${packedBytes} bytes; expected under 700 kB`)
     const manifest = await run(['tar', '-xzOf', tarballPath, 'package/package.json'], directory)
     const specifier = manifest.match(/"(workspace|catalog):[^"]*"/)
     if (specifier) throw new Error(`Packed manifest keeps a ${specifier[0]} specifier`)
@@ -49,6 +53,22 @@ try {
     mkdirSync(consumer)
     writeFileSync(path.join(consumer, 'package.json'), '{"private":true}')
     await run(['npm', 'install', '--ignore-scripts', '--offline', tarballPath], consumer)
+    const installed = path.join(consumer, 'node_modules/llmflow')
+    let unpackedBytes = 0
+    // No build-machine paths may ship: the checkout, the home directory or any /Users/<name>/.
+    const leaks = [root, homedir(), /\/Users\/[^/\s"']+\//]
+    for (const file of new Bun.Glob('**/*').scanSync({ cwd: installed, dot: true })) {
+        const text = await Bun.file(path.join(installed, file)).text()
+        unpackedBytes += Buffer.byteLength(text)
+        for (const leak of leaks)
+            if (typeof leak === 'string' ? text.includes(leak) : leak.test(text))
+                throw new Error(`${file} contains a build-machine path (${leak})`)
+    }
+    if (unpackedBytes > 3_000_000)
+        throw new Error(`Package unpacks to ${unpackedBytes} bytes; expected under 3 MB`)
+    const bundle = await Bun.file(path.join(installed, 'dist/server.js')).text()
+    if (!bundle.trimEnd().endsWith('//# sourceMappingURL=server.js.map'))
+        throw new Error('dist/server.js does not link its source map')
     const cli = path.join(consumer, 'node_modules/.bin/llmflow')
     const dashboardPort = await freePort(),
         proxyPort = await freePort()
