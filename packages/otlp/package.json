@@ -10,7 +10,7 @@
     "./transport": "./src/transport.ts",
     "./timestamps": "./src/timestamps.ts",
     "./ids": "./src/ids.ts",
-    "./export": "./src/export.js"
+    "./export": "./src/export.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

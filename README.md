@@ -140,6 +140,26 @@ a single session and exposes them in the **Sessions** tab:
 For chat-thread correlation, set `gen_ai.conversation.id` (OTel) or
 `traceloop.association.properties.thread_id`.
 
+### Forwarding to another backend
+
+LLMFlow can forward what it stores to any OTLP/HTTP backend (Jaeger, Grafana Tempo,
+Langfuse, Phoenix, Opik). Records are batched per signal.
+
+| Variable                       | Description                                                        |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `OTLP_EXPORT_TRACES_ENDPOINT`  | Full traces URL, e.g. `http://localhost:4318/v1/traces`            |
+| `OTLP_EXPORT_ENDPOINT`         | Alias for the traces URL; it does **not** enable logs or metrics   |
+| `OTLP_EXPORT_LOGS_ENDPOINT`    | Full logs URL; logs are forwarded only when this is set            |
+| `OTLP_EXPORT_METRICS_ENDPOINT` | Full metrics URL; metrics are forwarded only when this is set      |
+| `OTLP_EXPORT_PROTOCOL`         | `http/json` (default) or `http/protobuf` (needed by Phoenix)       |
+| `OTLP_EXPORT_HEADERS`          | Comma-separated `key=value` headers, e.g. `Authorization=Bearer …` |
+
+Forwarded spans are rebuilt from the stored row. They carry the GenAI usage attributes,
+`session.id`, `gen_ai.conversation.id`, `gen_ai.agent.name`, and the attributes the span
+arrived with. Prompt and response bodies that the proxy captured are **not** turned into
+content attributes: enable content capture in your instrumentation if the backend should
+receive it. Logs and metrics are forwarded with their attributes and resource attributes.
+
 ---
 
 ## Configuration

@@ -16,12 +16,11 @@ import {
 } from '@llmflow/providers/passthrough'
 import { getPricingStatus } from '@llmflow/pricing'
 import { log } from '@llmflow/shared/logger'
+import { getConfig as getExportConfig, initExportHooks } from '@llmflow/otlp/export'
 import { processOtlpLogs } from '@llmflow/otlp/logs'
 import { processOtlpMetrics } from '@llmflow/otlp/metrics'
 import { processOtlpTraces } from '@llmflow/otlp/traces'
 import { decodeOtlpRequest } from '@llmflow/otlp/transport'
-// CommonJS workspace packages
-const { initExportHooks, flushAll, EXPORT_ENABLED } = require('@llmflow/otlp/export')
 
 // Passthrough handlers for native API formats
 const passthroughHandlers: Record<string, PassthroughHandler> = {
@@ -1021,10 +1020,8 @@ export function startProxyServer(port = PROXY_PORT) {
 // Entry point. Imports of this module from tests or tooling will NOT start
 // listeners — only direct execution (`bun run src/server.ts`) does.
 function main() {
-    const stopExport = EXPORT_ENABLED ? initExportHooks(db) : () => {}
-    if (EXPORT_ENABLED) {
-        log.info('OTLP export enabled')
-    }
+    const stopExport = initExportHooks(db)
+    if (getExportConfig().enabled) log.info('OTLP export enabled')
 
     const dashboard = startDashboardServer()
     const proxy = startProxyServer()
@@ -1035,7 +1032,8 @@ function main() {
         stopping = true
         const deadline = setTimeout(() => process.exit(0), 5000)
         try {
-            await Promise.all([dashboard.stop(), proxy.stop(), flushAll()])
+            await Promise.all([dashboard.stop(), proxy.stop()])
+            // Unsubscribes the exporter and flushes whatever is still queued.
             await stopExport()
         } catch (error) {
             log.error('Shutdown flush failed', error)

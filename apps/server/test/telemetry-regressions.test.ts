@@ -24,7 +24,8 @@ const testServer = await startTestServer({
     },
 })
 const { db, dashboard: server } = testServer
-const { initExportHooks, flushAll } = require('@llmflow/otlp/export')
+// The exporter reads its OTLP_EXPORT_* settings on import, so import it after they are set.
+const { initExportHooks, flushAll } = await import('@llmflow/otlp/export')
 const stop = initExportHooks(db)
 afterAll(async () => {
     await stop()

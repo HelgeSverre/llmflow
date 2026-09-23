@@ -61,9 +61,9 @@ if (['--help', '-h'].includes(mode)) {
         port('PROXY_PORT', 8080)
         const { startDashboardServer, startProxyServer } = await import('../src/server')
         const db = await import('@llmflow/db')
-        const { initExportHooks, EXPORT_ENABLED } = require('@llmflow/otlp/export')
+        const { initExportHooks } = await import('@llmflow/otlp/export')
         cleanup.push(() => db.close())
-        if (EXPORT_ENABLED) cleanup.push(initExportHooks(db))
+        cleanup.push(initExportHooks(db))
         const dashboard = available('Dashboard/OTLP', port('DASHBOARD_PORT', 1337), (value) =>
             startDashboardServer(value, frontendOrigins),
         )
