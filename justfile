@@ -5,7 +5,7 @@ COMPOSE := "docker compose -f docker/docker-compose.yml"
 default:
     @just --list
 
-# Install deps and start server + dashboard together (Vite HMR + bun --hot)
+# Install deps and start server + dashboard together (Vite HMR + automatic port selection)
 [group('dev')]
 dev:
     bun install
@@ -78,8 +78,8 @@ test-e2e-headed:
 
 # Open the Playwright UI runner
 [group('test')]
-test-e2e-ui:
-    bunx playwright test --ui
+test-e2e-ui *args:
+    bunx playwright test --ui {{args}}
 
 # Typecheck all workspaces
 [group('test')]
@@ -96,20 +96,15 @@ format:
 format-check:
     bunx prettier --check .
 
-# Build the dashboard
+# Build the dashboard and bundled server
 [group('build')]
 build:
     bun run build
 
-# Regenerate the social/OG image
-[group('build')]
-og-image:
-    bun apps/server/scripts/generate-og-image.js
-
 # Build and run with Docker Compose (foreground)
 [group('docker')]
 docker:
-    {{ COMPOSE }} up --build
+    bun scripts/docker-dev.ts
 
 [group('docker')]
 docker-stop:
@@ -122,24 +117,32 @@ docker-logs:
 # Show what's running on llmflow ports
 [group('ops')]
 status:
-    @echo "Bun/Node processes:"
-    @ps aux | grep -E "(bun|node).*server" | grep -v grep || echo "  none"
-    @echo ""
-    @echo "Docker containers:"
-    @docker ps | grep llmflow || echo "  none"
-    @echo ""
-    @echo "Ports:"
-    @lsof -i :8080 2>/dev/null | head -2 || echo "  8080: free"
-    @lsof -i :3000 2>/dev/null | head -2 || echo "  3000: free"
+    @bun scripts/dev.ts status
+    @docker ps --filter name=llmflow --format 'Docker: {{"{{.Names}} {{.Ports}}"}}' 2>/dev/null || true
 
 # Remove node_modules and the local database
 [group('ops')]
 clean:
     rm -rf node_modules
-    rm -f ~/.llmflow/data.db
+    rm -f "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}" "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}-wal" "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}-shm"
     @echo "cleaned node_modules and database"
 
-# Deploy the marketing site to Vercel
-[group('ops')]
+# Serve the marketing site locally at http://localhost:4000
+[group('website')]
+website:
+    bunx serve website -l 4000
+
+# Regenerate the social/OG image
+[group('website')]
+website-og:
+    bun apps/server/scripts/generate-og-image.js
+
+# Deploy a preview build to Vercel
+[group('website')]
+website-preview:
+    cd website && vc
+
+# Deploy the marketing site to Vercel (production)
+[group('website')]
 website-deploy:
     cd website && vc --prod
