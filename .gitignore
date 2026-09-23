@@ -4,9 +4,12 @@ npm-debug.log
 *.db
 *.sqlite
 .env
+.env.*
+!.env.example
 .idea/
 **/.vscode/
 *.log
+*.tgz
 **/.claude-config/
 .claude/worktrees/
 test-results/
@@ -16,15 +19,13 @@ playwright-report/
 # Workspace per-package build artifacts that should be regenerated locally
 apps/*/dist/
 packages/*/dist/
+/dist/
+# Old root build output; the dashboard now builds into apps/server/dist/
+/public/
 
 # Copied from the repository root by the llmflow prepack script
 apps/server/README.md
 apps/server/LICENSE
 
-# Local codedb MCP index
-codedb.snapshot
-
-# Compound Engineering local config
-.compound-engineering/*.local.yaml
-
-/dist/
+# Examples are standalone projects; their lockfiles are not part of the workspace
+examples/*/bun.lock
