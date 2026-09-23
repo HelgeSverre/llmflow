@@ -3,10 +3,10 @@ id: TASK-76
 title: >-
   Replace the custom test runner with bun test --isolate and one test-server
   helper
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-23 08:50'
-updated_date: '2026-09-23 09:24'
+updated_date: '2026-09-23 11:41'
 labels:
   - tests
 milestone: m-0
