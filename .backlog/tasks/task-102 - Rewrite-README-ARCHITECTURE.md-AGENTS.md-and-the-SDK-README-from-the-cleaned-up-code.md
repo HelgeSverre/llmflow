@@ -6,17 +6,12 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 10:31'
+updated_date: '2026-09-23 19:18'
 labels:
   - docs
 milestone: m-0
 dependencies:
-  - TASK-90
-  - TASK-94
-  - TASK-78
-  - TASK-87
-  - TASK-75
-  - TASK-104
+  - TASK-105
 references:
   - README.md
   - ARCHITECTURE.md

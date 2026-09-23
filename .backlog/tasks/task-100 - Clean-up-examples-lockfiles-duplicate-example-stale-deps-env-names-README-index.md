@@ -6,13 +6,12 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:55'
+updated_date: '2026-09-23 19:18'
 labels:
   - examples
 milestone: m-0
 dependencies:
-  - TASK-84
-  - TASK-94
+  - TASK-105
 references:
   - examples/README.md
   - examples/vercel-ai-sdk/index.js
