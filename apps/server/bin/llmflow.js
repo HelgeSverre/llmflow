@@ -37,7 +37,7 @@ if (args.some((arg) => arg !== '--verbose')) {
     process.exit(2)
 }
 const bundled = path.join(root, 'dist/server.js')
-const source = path.join(root, 'apps/server/src/server.ts')
+const source = path.join(root, 'src/server.ts')
 const serverFile = existsSync(bundled) ? bundled : source
 if (!existsSync(serverFile)) {
     console.error(
