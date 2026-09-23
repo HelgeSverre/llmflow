@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 19:40'
+updated_date: '2026-09-23 20:25'
 labels:
   - examples
 milestone: m-0
@@ -67,6 +67,8 @@ Run verification against a fresh LLMFlow (temp DATA_DIR, free ports), 2026-09-23
 - observability/jaeger (docker): span exported from LLMFlow shows in Jaeger with gen_ai.request.model and session.id.
 - observability/phoenix (docker): trace received over http/protobuf after the fix.
 NOT VERIFIED (blocks AC2): aider (not installed on this machine); observability/langfuse and observability/opik (multi-container stacks needing project API keys); observability/helicone (needs a Helicone account key). Needs the user to install aider / provide keys, or to accept these as unverified.
+
+2026-09-23: examples/aider removed at the user's request (never verified; not installed here), with its examples/README row and the website card. Remaining unverified: observability/langfuse, observability/opik, observability/helicone.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

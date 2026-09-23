@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 19:54'
+updated_date: '2026-09-23 20:25'
 labels:
   - release
   - ci
@@ -66,6 +66,8 @@ Done (commits 17a74b4, d347ed1):
 REMAINING (need the user; both require pushing, which was withheld):
 - AC1: push the workflow and run Actions -> Release -> Run workflow (dry_run) once to see it green on GitHub; add the three secrets first for a real release.
 - AC3: cut the first real release (0.5.0 suggested; 0.4.1 is taken on npm) and walk the RELEASING.md drift checklist (npm versions + README image, Docker latest on 1337, GitHub Latest).
+
+Change (2026-09-23, user decision: no npm token in CI): release.yml now publishes through npm trusted publishing. Removed NODE_AUTH_TOKEN/NPM_TOKEN and --provenance (npm adds provenance automatically under OIDC); added 'npm install -g npm@^11.5.1' (trusted publishing needs npm >= 11.5.1 and Node >= 22.14; Node 22 ships npm 10); kept id-token: write. The publish loop skips a name@version already on npm (checked with npm view; tested locally: llmflow@0.4.1 -> skip). Verified in npm docs (docs.npmjs.com/cli/v11/commands/npm-trust): 'Package must exist: The package you're configuring must already exist on the npm registry.' So llmflow (on npm) only needs its trusted publisher configured; llmflow-sdk (npm view -> 404, never published) needs one manual first publish from a logged-in machine, then its trusted publisher; RELEASING.md documents both. Only Docker Hub secrets remain. AC6 wording ('--provenance') is superseded: provenance is automatic with trusted publishing.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
