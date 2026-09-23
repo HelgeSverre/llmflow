@@ -36,13 +36,13 @@ if (args.some((arg) => arg !== '--verbose')) {
     console.error('Unknown argument. Run llmflow --help for supported options.')
     process.exit(2)
 }
+// A checkout always runs its current source (a leftover dist/ must not win); the npm
+// package ships only bin/ and dist/, so installations run the bundle.
 const bundled = path.join(root, 'dist/server.js')
 const source = path.join(root, 'src/server.ts')
-const serverFile = existsSync(bundled) ? bundled : source
+const serverFile = existsSync(source) ? source : bundled
 if (!existsSync(serverFile)) {
-    console.error(
-        'LLMFlow server artifact is missing. Reinstall llmflow or run bun run build in a checkout.',
-    )
+    console.error('LLMFlow server artifact is missing. Reinstall llmflow.')
     process.exit(1)
 }
 const server = spawn('bun', ['--no-install', serverFile, ...args], {

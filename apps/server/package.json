@@ -11,8 +11,8 @@
     "dist/"
   ],
   "scripts": {
-    "start": "bun bin/llmflow.js",
-    "start:verbose": "bun bin/llmflow.js --verbose",
+    "start": "bun src/server.ts",
+    "start:verbose": "bun src/server.ts --verbose",
     "dev": "bun --watch scripts/dev.ts server",
     "demo": "bun scripts/dev.ts demo",
     "demo:many": "bun scripts/dev.ts demo --count=20",

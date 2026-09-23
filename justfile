@@ -135,12 +135,13 @@ status:
     @bun run dev:status
     @docker ps --filter name=llmflow --format 'Docker: {{"{{.Names}} {{.Ports}}"}}' 2>/dev/null || true
 
-# Remove node_modules and the local database
+# Remove every node_modules, build output and the local database
 [group('ops')]
 clean:
-    rm -rf node_modules
+    find . \( -path ./.git -o -path ./.claude \) -prune -o -type d -name node_modules -prune -exec rm -rf {} +
+    rm -rf dist apps/server/dist apps/dashboard/dist
     rm -f "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}" "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}-wal" "${DB_PATH:-${DATA_DIR:-$HOME/.llmflow}/data.db}-shm"
-    @echo "cleaned node_modules and database"
+    @echo "cleaned node_modules, dist and database"
 
 # Serve the marketing site locally at http://localhost:4000
 [group('website')]

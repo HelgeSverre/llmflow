@@ -250,7 +250,9 @@ The dashboard is Svelte 5 + Vite 8 and builds to `apps/dashboard/dist/`.
 The published `llmflow` npm package is the `apps/server` workspace; the repository root is a private workspace root.
 Its build assembles the dashboard into `apps/server/dist/public/` alongside `dist/server.js` and runtime assets.
 The bin entry `apps/server/bin/llmflow.js` (used by `npx llmflow`) spawns
-the bundled `dist/server.js` in npm installations (source in an unbuilt checkout).
+the bundled `dist/server.js` in npm installations and `src/server.ts` in a checkout.
+In a checkout, `bun run start` runs the current source directly (a stale `dist/` is never used);
+`just clean` removes every `node_modules` and all build output.
 `bun run build` generates both the dashboard and the self-contained Bun server.
 `bun pm pack` and `bun publish` in `apps/server` build through `prepack` and rewrite `workspace:`/`catalog:` specifiers; generated output is not committed.
 Docker builds the same release layout from source in a separate build stage.
