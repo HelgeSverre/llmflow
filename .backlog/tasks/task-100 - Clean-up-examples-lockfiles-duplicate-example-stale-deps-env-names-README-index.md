@@ -3,10 +3,11 @@ id: TASK-100
 title: >-
   Clean up examples: lockfiles, duplicate example, stale deps, env names, README
   index
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 19:18'
+updated_date: '2026-09-23 19:40'
 labels:
   - examples
 milestone: m-0
@@ -37,9 +38,36 @@ Verify each example actually runs against a local LLMFlow (`run-all.sh` or per-e
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 No npm lockfiles under examples/; one AI SDK example; dependencies on current majors; every example dir listed in examples/README.md
+- [x] #1 No npm lockfiles under examples/; one AI SDK example; dependencies on current majors; every example dir listed in examples/README.md
 - [ ] #2 Each example runs against a fresh local LLMFlow and produces a trace (checked manually, noted in the task)
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Dependencies to current majors; adapt code. 2. rag-pipeline -> llmflow-sdk via file: dependency. 3. Complete examples/README index; fix stale docs. 4. Run every example against a fresh local LLMFlow and record results.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done (commit 6417389):
+- Deps: ai ^7.0.112 + @ai-sdk/openai ^4.0.73; langchain ^1.5.12 + @langchain/openai ^1.5.13 + @langchain/core ^1.2.12 (ChatOpenAI 'modelName' -> 'model'); openai ^7.23.0. AI SDK v5+ openai(model) uses the Responses API, which the proxy handles.
+- rag-pipeline: 'llmflow-sdk': 'file:../../packages/sdk', imports from 'llmflow-sdk', prestart builds the SDK dist. packages/sdk dropped its 'typescript: catalog:' devDependency — catalog: cannot resolve outside the workspace (bun install failed); the SDK build uses the root tsc like every other package.
+- examples/README.md lists all 8 example directories. The 'node test.js' reference was already gone. Example bun.lock files stay gitignored (.gitignore examples/*/bun.lock).
+- gemini-cli README rewritten: the old GEMINI_TELEMETRY_ENDPOINT / telemetry.endpoint do not exist in Gemini CLI 0.42; it reads GEMINI_TELEMETRY_ENABLED/TARGET/OTLP_ENDPOINT (base URL; it appends /v1/logs and /v1/metrics)/OTLP_PROTOCOL or telemetry.{enabled,target,otlpEndpoint,otlpProtocol} (checked in the installed bundle).
+- Phoenix: accepts OTLP protobuf only (JSON -> 415). Its .env.example and README now set OTLP_EXPORT_PROTOCOL=http/protobuf; observability README lists the setting.
+Run verification against a fresh LLMFlow (temp DATA_DIR, free ports), 2026-09-23:
+- ai-sdk-proxy: exit 0, 3 spans (real OpenAI calls).
+- langchain: exit 0, 3 spans.
+- rag-pipeline: exit 0, 16 spans; tree rag-query -> embed_query, vector_search, rerank_results, and the proxied openai gpt-4o-mini call linked via wrapOpenAI headers. Observation: SDK child spans do not inherit the root's serviceName (show unknown_service) — possible SDK follow-up.
+- claude-code (Claude Code 2.1.281, run-with-llmflow.sh + ANTHROPIC_BASE_URL passthrough): answered; 21 OTLP logs, 7 metric points, passthrough spans with provider 'anthropic'.
+- codex-cli (0.156.1, same settings as the README passed via -c, no global config change): answered; 18 OTLP logs, service codex_exec.
+- gemini-cli (0.42.0): telemetry verified (11 logs incl. gemini_cli.user_prompt, 4 metric points, service gemini-cli); the model call itself fails with IneligibleTierError (the user's Gemini account tier no longer serves this client) — account issue, not LLMFlow.
+- observability/jaeger (docker): span exported from LLMFlow shows in Jaeger with gen_ai.request.model and session.id.
+- observability/phoenix (docker): trace received over http/protobuf after the fix.
+NOT VERIFIED (blocks AC2): aider (not installed on this machine); observability/langfuse and observability/opik (multi-container stacks needing project API keys); observability/helicone (needs a Helicone account key). Needs the user to install aider / provide keys, or to accept these as unverified.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
