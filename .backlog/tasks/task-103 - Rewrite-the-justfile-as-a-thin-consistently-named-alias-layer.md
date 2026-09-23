@@ -4,7 +4,7 @@ title: 'Rewrite the justfile as a thin, consistently named alias layer'
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:15'
+updated_date: '2026-09-23 10:31'
 labels:
   - justfile
 milestone: m-0
@@ -12,7 +12,6 @@ dependencies:
   - TASK-102
   - TASK-76
   - TASK-87
-  - TASK-98
 references:
   - justfile
   - apps/server/test/recipe-contracts.test.ts
@@ -39,5 +38,10 @@ About 20 recipes are 1:1 aliases of package.json scripts but with hyphen names v
 created: 2026-09-23 09:15
 ---
 Reconciled with TASK-104: recipes may forward to root scripts, root scripts/*.ts, or workspace scripts via bun run --filter <pkg> <script>; never to a relative path into a workspace.
+---
+
+created: 2026-09-23 10:31
+---
+Decision (2026-09-23): the release recipe is added by TASK-98, which now runs after this task; do not block on it.
 ---
 <!-- COMMENTS:END -->

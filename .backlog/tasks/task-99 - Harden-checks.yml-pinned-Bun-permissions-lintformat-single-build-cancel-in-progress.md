@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:06'
+updated_date: '2026-09-23 10:31'
 labels:
   - ci
 milestone: m-0
@@ -42,5 +42,10 @@ ordinal: 88000
 created: 2026-09-23 09:06
 ---
 Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+
+created: 2026-09-23 10:31
+---
+Scope reminder (2026-09-23): checks.yml only. No npm publish or Docker push here; release automation is TASK-98, which runs last.
 ---
 <!-- COMMENTS:END -->

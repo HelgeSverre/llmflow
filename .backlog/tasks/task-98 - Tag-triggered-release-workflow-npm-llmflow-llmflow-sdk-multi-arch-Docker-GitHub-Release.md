@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:55'
+updated_date: '2026-09-23 10:31'
 labels:
   - release
   - ci
@@ -16,6 +16,8 @@ dependencies:
   - TASK-97
   - TASK-84
   - TASK-104
+  - TASK-102
+  - TASK-103
 references:
   - RELEASING.md
   - .github/workflows
@@ -60,5 +62,10 @@ Verified 2026-09-23: bun publish has no --provenance or OIDC support (oven-sh/bu
 created: 2026-09-23 09:55
 ---
 RELEASING.md was deleted on 2026-09-23 because it described a broken flow; this task recreates it from scratch around release.yml and just release.
+---
+
+created: 2026-09-23 10:31
+---
+Decision (2026-09-23): no npm publishing from CI until the whole cleanup is done. This task is the last one in the milestone; it also writes RELEASING.md and adds the release recipe to the justfile and the release section to README after those were rewritten.
 ---
 <!-- COMMENTS:END -->
