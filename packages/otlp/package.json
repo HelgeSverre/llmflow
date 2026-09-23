@@ -2,21 +2,23 @@
   "name": "@llmflow/otlp",
   "version": "0.0.0",
   "private": true,
-  "main": "./src/traces.js",
+  "type": "module",
   "exports": {
-    ".": "./src/traces.js",
-    "./traces": "./src/traces.js",
-    "./logs": "./src/logs.js",
-    "./metrics": "./src/metrics.js",
-    "./export": "./src/export.js",
-    "./transport": "./src/transport.js",
-    "./timestamps": "./src/timestamps.js"
+    "./traces": "./src/traces.ts",
+    "./logs": "./src/logs.ts",
+    "./metrics": "./src/metrics.ts",
+    "./transport": "./src/transport.ts",
+    "./timestamps": "./src/timestamps.ts",
+    "./ids": "./src/ids.ts",
+    "./export": "./src/export.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@llmflow/db": "workspace:*",
     "@llmflow/pricing": "workspace:*",
     "@llmflow/shared": "workspace:*",
     "protobufjs": "^8.8.0"
-  },
-  "type": "commonjs"
+  }
 }

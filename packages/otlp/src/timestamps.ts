@@ -1,4 +1,4 @@
-function nanoToMs(value) {
+export function nanoToMs(value: string | number | bigint | null | undefined): number | null {
     if (value === undefined || value === null || value === '') return null
     try {
         if (typeof value === 'number' && !Number.isSafeInteger(value)) return null
@@ -11,4 +11,3 @@ function nanoToMs(value) {
         return null
     }
 }
-module.exports = { nanoToMs }

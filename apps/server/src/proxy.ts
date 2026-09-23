@@ -3,31 +3,16 @@ import { registry, type BaseProvider } from '@llmflow/providers'
 import type { ProviderRequest, TokenUsage } from '@llmflow/providers/base'
 import type { PassthroughHandler } from '@llmflow/providers/passthrough'
 import { calculateCost } from '@llmflow/pricing'
+import { readBoundedBody } from '@llmflow/shared/body'
 import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
 import { log } from '@llmflow/shared/logger'
 
 const BODY_LIMIT = 16 * 1024 * 1024
 
 async function responseText(response: Response): Promise<string> {
-    if (!response.body) return ''
-    const reader = response.body.getReader()
-    const chunks: Uint8Array[] = []
-    let size = 0
-    try {
-        while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            size += value.length
-            if (size > BODY_LIMIT) {
-                await reader.cancel()
-                throw new Error('Upstream response exceeds 16 MiB')
-            }
-            chunks.push(value)
-        }
-        return Buffer.concat(chunks).toString('utf8')
-    } finally {
-        reader.releaseLock()
-    }
+    const body = await readBoundedBody(response.body, BODY_LIMIT)
+    if (!body) throw new Error('Upstream response exceeds 16 MiB')
+    return body.toString('utf8')
 }
 
 function targetUrl(

@@ -1,6 +1,8 @@
 import { test, expect, afterAll } from 'bun:test'
 import path from 'node:path'
 import { gzipSync } from 'node:zlib'
+import { messageType, type Signal } from '@llmflow/otlp/transport'
+import { nanoToMs } from '@llmflow/otlp/timestamps'
 import { startTestServer } from './helpers/test-server'
 const received: any[] = []
 const collector = Bun.serve({
@@ -23,8 +25,6 @@ const testServer = await startTestServer({
 })
 const { db, dashboard: server } = testServer
 const { initExportHooks, flushAll } = require('@llmflow/otlp/export')
-const { messageType } = require('@llmflow/otlp/transport')
-const { nanoToMs } = require('@llmflow/otlp/timestamps')
 const stop = initExportHooks(db)
 afterAll(async () => {
     await stop()
@@ -32,7 +32,7 @@ afterAll(async () => {
     collector.stop(true)
 })
 const attr = (key: string, value: string) => ({ key, value: { stringValue: value } })
-function payload(signal: string, id: string) {
+function payload(signal: Signal, id: string) {
     const resource = { attributes: [attr('service.name', 'transport-fixture')] }
     const time = '1750000000123456789'
     if (signal === 'trace')
@@ -95,7 +95,7 @@ function payload(signal: string, id: string) {
         ],
     }
 }
-function encode(signal: string, value: any) {
+function encode(signal: Signal, value: any) {
     const body = structuredClone(value)
     function convert(item: any) {
         if (!item || typeof item !== 'object') return
@@ -106,11 +106,11 @@ function encode(signal: string, value: any) {
     }
     convert(body)
     const type = messageType(signal, 'Request')
-    return type.encode(type.fromObject(body)).finish()
+    return Buffer.from(type.encode(type.fromObject(body)).finish())
 }
 test('JSON/protobuf with identity/gzip persist all three signals and exact IDs/times', async () => {
     let index = 1
-    for (const signal of ['trace', 'logs', 'metrics'])
+    for (const signal of ['trace', 'logs', 'metrics'] as const)
         for (const protobuf of [false, true])
             for (const gzip of [false, true]) {
                 const id = String(index++).padStart(16, '0')
@@ -423,7 +423,7 @@ test('recursive AnyValue attributes survive JSON and protobuf ingestion for ever
         bytes: 'aGk=',
     }
     for (const protobuf of [false, true]) {
-        for (const signal of ['trace', 'logs', 'metrics']) {
+        for (const signal of ['trace', 'logs', 'metrics'] as const) {
             const id = protobuf ? 'aabbccdd00000002' : 'aabbccdd00000001'
             const body: any = payload(signal, id)
             if (signal === 'trace') body.resourceSpans[0].scopeSpans[0].spans[0].attributes = values

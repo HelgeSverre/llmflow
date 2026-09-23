@@ -365,31 +365,31 @@ export function metricSummary(metric: Metric): MetricSummary {
 export interface Trace {
     id: string
     timestamp: number
-    duration_ms?: number
-    provider?: string
-    model?: string
-    prompt_tokens?: number
-    completion_tokens?: number
-    total_tokens?: number
-    estimated_cost?: number
-    status?: number
-    error?: string
-    request_method?: string
-    request_path?: string
-    request_headers?: Record<string, string>
-    request_body?: unknown
-    response_status?: number
-    response_headers?: Record<string, string>
-    response_body?: unknown
-    tags?: string[]
-    trace_id?: string
-    parent_id?: string
-    span_type?: string
-    span_name?: string
-    input?: unknown
-    output?: unknown
-    attributes?: Record<string, unknown>
-    service_name?: string
+    duration_ms?: number | null
+    provider?: string | null
+    model?: string | null
+    prompt_tokens?: number | null
+    completion_tokens?: number | null
+    total_tokens?: number | null
+    estimated_cost?: number | null
+    status?: number | null
+    error?: string | null
+    request_method?: string | null
+    request_path?: string | null
+    request_headers?: Record<string, string> | null
+    request_body?: unknown | null
+    response_status?: number | null
+    response_headers?: Record<string, string> | null
+    response_body?: unknown | null
+    tags?: string[] | null
+    trace_id?: string | null
+    parent_id?: string | null
+    span_type?: string | null
+    span_name?: string | null
+    input?: unknown | null
+    output?: unknown | null
+    attributes?: Record<string, unknown> | null
+    service_name?: string | null
     session_id?: string | null
     conversation_id?: string | null
     agent_name?: string | null
@@ -413,17 +413,17 @@ export interface TraceSummary {
 export interface Log {
     id: string
     timestamp: number
-    observed_timestamp?: number
-    severity_number?: number
-    severity_text?: string
-    body?: string | unknown
-    trace_id?: string
-    span_id?: string
-    event_name?: string
-    service_name?: string
-    scope_name?: string
-    attributes?: Record<string, unknown>
-    resource_attributes?: Record<string, unknown>
+    observed_timestamp?: number | null
+    severity_number?: number | null
+    severity_text?: string | null
+    body?: string | unknown | null
+    trace_id?: string | null
+    span_id?: string | null
+    event_name?: string | null
+    service_name?: string | null
+    scope_name?: string | null
+    attributes?: Record<string, unknown> | null
+    resource_attributes?: Record<string, unknown> | null
 }
 
 export interface LogSummary {
@@ -440,21 +440,21 @@ export interface Metric {
     id: string
     timestamp: number
     name: string
-    description?: string
-    unit?: string
-    metric_type?: string
-    value_int?: number
-    value_double?: number
-    histogram_data?: unknown
-    service_name?: string
-    scope_name?: string
-    attributes?: Record<string, unknown>
-    resource_attributes?: Record<string, unknown>
-    aggregation_temporality?: number
-    is_monotonic?: boolean
-    start_time_unix_nano?: string
-    time_unix_nano?: string
-    series_key?: string
+    description?: string | null
+    unit?: string | null
+    metric_type?: string | null
+    value_int?: number | null
+    value_double?: number | null
+    histogram_data?: unknown | null
+    service_name?: string | null
+    scope_name?: string | null
+    attributes?: Record<string, unknown> | null
+    resource_attributes?: Record<string, unknown> | null
+    aggregation_temporality?: number | null
+    is_monotonic?: boolean | null
+    start_time_unix_nano?: string | null
+    time_unix_nano?: string | null
+    series_key?: string | null
 }
 
 export interface MetricSummary {
@@ -462,8 +462,8 @@ export interface MetricSummary {
     timestamp: number
     name: string
     metric_type: string
-    value_int?: number
-    value_double?: number
+    value_int?: number | null
+    value_double?: number | null
     service_name: string | null
 }
 

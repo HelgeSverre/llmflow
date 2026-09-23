@@ -16,11 +16,11 @@ import {
 } from '@llmflow/providers/passthrough'
 import { getPricingStatus } from '@llmflow/pricing'
 import { log } from '@llmflow/shared/logger'
+import { processOtlpLogs } from '@llmflow/otlp/logs'
+import { processOtlpMetrics } from '@llmflow/otlp/metrics'
+import { processOtlpTraces } from '@llmflow/otlp/traces'
+import { decodeOtlpRequest } from '@llmflow/otlp/transport'
 // CommonJS workspace packages
-const { processOtlpTraces } = require('@llmflow/otlp/traces')
-const { decodeOtlpRequest } = require('@llmflow/otlp/transport')
-const { processOtlpLogs } = require('@llmflow/otlp/logs')
-const { processOtlpMetrics } = require('@llmflow/otlp/metrics')
 const { initExportHooks, flushAll, EXPORT_ENABLED } = require('@llmflow/otlp/export')
 
 // Passthrough handlers for native API formats
@@ -879,10 +879,18 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
 // OTLP route handler - processes OpenTelemetry data
 async function handleOtlpRoute(req: Request, url: URL): Promise<Response> {
     const signals = {
-        '/v1/traces': { signal: 'trace', process: processOtlpTraces, rejected: 'rejectedSpans' },
-        '/v1/logs': { signal: 'logs', process: processOtlpLogs, rejected: 'rejectedLogRecords' },
+        '/v1/traces': {
+            signal: 'trace' as const,
+            process: processOtlpTraces,
+            rejected: 'rejectedSpans',
+        },
+        '/v1/logs': {
+            signal: 'logs' as const,
+            process: processOtlpLogs,
+            rejected: 'rejectedLogRecords',
+        },
         '/v1/metrics': {
-            signal: 'metrics',
+            signal: 'metrics' as const,
             process: processOtlpMetrics,
             rejected: 'rejectedDataPoints',
         },

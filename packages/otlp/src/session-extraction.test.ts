@@ -49,7 +49,7 @@ function ingest(attributes: Record<string, string>) {
             },
         ],
     })
-    return db.getTraceById(spanId)
+    return db.getTraceById(spanId) as import('@llmflow/db').Trace | null
 }
 
 test('OpenInference session.id', () => {

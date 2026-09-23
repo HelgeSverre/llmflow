@@ -16,6 +16,7 @@
 const https = require('https')
 const http = require('http')
 const { log } = require('@llmflow/shared/logger')
+const { fixedWidthId } = require('./ids')
 
 const EXPORT_ENDPOINTS = {
     traces: process.env.OTLP_EXPORT_TRACES_ENDPOINT || process.env.OTLP_EXPORT_ENDPOINT,
@@ -133,9 +134,9 @@ function traceToOtlpSpan(trace) {
     const statusCode = trace.status && trace.status >= 400 ? 2 : 1
 
     return {
-        traceId: normalizeTraceId(trace.trace_id || trace.id),
-        spanId: normalizeSpanId(trace.id),
-        parentSpanId: trace.parent_id ? normalizeSpanId(trace.parent_id) : undefined,
+        traceId: fixedWidthId(trace.trace_id || trace.id, 32),
+        spanId: fixedWidthId(trace.id, 16),
+        parentSpanId: trace.parent_id ? fixedWidthId(trace.parent_id, 16) : undefined,
         name: trace.span_name || trace.model || 'llm.request',
         kind: 3, // SPAN_KIND_CLIENT
         startTimeUnixNano: startTimeNano.toString(),
@@ -146,26 +147,6 @@ function traceToOtlpSpan(trace) {
             message: trace.error || undefined,
         },
     }
-}
-
-/**
- * Normalize trace ID to 32 hex characters
- */
-function normalizeTraceId(id) {
-    if (!id) return '00000000000000000000000000000000'
-    const clean = id.replace(/-/g, '').toLowerCase()
-    if (clean.length >= 32) return clean.slice(0, 32)
-    return clean.padStart(32, '0')
-}
-
-/**
- * Normalize span ID to 16 hex characters
- */
-function normalizeSpanId(id) {
-    if (!id) return '0000000000000000'
-    const clean = id.replace(/-/g, '').toLowerCase()
-    if (clean.length >= 16) return clean.slice(0, 16)
-    return clean.padStart(16, '0')
 }
 
 /**
@@ -195,8 +176,8 @@ function logToOtlpRecord(logEntry) {
         severityText: logEntry.severity_text || 'INFO',
         body: logEntry.body === null ? undefined : anyValue(logEntry.body),
         attributes,
-        traceId: logEntry.trace_id ? normalizeTraceId(logEntry.trace_id) : undefined,
-        spanId: logEntry.span_id ? normalizeSpanId(logEntry.span_id) : undefined,
+        traceId: logEntry.trace_id ? fixedWidthId(logEntry.trace_id, 32) : undefined,
+        spanId: logEntry.span_id ? fixedWidthId(logEntry.span_id, 16) : undefined,
     }
 }
 

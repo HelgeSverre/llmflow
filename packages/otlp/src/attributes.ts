@@ -1,4 +1,6 @@
-function extractAnyValue(value) {
+import type { AnyValue, Attributes, KeyValue } from './types'
+
+export function extractAnyValue(value: AnyValue | undefined): unknown {
     if (!value) return null
     if (value.stringValue !== undefined) return value.stringValue
     if (value.intValue !== undefined) return Number(value.intValue)
@@ -10,11 +12,15 @@ function extractAnyValue(value) {
     return null
 }
 
-function extractAttributes(attrs) {
+export function extractAttributes(attrs: KeyValue[] | undefined): Attributes {
     if (!Array.isArray(attrs)) return {}
     return Object.fromEntries(
         attrs.filter((attr) => attr?.value).map(({ key, value }) => [key, extractAnyValue(value)]),
     )
 }
 
-module.exports = { extractAttributes, extractAnyValue }
+// Every signal attributes records to the resource's service.name, or 'unknown'.
+export function serviceName(resourceAttrs: Attributes): string {
+    const name = resourceAttrs['service.name']
+    return typeof name === 'string' && name ? name : 'unknown'
+}

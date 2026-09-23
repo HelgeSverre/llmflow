@@ -11,8 +11,12 @@
  * - Standard OTEL span attributes
  */
 
-const db = require('@llmflow/db')
-const { calculateCost } = require('@llmflow/pricing')
+import * as db from '@llmflow/db'
+import { calculateCost } from '@llmflow/pricing'
+import { extractAttributes, serviceName } from './attributes'
+import { normalizeId } from './ids'
+import { nanoToMs } from './timestamps'
+import type { Attributes, IngestResult, Span, SpanEvent, TracesRequest } from './types'
 
 /**
  * Map gen_ai.operation.name (OTel GenAI semconv, Development status) to span types.
@@ -20,7 +24,7 @@ const { calculateCost } = require('@llmflow/pricing')
  * Anthropic SDK, Vercel AI SDK v5+) emit operation.name directly.
  * Spec: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
  */
-const GENAI_OPERATION_TO_SPAN_TYPE = {
+const GENAI_OPERATION_TO_SPAN_TYPE: Record<string, string> = {
     chat: 'llm',
     text_completion: 'llm',
     generate_content: 'llm',
@@ -35,7 +39,7 @@ const GENAI_OPERATION_TO_SPAN_TYPE = {
 /**
  * Map gen_ai.system / gen_ai.provider.name values to span types
  */
-const PROVIDER_TO_SPAN_TYPE = {
+const PROVIDER_TO_SPAN_TYPE: Record<string, string> = {
     openai: 'llm',
     anthropic: 'llm',
     cohere: 'llm',
@@ -62,7 +66,7 @@ const PROVIDER_TO_SPAN_TYPE = {
 /**
  * Map traceloop.span.kind to LLMFlow span types
  */
-const TRACELOOP_KIND_TO_SPAN_TYPE = {
+const TRACELOOP_KIND_TO_SPAN_TYPE: Record<string, string> = {
     workflow: 'trace',
     task: 'chain',
     agent: 'agent',
@@ -70,38 +74,18 @@ const TRACELOOP_KIND_TO_SPAN_TYPE = {
 }
 
 /**
- * Convert hex string to standard UUID format if needed
- */
-function normalizeId(hexId) {
-    if (!hexId) return null
-    // Remove any existing dashes and lowercase
-    const clean = hexId.replace(/-/g, '').toLowerCase()
-    // If it's already short enough, return as-is
-    if (clean.length <= 32) return clean
-    return clean
-}
-
-/**
- * Extract attributes from OTLP KeyValue array format
- * OTLP attributes are: [{ key: "foo", value: { stringValue: "bar" } }, ...]
- */
-const { extractAttributes } = require('./attributes')
-
-/**
  * Resolve a session ID from span + resource attribute bags.
  * Priority: OpenInference > LangSmith > Traceloop > Vercel AI SDK.
  * service.instance.id is a last-resort heuristic for daemons that never set
  * an explicit session.id — same physical process, same session.
  */
-function extractSessionId(attrs, resourceAttrs) {
-    return (
-        attrs['session.id'] ||
+function extractSessionId(attrs: Attributes, resourceAttrs: Attributes) {
+    return (attrs['session.id'] ||
         attrs['langsmith.trace.session_id'] ||
         attrs['traceloop.association.properties.session_id'] ||
         attrs['ai.telemetry.metadata.sessionId'] ||
         resourceAttrs['service.instance.id'] ||
-        null
-    )
+        null) as string | null
 }
 
 /**
@@ -112,17 +96,15 @@ function extractSessionId(attrs, resourceAttrs) {
  *     we read it once into session_id and leave conversation_id null rather
  *     than duplicate.
  */
-function extractConversationId(attrs) {
-    return (
-        attrs['gen_ai.conversation.id'] ||
+function extractConversationId(attrs: Attributes) {
+    return (attrs['gen_ai.conversation.id'] ||
         attrs['traceloop.association.properties.thread_id'] ||
         attrs['ai.telemetry.metadata.threadId'] ||
-        null
-    )
+        null) as string | null
 }
 
-function extractAgentName(attrs) {
-    return attrs['gen_ai.agent.name'] || attrs['gen_ai.agent.id'] || null
+function extractAgentName(attrs: Attributes) {
+    return (attrs['gen_ai.agent.name'] || attrs['gen_ai.agent.id'] || null) as string | null
 }
 
 /**
@@ -131,21 +113,21 @@ function extractAgentName(attrs) {
  * gen_ai.system/gen_ai.provider.name (legacy/v1.36.0) → llm.request.type →
  * db.system (vector DBs) → span-name heuristics.
  */
-function determineSpanType(attrs) {
+function determineSpanType(attrs: Attributes): string {
     // Highest priority: gen_ai.operation.name (current OTel spec)
-    const operationName = attrs['gen_ai.operation.name']
+    const operationName = attrs['gen_ai.operation.name'] as string | undefined
     if (operationName && GENAI_OPERATION_TO_SPAN_TYPE[operationName]) {
         return GENAI_OPERATION_TO_SPAN_TYPE[operationName]
     }
 
     // Traceloop span kind (LangChain, etc.)
-    const traceloopKind = attrs['traceloop.span.kind']
+    const traceloopKind = attrs['traceloop.span.kind'] as string | undefined
     if (traceloopKind && TRACELOOP_KIND_TO_SPAN_TYPE[traceloopKind]) {
         return TRACELOOP_KIND_TO_SPAN_TYPE[traceloopKind]
     }
 
     // gen_ai.provider.name (current spec) or gen_ai.system (deprecated)
-    const provider = attrs['gen_ai.provider.name'] || attrs['gen_ai.system']
+    const provider = (attrs['gen_ai.provider.name'] || attrs['gen_ai.system']) as string | undefined
     if (provider) {
         return PROVIDER_TO_SPAN_TYPE[provider.toLowerCase()] || 'llm'
     }
@@ -157,7 +139,7 @@ function determineSpanType(attrs) {
     }
 
     // Check for db.system (vector DBs)
-    const dbSystem = attrs['db.system']
+    const dbSystem = attrs['db.system'] as string | undefined
     if (dbSystem) {
         const vectorDbs = ['pinecone', 'chroma', 'weaviate', 'qdrant', 'milvus', 'pgvector']
         if (vectorDbs.some((v) => dbSystem.toLowerCase().includes(v))) {
@@ -166,7 +148,7 @@ function determineSpanType(attrs) {
     }
 
     // Check span name patterns
-    const spanName = attrs._spanName || ''
+    const spanName = (attrs._spanName as string | undefined) || ''
     if (spanName.includes('embed')) return 'embedding'
     if (spanName.includes('retriev') || spanName.includes('search')) return 'retrieval'
     if (spanName.includes('agent')) return 'agent'
@@ -179,14 +161,12 @@ function determineSpanType(attrs) {
 /**
  * Extract model name from attributes
  */
-function extractModel(attrs) {
-    return (
-        attrs['gen_ai.request.model'] ||
+function extractModel(attrs: Attributes) {
+    return (attrs['gen_ai.request.model'] ||
         attrs['gen_ai.response.model'] ||
         attrs['llm.model'] ||
         attrs['model'] ||
-        null
-    )
+        null) as string | null
 }
 
 /**
@@ -197,28 +177,27 @@ function extractModel(attrs) {
  * reasoning tokens — for callers that want to stash them in the attributes
  * blob (the DB schema only has prompt_tokens/completion_tokens columns).
  */
-function extractTokens(attrs) {
+function extractTokens(attrs: Attributes) {
     return {
-        prompt:
-            attrs['gen_ai.usage.input_tokens'] ??
+        prompt: (attrs['gen_ai.usage.input_tokens'] ??
             attrs['gen_ai.usage.prompt_tokens'] ??
             attrs['llm.usage.prompt_tokens'] ??
             attrs['llm.token_count.prompt'] ??
-            0,
-        completion:
-            attrs['gen_ai.usage.output_tokens'] ??
+            0) as number,
+        completion: (attrs['gen_ai.usage.output_tokens'] ??
             attrs['gen_ai.usage.completion_tokens'] ??
             attrs['llm.usage.completion_tokens'] ??
             attrs['llm.token_count.completion'] ??
-            0,
-        total:
-            attrs['gen_ai.usage.total_tokens'] ??
+            0) as number,
+        total: (attrs['gen_ai.usage.total_tokens'] ??
             attrs['llm.usage.total_tokens'] ??
             attrs['llm.token_count.total'] ??
-            0,
-        cacheCreationInput: attrs['gen_ai.usage.cache_creation.input_tokens'] ?? null,
-        cacheReadInput: attrs['gen_ai.usage.cache_read.input_tokens'] ?? null,
-        reasoningOutput: attrs['gen_ai.usage.reasoning.output_tokens'] ?? null,
+            0) as number,
+        cacheCreationInput: (attrs['gen_ai.usage.cache_creation.input_tokens'] ?? null) as
+            | number
+            | null,
+        cacheReadInput: (attrs['gen_ai.usage.cache_read.input_tokens'] ?? null) as number | null,
+        reasoningOutput: (attrs['gen_ai.usage.reasoning.output_tokens'] ?? null) as number | null,
     }
 }
 
@@ -226,7 +205,7 @@ function extractTokens(attrs) {
  * Parse an attribute value that may be a JSON-encoded string or already an
  * object/array (instrumentations vary).
  */
-function parseMaybeJson(value) {
+function parseMaybeJson(value: unknown): unknown {
     if (value == null) return null
     if (typeof value !== 'string') return value
     try {
@@ -245,9 +224,9 @@ function parseMaybeJson(value) {
  *   3. Span events: gen_ai.content.prompt / completion, or the newer
  *      gen_ai.client.inference.operation.details event carrying messages
  */
-function extractIO(attrs, events) {
-    let input = null
-    let output = null
+function extractIO(attrs: Attributes, events: SpanEvent[] | undefined) {
+    let input: any = null
+    let output: any = null
 
     // 1. Current spec — structured messages
     if (attrs['gen_ai.input.messages'] !== undefined) {
@@ -309,22 +288,17 @@ function extractIO(attrs, events) {
 }
 
 /**
- * Convert nanoseconds timestamp to milliseconds
- */
-const { nanoToMs } = require('./timestamps')
-
-/**
  * Transform a single OTLP span to LLMFlow format
  */
-function transformSpan(span, resourceAttrs, scopeAttrs) {
-    const attrs = {
+function transformSpan(span: Span, resourceAttrs: Attributes): db.Trace {
+    const attrs: Attributes = {
         ...extractAttributes(span.attributes),
         _spanName: span.name,
     }
 
     const traceId = normalizeId(span.traceId)
     const spanId = normalizeId(span.spanId)
-    const parentId = span.parentSpanId ? normalizeId(span.parentSpanId) : null
+    const parentId = normalizeId(span.parentSpanId)
 
     const startTimeMs = nanoToMs(span.startTimeUnixNano)
     const endTimeMs = nanoToMs(span.endTimeUnixNano)
@@ -356,18 +330,17 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
     // Extract provider. Prefer the current-spec key (gen_ai.provider.name)
     // over the deprecated gen_ai.system. Never fall back to service.name —
     // that identifies the calling application, not the LLM backend.
-    const provider =
-        attrs['gen_ai.provider.name'] || attrs['gen_ai.system'] || attrs['llm.vendor'] || null
-
-    // Extract service name
-    const serviceName = resourceAttrs['service.name'] || scopeAttrs?.name || 'otel'
+    const provider = (attrs['gen_ai.provider.name'] ||
+        attrs['gen_ai.system'] ||
+        attrs['llm.vendor'] ||
+        null) as string | null
 
     // New-spec fields that don't have dedicated DB columns get folded into the
     // attributes blob so they reach the dashboard's span detail view.
     // The generic attrs spread below already includes them via their canonical
     // keys; we additionally lift cache/reasoning tokens to short keys for
     // convenient display.
-    const extraAttrs = {}
+    const extraAttrs: Attributes = {}
     if (tokens.cacheCreationInput != null) {
         extraAttrs.cache_creation_input_tokens = tokens.cacheCreationInput
     }
@@ -379,7 +352,7 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
     }
 
     return {
-        id: spanId,
+        id: spanId as string,
         timestamp: startTimeMs ?? endTimeMs ?? Date.now(),
         duration_ms: durationMs,
         provider,
@@ -389,7 +362,7 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
         total_tokens: tokens.total || tokens.prompt + tokens.completion,
         estimated_cost: estimatedCost,
         status,
-        error: span.status?.message || attrs['error.message'] || null,
+        error: (span.status?.message || attrs['error.message'] || null) as string | null,
         request_method: null,
         request_path: null,
         request_headers: {},
@@ -404,7 +377,7 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
         conversation_id: extractConversationId(attrs),
         agent_name: extractAgentName(attrs),
         span_type: spanType,
-        span_name: span.name || attrs['traceloop.entity.name'] || spanType,
+        span_name: (span.name || attrs['traceloop.entity.name'] || spanType) as string,
         input,
         output,
         attributes: {
@@ -413,7 +386,7 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
             ...extraAttrs,
             otel_span_kind: span.kind,
         },
-        service_name: serviceName,
+        service_name: serviceName(resourceAttrs),
     }
 }
 
@@ -448,44 +421,24 @@ function transformSpan(span, resourceAttrs, scopeAttrs) {
  *   ]
  * }
  */
-function processOtlpTraces(body) {
-    const results = {
-        accepted: 0,
-        rejected: 0,
-        errors: [],
-    }
-
-    if (!body || !body.resourceSpans) {
-        return results
-    }
-
-    for (const resourceSpan of body.resourceSpans) {
+export function processOtlpTraces(body: TracesRequest): IngestResult {
+    const results: IngestResult = { accepted: 0, rejected: 0, errors: [] }
+    for (const resourceSpan of body?.resourceSpans || []) {
         const resourceAttrs = extractAttributes(resourceSpan.resource?.attributes)
 
         for (const scopeSpan of resourceSpan.scopeSpans || []) {
-            const scopeAttrs = scopeSpan.scope || {}
-
             for (const span of scopeSpan.spans || []) {
                 try {
-                    const llmflowSpan = transformSpan(span, resourceAttrs, scopeAttrs)
+                    const llmflowSpan = transformSpan(span, resourceAttrs)
                     db.insertTrace(llmflowSpan)
                     results.accepted++
-                } catch (err) {
+                } catch (error) {
                     results.rejected++
-                    results.errors.push(err.message)
+                    results.errors.push((error as Error).message)
                 }
             }
         }
     }
 
     return results
-}
-
-module.exports = {
-    processOtlpTraces,
-    transformSpan,
-    extractAttributes,
-    determineSpanType,
-    extractModel,
-    extractTokens,
 }
