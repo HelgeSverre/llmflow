@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:06'
 labels:
   - release
   - ci
@@ -15,6 +15,7 @@ dependencies:
   - TASK-96
   - TASK-97
   - TASK-84
+  - TASK-104
 references:
   - RELEASING.md
   - .github/workflows
@@ -38,4 +39,14 @@ Add `just release <version>`: bumps root + sdk versions, creates `release-notes/
 - [ ] #1 A `v*` tag triggers .github/workflows/release.yml which publishes both npm packages, pushes multi-arch Docker tags X.Y.Z and latest, and creates a GitHub Release with the notes file; a dry-run mode exists for testing
 - [ ] #2 `just release 0.5.0` bumps versions in lockstep, creates the notes file, commits and tags; RELEASING.md describes only this flow and the required secrets
 - [ ] #3 The next actual release fixes the published-artifact drift: Docker latest serves 1337, npm README image works, GitHub Latest matches npm
+- [ ] #4 Both packages are published with bun publish (or bun pm pack + npm publish tarball) from their workspace directories, never from the root
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:06
+---
+Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+<!-- COMMENTS:END -->

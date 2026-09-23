@@ -4,7 +4,7 @@ title: Harden the Docker image and build it in CI
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:06'
 labels:
   - docker
   - ci
@@ -12,6 +12,7 @@ milestone: m-0
 dependencies:
   - TASK-71
   - TASK-73
+  - TASK-104
 references:
   - docker/Dockerfile
   - docker/docker-compose.yml
@@ -38,4 +39,14 @@ The new multi-stage `docker/Dockerfile` has never been built (no daemon in eithe
 - [ ] #1 `docker build` succeeds in CI for linux/amd64 and linux/arm64 and the container answers /api/health on the documented ports
 - [ ] #2 Image pins the Bun tag, runs as non-root, carries OCI labels with the version, and rebuilds without reinstalling when only source changes
 - [ ] #3 DOCKER_HUB.md matches the image (ports, hosts, providers, domain, volume path)
+- [ ] #4 Runtime stage copies apps/server/dist only; build stage installs with bun ci
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:06
+---
+Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+<!-- COMMENTS:END -->

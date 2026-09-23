@@ -4,11 +4,13 @@ title: Make start/dev/demo behave the same from every entry point
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:50'
+updated_date: '2026-09-23 09:06'
 labels:
   - runtime
   - scripts
 milestone: m-0
-dependencies: []
+dependencies:
+  - TASK-104
 references:
   - bin/llmflow.js
   - package.json
@@ -33,4 +35,14 @@ ordinal: 64000
 - [ ] #1 In a checkout, `bun run start` runs current source; an npm install runs dist/server.js (test:package still passes)
 - [ ] #2 Each of start/dev/demo is defined once (root package.json); workspace package.json files keep only workspace-local scripts
 - [ ] #3 `just clean` removes dist/, apps/dashboard/dist and every node_modules
+- [ ] #4 Root start/dev/demo scripts forward to apps/server scripts via bun run --filter; no relative ../ import across workspaces
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:06
+---
+Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+<!-- COMMENTS:END -->

@@ -4,13 +4,14 @@ title: 'Clean up the npm tarball: sourcemap, baked-in paths, engines, version bu
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:06'
 labels:
   - packaging
 milestone: m-0
 dependencies:
   - TASK-73
   - TASK-81
+  - TASK-104
 references:
   - scripts/build.ts
   - scripts/test-package.ts
@@ -30,4 +31,14 @@ ordinal: 85000
 <!-- AC:BEGIN -->
 - [ ] #1 Tarball contains no sourcemap larger than the bundle (or a linked one) and no local filesystem paths; test:package asserts both
 - [ ] #2 package.json version is bumped past 0.4.1 and engines include node; README image resolves on npmjs.com
+- [ ] #3 The tarball is produced from apps/server and its package.json contains no workspace: or catalog: specifier
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:06
+---
+Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+<!-- COMMENTS:END -->

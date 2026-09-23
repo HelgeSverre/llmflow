@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:06'
 labels:
   - ci
 milestone: m-0
@@ -14,6 +14,7 @@ dependencies:
   - TASK-76
   - TASK-87
   - TASK-97
+  - TASK-104
 references:
   - .github/workflows/checks.yml
   - playwright.config.ts
@@ -32,4 +33,14 @@ ordinal: 88000
 <!-- AC:BEGIN -->
 - [ ] #1 checks.yml builds exactly once per run, has least-privilege permissions, a pinned Bun version and cancel-in-progress concurrency
 - [ ] #2 Lint, format check, typecheck, unit/integration tests, dashboard tests, package smoke, Playwright and docker build all run and gate merges
+- [ ] #3 CI installs with bun ci; workspace scripts run via bun run --filter in dependency order
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:06
+---
+Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+<!-- COMMENTS:END -->
