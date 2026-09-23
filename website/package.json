@@ -3,12 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bunx serve . -l 4000",
+    "dev": "bunx serve@14.2.6 . -l 4000",
     "og": "bun scripts/generate-og-image.mjs",
-    "preview": "vc",
-    "deploy": "vc --prod"
-  },
-  "devDependencies": {
-    "@playwright/test": "catalog:"
+    "preview": "bunx vercel@59.25.4",
+    "deploy": "bunx vercel@59.25.4 --prod"
   }
 }
