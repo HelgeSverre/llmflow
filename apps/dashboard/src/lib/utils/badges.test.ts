@@ -15,6 +15,10 @@ describe('spanType', () => {
     expect(spanType('http')).toBe('custom')
   })
 
+  it('picks the first known type when several match', () => {
+    expect(spanType('agent_llm')).toBe('llm')
+  })
+
   it('maps to the shared CSS palette', () => {
     expect(spanColor('tool_call')).toBe('var(--span-tool)')
     expect(spanColor(null)).toBe('var(--span-custom)')

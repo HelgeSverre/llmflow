@@ -6,43 +6,43 @@ const h = vi.hoisted(() => ({
   sessionsState: { view: 'list', selectedId: null as string | null },
 }))
 
-vi.mock('./timeline.svelte', () => ({ loadTimeline: vi.fn() }))
-vi.mock('./traces.svelte', () => ({
+vi.mock('./stores/timeline.svelte', () => ({ loadTimeline: vi.fn() }))
+vi.mock('./stores/traces.svelte', () => ({
   loadTraces: vi.fn(),
   loadFilterOptions: vi.fn(),
   selectTrace: vi.fn(),
   selectedTraceId: h.selectedTraceId,
 }))
-vi.mock('./sessions.svelte', () => ({
+vi.mock('./stores/sessions.svelte', () => ({
   loadSessions: vi.fn(),
   loadSession: vi.fn(),
   sessionsState: h.sessionsState,
 }))
-vi.mock('./logs.svelte', () => ({
+vi.mock('./stores/logs.svelte', () => ({
   loadLogs: vi.fn(),
   loadFilterOptions: vi.fn(),
   selectLog: vi.fn(),
   selectedLogId: h.selectedLogId,
 }))
-vi.mock('./metrics.svelte', () => ({
+vi.mock('./stores/metrics.svelte', () => ({
   loadMetrics: vi.fn(),
   loadMetricsSummary: vi.fn(),
   loadFilterOptions: vi.fn(),
 }))
-vi.mock('./models.svelte', () => ({ loadModels: vi.fn() }))
-vi.mock('./analytics.svelte', () => ({ loadAnalytics: vi.fn() }))
-vi.mock('./stats.svelte', () => ({ loadStats: vi.fn() }))
+vi.mock('./stores/models.svelte', () => ({ loadModels: vi.fn() }))
+vi.mock('./stores/analytics.svelte', () => ({ loadAnalytics: vi.fn() }))
+vi.mock('./stores/stats.svelte', () => ({ loadStats: vi.fn() }))
 
 import { refreshActiveTab } from './refresh'
-import { tabState, validTabs, type Tab } from './tabs.svelte'
-import { loadTimeline } from './timeline.svelte'
-import * as traces from './traces.svelte'
-import * as sessions from './sessions.svelte'
-import * as logs from './logs.svelte'
-import * as metrics from './metrics.svelte'
-import { loadModels } from './models.svelte'
-import { loadAnalytics } from './analytics.svelte'
-import { loadStats } from './stats.svelte'
+import { tabState, validTabs, type Tab } from './stores/tabs.svelte'
+import { loadTimeline } from './stores/timeline.svelte'
+import * as traces from './stores/traces.svelte'
+import * as sessions from './stores/sessions.svelte'
+import * as logs from './stores/logs.svelte'
+import * as metrics from './stores/metrics.svelte'
+import { loadModels } from './stores/models.svelte'
+import { loadAnalytics } from './stores/analytics.svelte'
+import { loadStats } from './stores/stats.svelte'
 
 const all = [
   loadTimeline,

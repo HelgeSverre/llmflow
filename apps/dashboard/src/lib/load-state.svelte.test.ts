@@ -3,7 +3,7 @@ import { flushSync } from 'svelte'
 vi.mock('$lib/api/client', () => ({ api: { get: vi.fn() } }))
 import { api } from '$lib/api/client'
 import { createLoadState } from './load-state.svelte'
-import { loadModels, modelStats, modelsState } from './models.svelte'
+import { loadModels, modelStats, modelsState } from './stores/models.svelte'
 
 function pending() {
   let resolve!: (value: unknown) => void
