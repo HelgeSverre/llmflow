@@ -3,10 +3,10 @@ id: TASK-78
 title: >-
   Turn the HTTP e2e scripts into integration tests and gate live-provider tests
   behind API keys
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-23 08:50'
-updated_date: '2026-09-23 09:15'
+updated_date: '2026-09-23 12:15'
 labels:
   - tests
 milestone: m-0
