@@ -40,7 +40,6 @@ Provider credentials must be supplied through the client or the supported provid
 
 - [README](https://github.com/HelgeSverre/llmflow/blob/main/README.md): startup, providers, configuration, packaging and testing.
 - [Integration examples](https://github.com/HelgeSverre/llmflow/tree/main/examples): runnable examples and setup.
-- [Architecture](https://github.com/HelgeSverre/llmflow/blob/main/ARCHITECTURE.md): current module responsibilities.
 
 ## Source map
 

@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:15'
+updated_date: '2026-09-23 09:55'
 labels:
   - examples
 milestone: m-0
@@ -46,5 +46,10 @@ Verify each example actually runs against a local LLMFlow (`run-all.sh` or per-e
 created: 2026-09-23 09:15
 ---
 Examples are not workspace members, so workspace:* is not available there. Use "llmflow-sdk": "file:../../packages/sdk" until the package is published (TASK-98), then the published version range.
+---
+
+created: 2026-09-23 09:55
+---
+Done ahead of time (2026-09-23): examples/vercel-ai-sdk and the four npm lockfiles are deleted; README row and run-all.sh loop updated. Remaining scope: dependency majors, env names, run verification, SDK linking, missing README rows.
 ---
 <!-- COMMENTS:END -->

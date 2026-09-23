@@ -4,7 +4,7 @@ title: 'Tidy the website workspace: assets, undeclared tools, install footprint'
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:06'
+updated_date: '2026-09-23 09:55'
 labels:
   - website
 milestone: m-0
@@ -37,5 +37,10 @@ Task-68 made `website/` a root workspace with local scripts. Leftovers: `website
 created: 2026-09-23 09:06
 ---
 Decision (2026-09-23): remove website from the root workspaces list; run the OG-image script with the root Playwright via bunx. Delete website/node_modules and the website entry in bun.lock.
+---
+
+created: 2026-09-23 09:55
+---
+Done ahead of time (2026-09-23): website/screenshot.png (duplicate) deleted.
 ---
 <!-- COMMENTS:END -->

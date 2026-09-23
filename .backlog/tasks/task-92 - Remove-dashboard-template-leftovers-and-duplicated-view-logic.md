@@ -4,6 +4,7 @@ title: Remove dashboard template leftovers and duplicated view logic
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
+updated_date: '2026-09-23 09:55'
 labels:
   - dashboard
   - dead-code
@@ -33,3 +34,12 @@ ordinal: 81000
 - [ ] #2 Span type, palette, severity normalisation and theme init are each defined once and imported
 - [ ] #3 vitest.config extends vite.config (alias and plugin declared once); the Vite dev proxy is defined in one place
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:55
+---
+Done ahead of time (2026-09-23): Counter.svelte, svelte.svg, the boilerplate README and .gitignore are deleted. Remaining scope: dead CSS, duplicated span-type/severity/theme logic, vite/vitest config dedupe.
+---
+<!-- COMMENTS:END -->

@@ -4,13 +4,12 @@ This folder contains working examples of LLMFlow integrations with popular LLM f
 
 ## Examples
 
-| Example                          | Description                      | Features                                                                 |
-| -------------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| [langchain](./langchain)         | LangChain.js via LLMFlow proxy   | Basic tracing                                                            |
-| [ai-sdk-proxy](./ai-sdk-proxy)   | Vercel AI SDK via LLMFlow proxy  | Basic tracing                                                            |
-| [vercel-ai-sdk](./vercel-ai-sdk) | Vercel AI SDK via proxy          | Basic tracing                                                            |
-| [rag-pipeline](./rag-pipeline)   | RAG pipeline with LLMFlow SDK    | **Hierarchical spans**, parent-child relationships, input/output capture |
-| [claude-code](./claude-code)     | Claude Code OTLP and native proxy | Logs/metrics and native request capture                                        |
+| Example                        | Description                       | Features                                                                 |
+| ------------------------------ | --------------------------------- | ------------------------------------------------------------------------ |
+| [langchain](./langchain)       | LangChain.js via LLMFlow proxy    | Basic tracing                                                            |
+| [ai-sdk-proxy](./ai-sdk-proxy) | Vercel AI SDK via LLMFlow proxy   | Basic tracing                                                            |
+| [rag-pipeline](./rag-pipeline) | RAG pipeline with LLMFlow SDK     | **Hierarchical spans**, parent-child relationships, input/output capture |
+| [claude-code](./claude-code)   | Claude Code OTLP and native proxy | Logs/metrics and native request capture                                  |
 
 ## Quick Start
 

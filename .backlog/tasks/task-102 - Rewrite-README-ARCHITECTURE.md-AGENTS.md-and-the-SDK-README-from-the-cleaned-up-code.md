@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:55'
 labels:
   - docs
 milestone: m-0
@@ -44,3 +44,12 @@ Also add the developer workflow: how to build, run dev, test, lint, release — 
 - [ ] #2 AGENTS.md is a short project-specific guide (< 150 lines) that points to `backlog --help` instead of embedding the manual
 - [ ] #3 ARCHITECTURE.md routes, WebSocket messages, ER diagram and module graph match the code
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:55
+---
+ARCHITECTURE.md was deleted on 2026-09-23 (15+ contradictions); AGENTS.md was cut to its 64-line project section with the stale lines fixed and the generic Backlog manual removed. This task writes ARCHITECTURE.md fresh and re-checks AGENTS.md against the final layout; the llms.txt Architecture link must be restored then.
+---
+<!-- COMMENTS:END -->

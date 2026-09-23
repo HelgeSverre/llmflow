@@ -108,7 +108,7 @@ run_example() {
 }
 
 # Run each example
-for example in langchain ai-sdk-proxy vercel-ai-sdk rag-pipeline; do
+for example in langchain ai-sdk-proxy rag-pipeline; do
     run_example "$example"
 done
 
