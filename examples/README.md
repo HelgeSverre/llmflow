@@ -12,7 +12,6 @@ This folder contains working examples of LLMFlow integrations with popular LLM f
 | [claude-code](./claude-code)     | Claude Code via OTLP and the passthrough proxy             | Logs/metrics and passthrough request capture                             |
 | [codex-cli](./codex-cli)         | OpenAI Codex CLI telemetry                                 | OTLP logs (traces optional)                                              |
 | [gemini-cli](./gemini-cli)       | Google Gemini CLI telemetry                                | OTLP logs and metrics                                                    |
-| [aider](./aider)                 | Aider via the LLMFlow proxy                                | Proxy tracing                                                            |
 | [observability](./observability) | Forwarding to Jaeger, Langfuse, Phoenix, Opik and Helicone | OTLP export (`OTLP_EXPORT_*`)                                            |
 
 ## Quick Start

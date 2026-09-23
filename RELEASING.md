@@ -33,14 +33,16 @@ Release. Both packages always carry the same version.
    - **checks** runs the full CI suite (`checks.yml`);
    - **npm** packs each package in its workspace directory with `bun pm pack` (which runs
      `prepack` and rewrites `workspace:`/`catalog:` specifiers) and publishes the tarballs with
-     `npm publish --provenance --access public`;
+     `npm publish --access public` through npm trusted publishing (no token; npm adds provenance
+     itself). A version that is already on npm is skipped;
    - **docker** builds `linux/amd64` and `linux/arm64` and pushes `helgesverre/llmflow:0.5.0` and
      `:latest`;
    - **github-release** creates the `v0.5.0` release from `release-notes/v0.5.0.md` and marks it
      Latest.
 
    Nothing is published unless the checks pass. If a job fails after npm has published, fix the
-   cause and re-run the failed jobs from the Actions page; npm versions cannot be republished.
+   cause and re-run the failed jobs from the Actions page: the npm job skips what is already
+   published, since npm never accepts the same version twice.
 
 ## Rehearsing
 
@@ -49,18 +51,39 @@ runs the checks, packs both packages, runs `npm publish --dry-run` and builds th
 image without pushing, and skips the GitHub Release. The version defaults to the current
 `package.json` version.
 
+## npm trusted publishing
+
+CI holds no npm token. Each package trusts `.github/workflows/release.yml` in this repository
+instead: the workflow's OIDC token (`id-token: write`) authenticates the publish, which needs npm
+11.5.1 or newer (the workflow installs it). Both `package.json` files carry the `repository` field
+`github.com/HelgeSverre/llmflow` that npm checks against the workflow.
+
+A trusted publisher can only be configured for a package that already exists on npm, so it is a
+one-time setup per package:
+
+- **`llmflow`** is already published. Configure it on npmjs.com (package → Settings → Trusted
+  publishing → GitHub Actions; repository `HelgeSverre/llmflow`, workflow `release.yml`) or with
+  `npm trust github llmflow --repo HelgeSverre/llmflow --file release.yml --allow-publish`.
+- **`llmflow-sdk`** has never been published, so its first version is published by hand. After
+  `just release <version>` and before pushing the tag, from a machine logged in with `npm login`:
+
+  ```bash
+  cd packages/sdk && bun pm pack
+  npm publish llmflow-sdk-<version>.tgz --access public
+  ```
+
+  Then configure its trusted publisher the same way (`npm trust github llmflow-sdk …`). When the tag
+  is pushed, the workflow skips `llmflow-sdk` because that version is already on npm, and publishes
+  it from CI from the next release on.
+
 ## Required secrets
 
 Set these in the repository settings (Settings → Secrets and variables → Actions):
 
-| Secret               | Used by | Value                                                                    |
-| -------------------- | ------- | ------------------------------------------------------------------------ |
-| `NPM_TOKEN`          | npm     | npm automation token with publish rights for `llmflow` and `llmflow-sdk` |
-| `DOCKERHUB_USERNAME` | docker  | Docker Hub user that can push `helgesverre/llmflow`                      |
-| `DOCKERHUB_TOKEN`    | docker  | Docker Hub access token for that user                                    |
-
-Provenance uses the workflow's OIDC token (`id-token: write`); both `package.json` files carry a
-`repository` field pointing at `github.com/HelgeSverre/llmflow`, which npm requires for it.
+| Secret               | Used by | Value                                               |
+| -------------------- | ------- | --------------------------------------------------- |
+| `DOCKERHUB_USERNAME` | docker  | Docker Hub user that can push `helgesverre/llmflow` |
+| `DOCKERHUB_TOKEN`    | docker  | Docker Hub access token for that user               |
 
 ## First release after the 2026 cleanup
 

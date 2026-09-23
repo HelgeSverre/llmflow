@@ -1,5 +1,6 @@
 name: Release
-# A pushed vX.Y.Z tag (made by `just release X.Y.Z`) publishes llmflow and llmflow-sdk to npm,
+# A pushed vX.Y.Z tag (made by `just release X.Y.Z`) publishes llmflow and llmflow-sdk to npm
+# through npm trusted publishing,
 # pushes helgesverre/llmflow:X.Y.Z and :latest for amd64 and arm64, and creates the GitHub
 # Release from release-notes/vX.Y.Z.md. Run it by hand (workflow_dispatch) for a dry run that
 # builds and packs everything but publishes nothing. See RELEASING.md.
@@ -63,7 +64,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      id-token: write # npm provenance
+      id-token: write # npm trusted publishing (OIDC); no npm token is stored in CI
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -73,23 +74,33 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm >= 11.5.1 (Node 22 ships npm 10).
+      - run: npm install -g npm@^11.5.1
       - run: bun ci
       # bun pm pack runs prepack and rewrites workspace:/catalog: specifiers; bun publish cannot
-      # add provenance, so npm publishes the packed tarball.
+      # use trusted publishing, so npm publishes the packed tarball.
       - name: Pack llmflow and llmflow-sdk
         run: |
           mkdir -p "$RUNNER_TEMP/packages"
           (cd apps/server && bun pm pack --destination "$RUNNER_TEMP/packages")
           (cd packages/sdk && bun pm pack --destination "$RUNNER_TEMP/packages")
           ls -l "$RUNNER_TEMP/packages"
+      # Authenticates through the trusted publisher configured for each package on npmjs.com;
+      # npm adds provenance automatically. See RELEASING.md.
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
         run: |
-          flags=(--provenance --access public)
+          flags=(--access public)
           if [ "$DRY_RUN" = true ]; then flags+=(--dry-run); fi
           for tarball in "$RUNNER_TEMP"/packages/*.tgz; do
+            spec="$(tar -xzOf "$tarball" package/package.json | jq -r '.name + "@" + .version')"
+            # A version already on npm (a bootstrap publish, or a re-run after a partial
+            # failure) is skipped: npm never accepts the same version twice.
+            if npm view "$spec" version >/dev/null 2>&1; then
+              echo "::notice::$spec is already published; skipping"
+              continue
+            fi
             npm publish "$tarball" "${flags[@]}"
           done
 

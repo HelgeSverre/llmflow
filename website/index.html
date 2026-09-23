@@ -515,8 +515,8 @@ OpenTelemetry::SDK.configure <span class="k">do</span> |c|
 
                 <div class="tab-content" id="tab-cli">
                     <p>
-                        Track usage from AI coding assistants like Claude Code, Codex CLI, Aider,
-                        and Continue.
+                        Track usage from AI coding assistants like Claude Code, Codex CLI and
+                        Continue.
                     </p>
 
                     <div class="otel-examples">
@@ -526,18 +526,6 @@ OpenTelemetry::SDK.configure <span class="k">do</span> |c|
                                 <pre><code><span class="c"># Use passthrough mode</span>
 <span class="k">export</span> ANTHROPIC_BASE_URL=http://127.0.0.1:8080/passthrough/anthropic
 claude</code></pre>
-                            </div>
-                        </div>
-
-                        <div class="otel-example">
-                            <h4>Aider</h4>
-                            <div class="code-block">
-                                <pre><code><span class="c"># OpenAI models</span>
-aider --openai-api-base http://127.0.0.1:8080/v1
-
-<span class="c"># Anthropic models</span>
-<span class="k">export</span> ANTHROPIC_API_BASE=http://127.0.0.1:8080/passthrough/anthropic
-aider</code></pre>
                             </div>
                         </div>
 
