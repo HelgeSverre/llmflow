@@ -1,315 +1,173 @@
-# LLMFlow SDK
+# llmflow-sdk
 
-Minimal tracing SDK for LLM applications. Create hierarchical spans to trace
-your AI pipelines and send them to a running LLMFlow instance.
-
-## Installation
+Tracing SDK for LLM applications. Wrap the steps of your pipeline in spans, and the SDK
+reports them to a running [LLMFlow](https://github.com/HelgeSverre/llmflow) instance, where they
+appear alongside the LLM calls made through the LLMFlow proxy.
 
 ```bash
 npm install llmflow-sdk
-# or
-bun add llmflow-sdk
-# or
-pnpm add llmflow-sdk
 ```
 
-```javascript
-import { trace, span, currentTraceHeaders, wrapOpenAI } from 'llmflow-sdk'
-// or, if you prefer CommonJS:
-const { trace, span, currentTraceHeaders, wrapOpenAI } = require('llmflow-sdk')
-```
+The package is ESM-only and runs on Node.js 18+ and Bun. From CommonJS, load it with
+`await import('llmflow-sdk')`.
 
-The SDK is published from `packages/sdk/` in this monorepo.
+## Quick start
 
-## Quick Start
-
-```javascript
-import { trace, span, currentTraceHeaders } from 'llmflow-sdk'
+```js
 import OpenAI from 'openai'
+import { currentTraceHeaders, span, trace } from 'llmflow-sdk'
 
-// Use the LLMFlow proxy for automatic LLM call tracing
+// LLM calls go through the LLMFlow proxy, which records them.
 const openai = new OpenAI({ baseURL: 'http://localhost:8080/v1' })
 
-await trace('my-workflow', async () => {
-  // Custom span for retrieval
-  const docs = await span('retrieval', 'search_docs', async () => {
-    return await vectorDB.search('query')
-  })
+const answer = await trace('answer-question', async () => {
+  const docs = await span('retrieval', 'search_docs', () => vectorStore.search('refund policy'))
 
-  // LLM call - automatically traced via proxy
-  // currentTraceHeaders() links it to the parent span
   const response = await openai.chat.completions.create(
     {
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Hello!' }],
+      messages: [
+        { role: 'system', content: docs.join('\n') },
+        { role: 'user', content: 'What is the refund policy?' },
+      ],
     },
-    {
-      headers: currentTraceHeaders(),
-    },
+    // Links the proxied LLM call to the current span.
+    { headers: currentTraceHeaders() },
   )
-
   return response.choices[0].message.content
 })
 ```
 
-## API Reference
+## API
 
-### `trace(name, fn, opts?)`
+### `trace(name, fn, options?)`
 
-Start a root trace. All spans created inside `fn` are children of this trace.
+Runs `fn` as the root span of a new trace (span type `trace`) and returns its result. Spans
+created inside `fn` become its children. `options` accepts the fields of
+[`SpanOptions`](#spanoptions) except that `type`, `name` and `traceId` are set for you unless you
+override them.
 
-```javascript
-await trace('answer-question', async () => {
-  // Your workflow here
-})
-
-// With options
-await trace(
-  'answer-question',
-  async () => {
-    // ...
-  },
-  {
-    input: { question: 'What is X?' },
-    tags: ['production'],
-    serviceName: 'my-app',
-  },
-)
+```js
+await trace('nightly-report', () => buildReport(), { tags: ['cron'], serviceName: 'reports' })
 ```
 
-### `span(type, name, fn)` or `span(opts, fn)`
+### `span(type, name, fn)` / `span(options, fn)`
 
-Create a span within the current trace context.
+Runs `fn` in a new span and returns its result. Inside a `trace()` or another `span()` the new
+span is a child of the current one; outside, it starts a new trace. `fn` may be synchronous or
+async.
 
-**Shorthand:**
+```js
+const hits = await span('retrieval', 'vector_search', () => index.query(embedding))
 
-```javascript
-await span('retrieval', 'vector_search', async () => {
-  return await db.search(query)
-})
-
-await span('tool', 'send_email', async () => {
-  return await sendEmail(to, subject, body)
-})
-```
-
-**Full options:**
-
-```javascript
 await span(
   {
-    type: 'retrieval',
-    name: 'search_documents',
-    input: { query: 'search term', top_k: 5 },
-    attributes: { database: 'pinecone', index: 'main' },
-    tags: ['vector-search'],
-    serviceName: 'retrieval-service',
+    type: 'tool',
+    name: 'send_email',
+    input: { to },
+    attributes: { provider: 'ses' },
+    tags: ['notifications'],
   },
-  async () => {
-    const results = await pinecone.query(query)
-    return results // Captured as span output
-  },
+  () => sendEmail(to, body),
 )
+```
+
+When `fn` settles, the span is sent to LLMFlow with its duration, the returned value as
+output (primitives are wrapped as `{ result }`), and status `200`. If `fn` throws, the span is
+sent with status `500` and the error message, and the error is rethrown.
+
+### `SpanOptions`
+
+| Field         | Type                      | Description                                                    |
+| ------------- | ------------------------- | -------------------------------------------------------------- |
+| `type`        | `SpanType`                | See [span types](#span-types)                                  |
+| `name`        | `string`                  | Shown in the dashboard                                         |
+| `traceId`     | `string`                  | Put the span in this trace instead of the current or a new one |
+| `input`       | `unknown`                 | Recorded as the span input                                     |
+| `attributes`  | `Record<string, unknown>` | Custom attributes                                              |
+| `tags`        | `string[]`                | Tags for filtering                                             |
+| `serviceName` | `string`                  | Service name; defaults to `app`                                |
+
+### `traced(type, name?)`
+
+A method decorator that runs every call of an async method in a span. The span name defaults to
+the method name. It works with standard decorators (TypeScript 5+) and with
+`experimentalDecorators`.
+
+```ts
+class Agent {
+  @traced('agent')
+  async plan(goal: string) {
+    /* ... */
+  }
+
+  @traced('tool', 'web_search')
+  async search(query: string) {
+    /* ... */
+  }
+}
 ```
 
 ### `currentTraceHeaders()`
 
-Get headers to attach to LLM API calls for trace propagation.
-
-```javascript
-const headers = currentTraceHeaders();
-// Returns: { 'x-trace-id': '...', 'x-parent-id': '...' }
-
-// Use with OpenAI
-const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [...]
-}, {
-    headers: currentTraceHeaders()
-});
-```
+Returns `{ 'x-trace-id', 'x-parent-id' }` for the current span, or `{}` outside one. Send these
+headers with LLM calls that go through the LLMFlow proxy to attach them to the span tree.
 
 ### `wrapOpenAI(client)`
 
-Wrap an OpenAI client to automatically inject trace headers into all requests.
+Patches an OpenAI client so every `client.chat.completions.create()` call sends
+`currentTraceHeaders()`. Returns the same client.
 
-```javascript
-const OpenAI = require('openai')
-const { wrapOpenAI } = require('llmflow-sdk')
-
-const openai = wrapOpenAI(
-  new OpenAI({
-    baseURL: 'http://localhost:8080/v1',
-  }),
-)
-
-// Headers are automatically injected
-await openai.chat.completions.create({
-  model: 'gpt-4o-mini',
-  messages: [{ role: 'user', content: 'Hello!' }],
-})
+```js
+const openai = wrapOpenAI(new OpenAI({ baseURL: 'http://localhost:8080/v1' }))
+await trace('chat', () => openai.chat.completions.create({ model: 'gpt-4o-mini', messages }))
 ```
 
 ### `getCurrentSpan()`
 
-Get the current span context (useful for advanced use cases).
-
-```javascript
-const ctx = getCurrentSpan()
-if (ctx) {
-  console.log('Current trace:', ctx.traceId)
-  console.log('Current span:', ctx.spanId)
-  console.log('Parent span:', ctx.parentId)
-}
-```
+Returns the current `SpanContext` (`{ spanId, traceId, parentId }`), or `null` outside a span.
 
 ### `generateId()`
 
-Generate a UUID for custom span IDs.
+Returns a random UUID, the ID format LLMFlow uses for spans and traces.
 
-```javascript
-const id = generateId()
-// Returns: '550e8400-e29b-41d4-a716-446655440000'
-```
+### Types
 
-## Span Types
+`SpanOptions`, `SpanContext`, `SpanType`, `TraceHeaders` and `TracedDecorator` are exported for
+TypeScript users.
 
-Use these standard types for consistent visualization:
+## Span types
 
-| Type        | Use Case                          |
-| ----------- | --------------------------------- |
-| `trace`     | Root span (auto-set by `trace()`) |
-| `llm`       | LLM API calls                     |
-| `agent`     | Agent execution loops             |
-| `chain`     | Chain/pipeline steps              |
-| `tool`      | Tool/function calls               |
-| `retrieval` | Vector search, document lookup    |
-| `embedding` | Embedding generation              |
-| `custom`    | Anything else                     |
+`SpanType` accepts any string; these values get dedicated styling in the dashboard:
 
-## Environment Variables
+| Type        | Use for                        |
+| ----------- | ------------------------------ |
+| `trace`     | Root spans (set by `trace()`)  |
+| `llm`       | LLM calls                      |
+| `agent`     | Agent loops and steps          |
+| `chain`     | Pipeline or chain steps        |
+| `tool`      | Tool and function calls        |
+| `retrieval` | Vector search, document lookup |
+| `embedding` | Embedding generation           |
+| `custom`    | Anything else                  |
 
-| Variable        | Default                 | Description           |
-| --------------- | ----------------------- | --------------------- |
-| `LLMFLOW_URL`   | `http://127.0.0.1:1337` | LLMFlow dashboard URL |
-| `LLMFLOW_DEBUG` | (unset)                 | Enable debug logging  |
+## Configuration
 
-## Examples
+| Variable        | Default                 | Description                                                |
+| --------------- | ----------------------- | ---------------------------------------------------------- |
+| `LLMFLOW_URL`   | `http://127.0.0.1:1337` | LLMFlow dashboard URL; spans are sent to `POST /api/spans` |
+| `LLMFLOW_DEBUG` | unset                   | Print network errors when a span cannot be sent            |
 
-### RAG Pipeline
+Both are read once, when the SDK is imported. Spans are sent in the background and never throw
+into your code: an unreachable server is silent unless `LLMFLOW_DEBUG` is set, and a rejected
+span prints one `[llmflow]` line.
 
-```javascript
-await trace('rag-query', async () => {
-  // 1. Embed the query
-  const embedding = await span('embedding', 'embed_query', async () => {
-    return await embedder.embed(query)
-  })
+## How it works
 
-  // 2. Search vector DB
-  const docs = await span('retrieval', 'vector_search', async () => {
-    return await vectorDB.search(embedding, { topK: 5 })
-  })
-
-  // 3. Generate answer
-  const response = await openai.chat.completions.create(
-    {
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: `Context:\n${docs.join('\n')}` },
-        { role: 'user', content: query },
-      ],
-    },
-    { headers: currentTraceHeaders() },
-  )
-
-  return response.choices[0].message.content
-})
-```
-
-### Agent with Tools
-
-```javascript
-await trace('agent-task', async () => {
-  let done = false
-  let iteration = 0
-
-  while (!done && iteration < 10) {
-    iteration++
-
-    const response = await span('agent', `step-${iteration}`, async () => {
-      return await openai.chat.completions.create(
-        {
-          model: 'gpt-4o',
-          messages: conversationHistory,
-          tools: toolDefinitions,
-        },
-        { headers: currentTraceHeaders() },
-      )
-    })
-
-    const message = response.choices[0].message
-
-    if (message.tool_calls) {
-      for (const call of message.tool_calls) {
-        const result = await span('tool', call.function.name, async () => {
-          return await executeTool(call.function.name, call.function.arguments)
-        })
-        conversationHistory.push({
-          role: 'tool',
-          content: result,
-          tool_call_id: call.id,
-        })
-      }
-    } else {
-      done = true
-    }
-  }
-})
-```
-
-### Parallel Operations
-
-```javascript
-await trace('parallel-search', async () => {
-  // Spans can be created in parallel
-  const [webResults, dbResults, cacheResults] = await Promise.all([
-    span('retrieval', 'web_search', () => searchWeb(query)),
-    span('retrieval', 'db_search', () => searchDatabase(query)),
-    span('retrieval', 'cache_lookup', () => checkCache(query)),
-  ])
-
-  return { webResults, dbResults, cacheResults }
-})
-```
-
-## How It Works
-
-The SDK uses Node.js `AsyncLocalStorage` to propagate trace context through async operations. When you call `trace()` or `span()`, the SDK:
-
-1. Creates a new span ID and associates it with the current trace
-2. Runs your function within an async context that holds the span info
-3. On completion/error, sends the span data to LLMFlow via `POST /api/spans`
-4. Returns the result of your function
-
-LLM calls made through the proxy with `x-trace-id` and `x-parent-id` headers are automatically linked to the span tree.
-
-## TypeScript
-
-TypeScript definitions ship with the package (`index.d.ts`):
-
-```typescript
-import { trace, span, SpanOptions, SpanContext } from 'llmflow-sdk'
-
-const opts: SpanOptions = {
-  type: 'retrieval',
-  name: 'search',
-  input: { query: 'test' },
-}
-
-await span(opts, async () => {
-  // ...
-})
-```
+The SDK keeps the current span in Node's `AsyncLocalStorage`, so the context follows `await`,
+`Promise.all` and callbacks. Each span is sent to LLMFlow as JSON when it finishes. LLM calls
+made through the proxy with `x-trace-id` / `x-parent-id` headers are stored as children of the
+span that made them.
 
 ## License
 

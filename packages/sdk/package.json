@@ -1,21 +1,28 @@
 {
   "name": "llmflow-sdk",
-  "version": "0.2.2",
+  "version": "0.4.1",
   "description": "Minimal tracing SDK for LLM applications",
   "type": "module",
-  "main": "index.js",
-  "module": "index.js",
-  "types": "index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./index.js",
-      "types": "./index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
-    "index.js",
-    "index.d.ts"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "prepack": "bun run build && cp ../../LICENSE .",
+    "postpack": "rm -f LICENSE"
+  },
   "keywords": [
     "llm",
     "tracing",
@@ -40,6 +47,7 @@
   "engines": {
     "node": ">=18"
   },
-  "peerDependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
 }

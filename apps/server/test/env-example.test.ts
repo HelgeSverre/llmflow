@@ -23,7 +23,9 @@ test('.env.example documents every variable the server and dev tooling read', ()
     )
     const files = [
         ...sourceFiles(path.join(root, 'apps/server/src')),
+        // llmflow-sdk runs inside the user's app and documents its own variables in its README.
         ...readdirSync(path.join(root, 'packages')).flatMap((name) => {
+            if (name === 'sdk') return []
             const src = path.join(root, 'packages', name, 'src')
             return existsSync(src) ? sourceFiles(src) : []
         }),

@@ -25,10 +25,10 @@ apps/server/        npm package `llmflow`: Bun server (TS) — proxy, dashboard/
 apps/dashboard/     Svelte 5 + Vite SPA (Vitest unit tests colocated)
 packages/db/        bun:sqlite schema, migrations, queries (TS, ESM)
 packages/providers/ provider adapters + passthrough handlers (TS, ESM)
-packages/otlp/      OTLP ingest + upstream export (CJS JS, being ported: TASK-82/83)
-packages/pricing/   LiteLLM pricing + offline fallback (CJS JS, TASK-81)
-packages/shared/    logger + redaction (CJS JS, TASK-80)
-packages/sdk/       llmflow-sdk (JS, not yet published: TASK-84)
+packages/otlp/      OTLP ingest + upstream export (TS, ESM)
+packages/pricing/   LiteLLM pricing + embedded offline fallback (TS, ESM)
+packages/shared/    logger, redaction, bounded body reader (TS, ESM)
+packages/sdk/       llmflow-sdk: TS source, tsc build to dist/ on prepack, published on its own
 packages/dev-runtime/ dev-server discovery shared by the server and dashboard dev scripts
 e2e/playwright/     Playwright specs, seed data, test server
 scripts/            root orchestration that imports no workspace code: docker-dev, test-package

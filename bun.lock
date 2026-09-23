@@ -91,7 +91,10 @@
     },
     "packages/sdk": {
       "name": "llmflow-sdk",
-      "version": "0.2.2",
+      "version": "0.4.1",
+      "devDependencies": {
+        "typescript": "catalog:",
+      },
     },
     "packages/shared": {
       "name": "@llmflow/shared",

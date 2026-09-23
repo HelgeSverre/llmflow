@@ -30,7 +30,7 @@ async function exercise(port: string | undefined) {
                 process.execPath,
                 '--no-env-file',
                 '-e',
-                `const {trace}=await import('./packages/sdk/index.js');await trace('sdk-endpoint-fixture',async()=>{})`,
+                `const {trace}=await import('./packages/sdk/src/index.ts');await trace('sdk-endpoint-fixture',async()=>{})`,
             ],
             {
                 cwd: root,

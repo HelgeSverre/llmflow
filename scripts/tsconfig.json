@@ -3,5 +3,10 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["docker-dev.ts", "test-package.ts", "refresh-pricing-fallback.ts"]
+  "include": [
+    "docker-dev.ts",
+    "test-package.ts",
+    "refresh-pricing-fallback.ts",
+    "test-sdk-package.ts"
+  ]
 }
