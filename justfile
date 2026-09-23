@@ -132,7 +132,7 @@ docker-logs:
 # Show what's running on llmflow ports
 [group('ops')]
 status:
-    @bun scripts/dev.ts status
+    @bun run dev:status
     @docker ps --filter name=llmflow --format 'Docker: {{"{{.Names}} {{.Ports}}"}}' 2>/dev/null || true
 
 # Remove node_modules and the local database

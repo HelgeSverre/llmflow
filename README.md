@@ -231,7 +231,7 @@ bun run dev
 bun run dev:server      # backend only
 bun run dev:dashboard   # Vite HMR only
 
-# Build server and dashboard release artifacts in dist/
+# Build server and dashboard release artifacts in apps/server/dist/
 bun run build
 
 # Tests
@@ -247,11 +247,12 @@ bun run check               # typecheck + lint + format:check
 ```
 
 The dashboard is Svelte 5 + Vite 8 and builds to `apps/dashboard/dist/`.
-The root build assembles it into `dist/public/` alongside `dist/server.js` and runtime assets.
-The bin entry `bin/llmflow.js` (used by `npx llmflow`) spawns
+The published `llmflow` npm package is the `apps/server` workspace; the repository root is a private workspace root.
+Its build assembles the dashboard into `apps/server/dist/public/` alongside `dist/server.js` and runtime assets.
+The bin entry `apps/server/bin/llmflow.js` (used by `npx llmflow`) spawns
 the bundled `dist/server.js` in npm installations (source in an unbuilt checkout).
 `bun run build` generates both the dashboard and the self-contained Bun server.
-`npm pack` and `npm publish` build through `prepack`; generated output is not committed.
+`bun pm pack` and `bun publish` in `apps/server` build through `prepack` and rewrite `workspace:`/`catalog:` specifiers; generated output is not committed.
 Docker builds the same release layout from source in a separate build stage.
 `bun run test:package` builds and verifies the packed artifact, including offline pricing,
 in a fresh consumer project. Marketing assets and commands live under `website/`.
@@ -280,7 +281,7 @@ Trace-tree API responses remain nested using `timestamp` and `span_name`; the da
 - Model input/output token totals use recorded counts. Average latency is in milliseconds across LLM spans with a recorded nonnegative duration; absent measurements display `-`.
 - Credentials in diagnostic request/response headers and credential query parameters are redacted before persistence and notification. A versioned migration scrubs existing rows and vacuums/checkpoints the database. Backups and external copies made before upgrading are not rewritten. Another one-off migration repairs historical zero log timestamps with valid observed times.
 
-The server test runner uses a new temporary database and ports for every run, overriding inherited database settings. Default tests use local fixtures; live provider tests are opt-in through `bun run test:providers-e2e` or `bun run --filter @llmflow/server test passthrough-e2e.js` and require credentials. To include the real Python protobuf/gzip integration, install `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`, then run `LLMFLOW_PYTHON=python3 bun run test`.
+The server test runner uses a new temporary database and ports for every run, overriding inherited database settings. Default tests use local fixtures; live provider tests are opt-in through `bun run test:providers-e2e` or `bun run --filter llmflow test passthrough-e2e.js` and require credentials. To include the real Python protobuf/gzip integration, install `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`, then run `LLMFLOW_PYTHON=python3 bun run test`.
 
 ### Replay a captured request
 

@@ -9,7 +9,8 @@
     "./logs": "./src/logs.js",
     "./metrics": "./src/metrics.js",
     "./export": "./src/export.js",
-    "./transport": "./src/transport.js"
+    "./transport": "./src/transport.js",
+    "./timestamps": "./src/timestamps.js"
   },
   "dependencies": {
     "@llmflow/db": "workspace:*",

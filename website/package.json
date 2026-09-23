@@ -9,6 +9,6 @@
     "deploy": "vc --prod"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0"
+    "@playwright/test": "catalog:"
   }
 }

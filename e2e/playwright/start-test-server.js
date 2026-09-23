@@ -55,7 +55,10 @@ db.close()
 console.log('✓ Database seeded with test data')
 
 // Exercise the same bundle and static assets shipped through npm and Docker.
-const serverEntry = path.resolve(__dirname, '../../dist/server.js')
+const serverEntry = path.join(
+    path.dirname(require.resolve('llmflow/package.json')),
+    'dist/server.js',
+)
 
 const server = spawn('bun', [serverEntry], {
     stdio: 'inherit',

@@ -5,21 +5,23 @@ LLMFlow is a local LLM observability tool: an HTTP proxy for LLM APIs (port 8080
 ## Status: cleanup milestone in progress
 
 - Milestone `m-0` "Project Cleanup" (34 tasks, TASK-71…104) is restructuring the repo. Run `backlog milestone list` and `backlog task list --plain`; before changing build, tests, packaging, config or docs, read the task that owns that area — its comments carry the decisions and the facts we verified.
-- Decisions already made (do not re-open): Bun-only runtime, Node only for `bin/llmflow.js` and Playwright · everything becomes TypeScript ESM, no `require()` in TS · `bun test` for server + packages, Vitest for the dashboard, Playwright in `e2e/` · oxlint + oxfmt replace Prettier (TASK-87) · `apps/server` becomes the published `llmflow` package and the root goes private (TASK-104) · `website/` leaves the workspaces (TASK-101) · unused API routes are deleted (TASK-88).
+- Decisions already made (do not re-open): Bun-only runtime, Node only for `apps/server/bin/llmflow.js` and Playwright · everything becomes TypeScript ESM, no `require()` in TS · `bun test` for server + packages, Vitest for the dashboard, Playwright in `e2e/` · oxlint + oxfmt replace Prettier (TASK-87) · `apps/server` is the published `llmflow` package and the root is a private workspace root (TASK-104) · `website/` leaves the workspaces (TASK-101) · unused API routes are deleted (TASK-88).
 - Deleted on purpose, recreated by their tasks: `docs/`, `ARCHITECTURE.md` (TASK-102), `RELEASING.md` (TASK-98). Do not restore them from git.
 
 ## Runtime and commands (as of 2026-09-23)
 
-- Bun ≥ 1.3.13 required (developed on 1.4.2). `bun install` at the root; the isolated linker gives each workspace its own `node_modules`.
-- `bun run dev` — server (`--watch`) and the Vite dashboard together, falling back to free ports; `bun run dev:server` / `bun run dev:dashboard` for one side.
+- Bun ≥ 1.3.13 required (developed on 1.4.2). `bun install` at the root (`bun ci` in CI); the isolated linker gives each workspace its own `node_modules`. Versions shared by several workspaces live in the root `catalog` and are referenced as `"catalog:"`.
+- Root scripts only forward to workspaces with `bun run --filter`. Plain `--filter` runs in dependency order and waits for each dependency's script to finish, so long-running scripts (`dev`) use `--parallel`.
+- `bun run dev` — `apps/server` (`--watch`) and the Vite dashboard as two processes, falling back to free ports; they find each other through `@llmflow/dev-runtime` (a per-checkout state directory, `LLMFLOW_URL` overrides). `bun run dev:server` / `bun run dev:dashboard` for one side, `bun run dev:status` lists them.
 - `bun run test` — server suite (custom runner until TASK-76). `bun run --filter @llmflow/dashboard test` — Vitest. `bunx playwright test` — E2E (builds first).
 - `bun run typecheck` — every workspace plus `scripts/`. `bun run lint` (oxlint, `.oxlintrc.json`; `lint:fix` autofixes) · `bun run format` / `bun run format:check` (oxfmt, `.oxfmtrc.json`; Svelte goes through oxfmt's bundled Prettier) · `bun run check` = typecheck + lint + format:check. oxlint only sees `.svelte` `<script>` blocks; `svelte-check` in the dashboard typecheck covers templates.
-- `bun run build` → `dist/` (server bundle, dashboard assets, pricing fallback). `bun run test:package` smoke-tests the npm tarball. `just --list` shows all recipes by group.
+- `bun run build` → `apps/server/dist/` (server bundle, dashboard assets, pricing fallback, licenses). `bun run test:package` packs `apps/server` with `bun pm pack` and smoke-tests the tarball (only bin/, dist/, package.json, README, LICENSE; no `workspace:`/`catalog:` specifiers). `just --list` shows all recipes by group.
 
 ## Layout
 
 ```
-apps/server/        Bun server (TS): proxy, dashboard/API/OTLP/WebSocket, replay
+apps/server/        npm package `llmflow`: Bun server (TS) — proxy, dashboard/API/OTLP/WebSocket, replay;
+                    bin/llmflow.js (Node launcher for `npx llmflow`, spawns Bun), scripts/ (dev, build)
 apps/dashboard/     Svelte 5 + Vite SPA (Vitest unit tests colocated)
 packages/db/        bun:sqlite schema, migrations, queries (TS, ESM)
 packages/providers/ provider adapters + passthrough handlers (TS, ESM)
@@ -27,20 +29,20 @@ packages/otlp/      OTLP ingest + upstream export (CJS JS, being ported: TASK-82
 packages/pricing/   LiteLLM pricing + offline fallback (CJS JS, TASK-81)
 packages/shared/    logger + redaction (CJS JS, TASK-80)
 packages/sdk/       llmflow-sdk (JS, not yet published: TASK-84)
+packages/dev-runtime/ dev-server discovery shared by the server and dashboard dev scripts
 e2e/playwright/     Playwright specs, seed data, test server
-scripts/            dev, build, docker-dev, test-package orchestration
-bin/llmflow.js      Node launcher for `npx llmflow`; spawns Bun
+scripts/            root orchestration that imports no workspace code: docker-dev, test-package
 docker/ website/ release-notes/ .backlog/
 ```
 
 ## Conventions
 
-- Internal dependencies use `workspace:*`; import packages by name, never by a relative path into another workspace (the remaining violations are tracked in TASK-85/104).
+- Internal dependencies use `workspace:*`; import packages by name, never by a relative path into another workspace (add a package `exports` entry instead). The `@llmflow/*` packages are bundled into `llmflow`, so they are its `devDependencies`.
 - Style: no semicolons, single quotes, trailing commas, 4-space indent (2-space in `apps/dashboard/**` and Markdown/JSON/YAML). No comments unless the WHY is non-obvious. Minimal dependencies.
 - Naming: camelCase in code, UPPER_SNAKE constants, snake_case for DB columns and API JSON.
 - Request handlers return an error `Response`; they never throw. Providers extend `BaseProvider` (`packages/providers/src/base.ts`).
 - Environment variables are still read ad hoc; TASK-90 centralises them. Do not add new scattered `process.env` reads — extend the existing read site instead.
-- Never commit generated output (`dist/`, `apps/dashboard/dist/`, `test-results/`) or private files (`.env`, `*.db`, `.claude-config/`).
+- Never commit generated output (`apps/server/dist/`, `apps/dashboard/dist/`, `test-results/`, the `apps/server/README.md`/`LICENSE` copies made by prepack) or private files (`.env`, `*.db`, `.claude-config/`).
 
 ## Before marking a task Done
 

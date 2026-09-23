@@ -4,20 +4,21 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "bun ../../scripts/dev.ts dashboard",
+    "dev": "bun dev.ts",
     "build": "vite build",
     "typecheck": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@llmflow/dev-runtime": "workspace:*",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tsconfig/svelte": "^5.0.6",
     "@types/node": "^25.9.1",
     "jsdom": "^29.1.1",
     "svelte": "^5.43.8",
     "svelte-check": "^4.3.4",
-    "typescript": "^6.0.3",
+    "typescript": "catalog:",
     "vite": "^8.0.13",
     "vitest": "^4.1.6"
   }

@@ -3,7 +3,7 @@ import { Database } from 'bun:sqlite'
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { migrate } from '../../../packages/db/src/migrations'
+import { migrate } from '@llmflow/db/migrations'
 import { trustedWebSocketOrigin } from '../src/websocket-origin'
 const { runChild } = require('./run-tests.js')
 const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-db-'))

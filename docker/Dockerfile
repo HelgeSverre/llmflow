@@ -6,7 +6,7 @@ RUN bun run build
 
 FROM oven/bun:1 AS runtime
 WORKDIR /app
-COPY --from=build /app/dist ./dist
+COPY --from=build /app/apps/server/dist ./dist
 
 RUN mkdir -p /root/.llmflow
 ENV NODE_ENV=production

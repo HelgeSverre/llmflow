@@ -9,7 +9,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: bun install --frozen-lockfile
+      - run: bun ci
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run format:check

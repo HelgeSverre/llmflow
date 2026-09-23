@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./passthrough": "./src/passthrough.ts",
-    "./base": "./src/base.ts"
+    "./base": "./src/base.ts",
+    "./stream": "./src/stream.ts"
   }
 }

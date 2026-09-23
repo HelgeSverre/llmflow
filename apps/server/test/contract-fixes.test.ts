@@ -271,7 +271,7 @@ test('replay uses fresh configured credentials and stores a separate streaming r
 })
 
 test('tool-heavy streams have bounded capture while forwarding every event and final usage', async () => {
-    const { StreamSession } = await import('../../../packages/providers/src/stream')
+    const { StreamSession } = await import('@llmflow/providers/stream')
     const session = new StreamSession('openai', 'gpt-4o-mini', 'budget')
     const encoder = new TextEncoder()
     let count = 0

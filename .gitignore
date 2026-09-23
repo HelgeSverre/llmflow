@@ -16,6 +16,10 @@ playwright-report/
 apps/*/dist/
 packages/*/dist/
 
+# Copied from the repository root by the llmflow prepack script
+apps/server/README.md
+apps/server/LICENSE
+
 # Local codedb MCP index
 codedb.snapshot
 
