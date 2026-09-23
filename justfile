@@ -118,8 +118,8 @@ build:
 
 # Bump both packages, write the release notes, commit and tag (never pushes); --dry-run previews
 [group('release')]
-release version *flags:
-    bun run release {{ version }} {{ flags }}
+release *args:
+    bun run release {{ args }}
 
 # Regenerate .env.example, the README configuration table and llmflow --help
 [group('build')]
