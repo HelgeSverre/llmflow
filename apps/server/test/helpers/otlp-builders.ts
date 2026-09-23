@@ -16,7 +16,8 @@
  *   https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/
  */
 
-const http = require('http')
+type Attributes = Record<string, unknown>
+type Json = Record<string, any>
 
 // ────────────────────────────────────────────────────────────────────────────
 // ID + time helpers
@@ -24,26 +25,26 @@ const http = require('http')
 
 const HEX = '0123456789abcdef'
 
-function generateHexId(length = 32) {
+export function generateHexId(length = 32) {
     let out = ''
     for (let i = 0; i < length; i++) out += HEX[(Math.random() * 16) | 0]
     return out
 }
 
-function traceId() {
+export function traceId() {
     return generateHexId(32)
 }
 
-function spanId() {
+export function spanId() {
     return generateHexId(16)
 }
 
-function msToNano(ms) {
+export function msToNano(ms: number) {
     return String(BigInt(Math.floor(ms)) * 1_000_000n)
 }
 
 // OTel SpanKind enum (subset)
-const SpanKind = {
+export const SpanKind = {
     UNSPECIFIED: 0,
     INTERNAL: 1,
     SERVER: 2,
@@ -62,7 +63,7 @@ const SpanKind = {
  * JSON-encoded stringValue (the spec's escape hatch for nested structures
  * that don't have a native AnyValue representation).
  */
-function anyValue(v) {
+export function anyValue(v: unknown): Json {
     if (v === null || v === undefined) return { stringValue: '' }
     if (typeof v === 'string') return { stringValue: v }
     if (typeof v === 'boolean') return { boolValue: v }
@@ -85,7 +86,7 @@ function anyValue(v) {
 /**
  * Convert a flat {key: value} object into an OTLP KeyValue[] array.
  */
-function kvs(obj) {
+export function kvs(obj: Attributes) {
     return Object.entries(obj)
         .filter(([, v]) => v !== undefined)
         .map(([key, value]) => ({ key, value: anyValue(value) }))
@@ -104,8 +105,19 @@ function kvs(obj) {
  *   status?: {code: 0|1|2, message?}
  * }
  */
-function buildSpan(spec) {
-    const span = {
+export function buildSpan(spec: {
+    name: string
+    kind?: number
+    traceId: string
+    spanId: string
+    parentSpanId?: string
+    startMs: number
+    endMs: number
+    attributes?: Attributes
+    events?: Array<{ name: string; ms?: number; attributes?: Attributes }>
+    status?: { code: number; message?: string }
+}) {
+    const span: Json = {
         traceId: spec.traceId,
         spanId: spec.spanId,
         name: spec.name,
@@ -132,7 +144,15 @@ function buildSpan(spec) {
 /**
  * Wrap built spans in a complete OTLP/HTTP JSON resourceSpans payload.
  */
-function buildTracesPayload({ serviceName = 'llmflow-demo', scopeName = 'llmflow.demo', spans }) {
+export function buildTracesPayload({
+    serviceName = 'llmflow-demo',
+    scopeName = 'llmflow.demo',
+    spans,
+}: {
+    serviceName?: string
+    scopeName?: string
+    spans: Json[]
+}) {
     return {
         resourceSpans: [
             {
@@ -160,10 +180,14 @@ function buildTracesPayload({ serviceName = 'llmflow-demo', scopeName = 'llmflow
  *   ms, severityNumber?, body, traceId?, spanId?, attributes
  * }
  */
-function buildLogsPayload({
+export function buildLogsPayload({
     serviceName = 'llmflow-demo',
     scopeName = 'llmflow.demo',
     logRecords,
+}: {
+    serviceName?: string
+    scopeName?: string
+    logRecords: Json[]
 }) {
     return {
         resourceLogs: [
@@ -200,10 +224,14 @@ function buildLogsPayload({
  * metric: { name, unit, description?, histogram?: {dataPoints: [...]},
  *           sum?: {dataPoints, isMonotonic, aggregationTemporality} }
  */
-function buildMetricsPayload({
+export function buildMetricsPayload({
     serviceName = 'llmflow-demo',
     scopeName = 'llmflow.demo',
     metrics,
+}: {
+    serviceName?: string
+    scopeName?: string
+    metrics: Json[]
 }) {
     return {
         resourceMetrics: [
@@ -223,14 +251,14 @@ function buildMetricsPayload({
 /**
  * Build a histogram metric (the primary GenAI metric instrument type).
  */
-function buildHistogramMetric({ name, unit, description, dataPoints }) {
+export function buildHistogramMetric({ name, unit, description, dataPoints }: Json) {
     return {
         name,
         unit,
         description,
         histogram: {
             aggregationTemporality: 2, // CUMULATIVE
-            dataPoints: dataPoints.map((dp) => ({
+            dataPoints: dataPoints.map((dp: Json) => ({
                 startTimeUnixNano: msToNano(dp.startMs),
                 timeUnixNano: msToNano(dp.endMs),
                 attributes: kvs(dp.attributes || {}),
@@ -261,8 +289,8 @@ function buildHistogramMetric({ name, unit, description, dataPoints }) {
  *   stream?, timeToFirstChunk?, serverAddress?, conversationId?
  * }
  */
-function genAiChatAttributes(opts) {
-    const a = {
+export function genAiChatAttributes(opts: Json) {
+    const a: Attributes = {
         'gen_ai.operation.name': 'chat',
         'gen_ai.provider.name': opts.provider,
         'gen_ai.request.model': opts.model,
@@ -303,8 +331,8 @@ function genAiChatAttributes(opts) {
 /**
  * Build attributes for an `embeddings` span.
  */
-function genAiEmbeddingsAttributes(opts) {
-    const a = {
+export function genAiEmbeddingsAttributes(opts: Json) {
+    const a: Attributes = {
         'gen_ai.operation.name': 'embeddings',
         'gen_ai.provider.name': opts.provider,
         'gen_ai.request.model': opts.model,
@@ -320,8 +348,8 @@ function genAiEmbeddingsAttributes(opts) {
 /**
  * Build attributes for an `execute_tool` span.
  */
-function genAiToolAttributes(opts) {
-    const a = {
+export function genAiToolAttributes(opts: Json) {
+    const a: Attributes = {
         'gen_ai.operation.name': 'execute_tool',
         'gen_ai.tool.name': opts.name,
         'gen_ai.tool.type': opts.type ?? 'function',
@@ -336,8 +364,8 @@ function genAiToolAttributes(opts) {
 /**
  * Build attributes for an `invoke_agent` span.
  */
-function genAiAgentAttributes(opts) {
-    const a = {
+export function genAiAgentAttributes(opts: Json) {
+    const a: Attributes = {
         'gen_ai.operation.name': 'invoke_agent',
         'gen_ai.agent.id': opts.id,
         'gen_ai.agent.name': opts.name,
@@ -352,8 +380,8 @@ function genAiAgentAttributes(opts) {
 /**
  * Build attributes for an `invoke_workflow` span.
  */
-function genAiWorkflowAttributes(opts) {
-    const a = {
+export function genAiWorkflowAttributes(opts: Json) {
+    const a: Attributes = {
         'gen_ai.operation.name': 'invoke_workflow',
         'gen_ai.workflow.name': opts.name,
     }
@@ -365,8 +393,8 @@ function genAiWorkflowAttributes(opts) {
 /**
  * Build attributes for a `retrieval` span.
  */
-function genAiRetrievalAttributes(opts) {
-    const a = {
+export function genAiRetrievalAttributes(opts: Json) {
+    const a: Attributes = {
         'gen_ai.operation.name': 'retrieval',
         'gen_ai.data_source.id': opts.dataSourceId,
     }
@@ -383,8 +411,8 @@ function genAiRetrievalAttributes(opts) {
 // the rename emit these.
 // ────────────────────────────────────────────────────────────────────────────
 
-function genAiChatAttributesLegacy(opts) {
-    const a = {
+export function genAiChatAttributesLegacy(opts: Json) {
+    const a: Attributes = {
         'gen_ai.system': opts.provider,
         'gen_ai.request.model': opts.model,
         'gen_ai.response.model': opts.responseModel ?? opts.model,
@@ -402,73 +430,17 @@ function genAiChatAttributesLegacy(opts) {
 // HTTP send helper
 // ────────────────────────────────────────────────────────────────────────────
 
-function postOtlp(baseUrl, path, payload) {
-    return new Promise((resolve, reject) => {
-        const url = new URL(baseUrl)
-        const body = JSON.stringify(payload)
-        const req = http.request(
-            {
-                hostname: url.hostname,
-                port: url.port || 80,
-                path,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(body),
-                },
-            },
-            (res) => {
-                let data = ''
-                res.on('data', (c) => (data += c))
-                res.on('end', () => {
-                    if (res.statusCode >= 400) {
-                        reject(new Error(`HTTP ${res.statusCode}: ${data}`))
-                    } else {
-                        try {
-                            resolve({ status: res.statusCode, body: JSON.parse(data || '{}') })
-                        } catch {
-                            resolve({ status: res.statusCode, body: data })
-                        }
-                    }
-                })
-            },
-        )
-        req.on('error', reject)
-        req.write(body)
-        req.end()
+export async function postOtlp(baseUrl: string, path: string, payload: unknown) {
+    const response = await fetch(new URL(path, baseUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
     })
-}
-
-module.exports = {
-    // IDs + time
-    generateHexId,
-    traceId,
-    spanId,
-    msToNano,
-    SpanKind,
-
-    // OTLP encoding
-    anyValue,
-    kvs,
-
-    // Builders
-    buildSpan,
-    buildTracesPayload,
-    buildLogsPayload,
-    buildMetricsPayload,
-    buildHistogramMetric,
-
-    // GenAI attribute builders — current spec
-    genAiChatAttributes,
-    genAiEmbeddingsAttributes,
-    genAiToolAttributes,
-    genAiAgentAttributes,
-    genAiWorkflowAttributes,
-    genAiRetrievalAttributes,
-
-    // GenAI attribute builders — legacy
-    genAiChatAttributesLegacy,
-
-    // HTTP
-    postOtlp,
+    const text = await response.text()
+    if (response.status >= 400) throw new Error(`HTTP ${response.status}: ${text}`)
+    let body: unknown = text
+    try {
+        body = JSON.parse(text || '{}')
+    } catch {}
+    return { status: response.status, body }
 }

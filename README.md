@@ -312,9 +312,9 @@ PROVIDERS=openai,anthropic,cohere,mistral bun run test:live
 Both suites honor `PROVIDERS`. Override a model with
 `LLMFLOW_TEST_<PROVIDER>_MODEL`, for example
 `LLMFLOW_TEST_ANTHROPIC_MODEL=claude-haiku-4-5`. Defaults live in
-[`live-providers.js`](apps/server/test/lib/live-providers.js); choose an available model
+[`live-providers.ts`](apps/server/test/helpers/live-providers.ts); choose an available model
 for your account when a provider changes availability. Azure additionally requires
-`AZURE_OPENAI_DEPLOYMENT`; Ollama requires a running server and an installed model.
+`AZURE_OPENAI_DEPLOYMENT`; Ollama runs only when a local server has the model installed.
 Missing credentials or excluded providers are reported as skipped. Upstream authentication,
 model-access, quota and billing errors remain failures with their HTTP status and message;
 they are not silently counted as passes.

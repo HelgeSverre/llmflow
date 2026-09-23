@@ -24,7 +24,7 @@ if (['--help', '-h'].includes(mode)) {
 } else if (mode === 'demo') {
     const target = backendUrl() || `http://127.0.0.1:${port('DASHBOARD_PORT', 1337)}`
     const child = Bun.spawn(
-        [process.execPath, path.join(import.meta.dir, '../test/demo.js'), ...process.argv.slice(3)],
+        [process.execPath, path.join(import.meta.dir, 'demo.ts'), ...process.argv.slice(3)],
         {
             env: { ...process.env, LLMFLOW_URL: target },
             stdin: 'inherit',
