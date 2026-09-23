@@ -1,25 +1,11 @@
 import { test, expect } from 'bun:test'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { rmSync } from 'node:fs'
 import path from 'node:path'
+import { childEnv, isolatedEnv, tempDirectory } from './helpers/test-server'
 const root = path.resolve(import.meta.dir, '../../..')
 async function exercise(port: string | undefined) {
-    const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-sdk-'))
-    const env: Record<string, string | undefined> = {
-        ...process.env,
-        DATA_DIR: directory,
-        DB_PATH: path.join(directory, 'test.db'),
-        PROXY_PORT: '0',
-        PRICING_URL: 'https://127.0.0.1:1/no',
-        DASHBOARD_HOST: '127.0.0.1',
-        DASHBOARD_PORT: port,
-        LLMFLOW_URL: undefined,
-        OTLP_EXPORT_ENDPOINT: '',
-        OTLP_EXPORT_TRACES_ENDPOINT: '',
-        OTLP_EXPORT_LOGS_ENDPOINT: '',
-        OTLP_EXPORT_METRICS_ENDPOINT: '',
-        OTLP_EXPORT_ENABLED: 'false',
-    }
+    const directory = tempDirectory('llmflow-sdk-')
+    const env = childEnv(isolatedEnv(directory, { DASHBOARD_PORT: port }))
     const child = Bun.spawn(
         [
             process.execPath,
@@ -48,7 +34,7 @@ async function exercise(port: string | undefined) {
             ],
             {
                 cwd: root,
-                env: { ...env, LLMFLOW_URL: port ? url : undefined },
+                env: port ? { ...env, LLMFLOW_URL: url } : env,
                 stderr: 'pipe',
                 stdout: 'pipe',
             },

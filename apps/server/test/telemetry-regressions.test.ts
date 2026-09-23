@@ -1,9 +1,7 @@
 import { test, expect, afterAll } from 'bun:test'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { gzipSync } from 'node:zlib'
-const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-telemetry-'))
+import { startTestServer } from './helpers/test-server'
 const received: any[] = []
 const collector = Bun.serve({
     hostname: '127.0.0.1',
@@ -13,30 +11,25 @@ const collector = Bun.serve({
         return Response.json({})
     },
 })
-Object.assign(process.env, {
-    DATA_DIR: directory,
-    DB_PATH: path.join(directory, 'test.db'),
-    DASHBOARD_PORT: '0',
-    PROXY_PORT: '0',
-    PRICING_URL: 'https://127.0.0.1:1/no',
-    OTLP_EXPORT_TRACES_ENDPOINT: collector.url.toString(),
-    OTLP_EXPORT_LOGS_ENDPOINT: collector.url.toString(),
-    OTLP_EXPORT_METRICS_ENDPOINT: collector.url.toString(),
-    OTLP_EXPORT_BATCH_SIZE: '10000',
+const testServer = await startTestServer({
+    prefix: 'llmflow-telemetry-',
+    env: {
+        OTLP_EXPORT_ENABLED: undefined,
+        OTLP_EXPORT_TRACES_ENDPOINT: collector.url.toString(),
+        OTLP_EXPORT_LOGS_ENDPOINT: collector.url.toString(),
+        OTLP_EXPORT_METRICS_ENDPOINT: collector.url.toString(),
+        OTLP_EXPORT_BATCH_SIZE: '10000',
+    },
 })
-const db = await import('@llmflow/db')
-const { startDashboardServer } = await import('../src/server')
+const { db, dashboard: server } = testServer
 const { initExportHooks, flushAll } = require('@llmflow/otlp/export')
 const { messageType } = require('@llmflow/otlp/transport')
 const { nanoToMs } = require('@llmflow/otlp/timestamps')
-const server = startDashboardServer()
 const stop = initExportHooks(db)
 afterAll(async () => {
     await stop()
-    server.stop(true)
+    await testServer.stop()
     collector.stop(true)
-    db.close()
-    rmSync(directory, { recursive: true, force: true })
 })
 const attr = (key: string, value: string) => ({ key, value: { stringValue: value } })
 function payload(signal: string, id: string) {
@@ -294,7 +287,7 @@ test.skipIf(!process.env.LLMFLOW_PYTHON)(
     'real Python HTTP exporter persists gzip protobuf with exact span ID',
     async () => {
         const child = Bun.spawn(
-            [process.env.LLMFLOW_PYTHON!, path.join(import.meta.dir, 'python-otlp.py')],
+            [process.env.LLMFLOW_PYTHON!, path.join(import.meta.dir, 'fixtures/python-otlp.py')],
             {
                 env: { ...process.env, LLMFLOW_URL: server.url.origin },
                 stdout: 'pipe',

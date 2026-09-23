@@ -8,7 +8,7 @@
  * 2. Verify /api/sessions lists the session with correct trace count
  * 3. Verify /api/sessions/:id returns the three traces
  *
- * Run: node test/run-tests.js sessions-e2e.js
+ * Run: bun test --isolate apps/server/test/legacy-scripts.test.ts
  * Requires: LLMFlow server running on 127.0.0.1:1337
  */
 

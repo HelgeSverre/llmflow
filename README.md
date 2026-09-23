@@ -285,7 +285,7 @@ Trace-tree API responses remain nested using `timestamp` and `span_name`; the da
 - Model input/output token totals use recorded counts. Average latency is in milliseconds across LLM spans with a recorded nonnegative duration; absent measurements display `-`.
 - Credentials in diagnostic request/response headers and credential query parameters are redacted before persistence and notification. A versioned migration scrubs existing rows and vacuums/checkpoints the database. Backups and external copies made before upgrading are not rewritten. Another one-off migration repairs historical zero log timestamps with valid observed times.
 
-The server test runner uses a new temporary database and ports for every run, overriding inherited database settings. Default tests use local fixtures; live provider tests are opt-in through `bun run test:providers-e2e` or `bun run --filter llmflow test passthrough-e2e.js` and require credentials. To include the real Python protobuf/gzip integration, install `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`, then run `LLMFLOW_PYTHON=python3 bun run test`.
+`bun run test` runs the server and package suites (`bun test --isolate`, `bun run test:server`) and the dashboard suite (Vitest, `bun run test:dashboard`). Every server test starts its own server on port 0 with a temporary database, overriding inherited database settings. Default tests use local fixtures; live provider tests run through `bun run test:live`, which skips every suite whose API keys are not set. To include the real Python protobuf/gzip integration, install `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`, then run `LLMFLOW_PYTHON=python3 bun run test`.
 
 ### Replay a captured request
 
@@ -306,8 +306,7 @@ The default test suite uses local fixtures. Optional live checks make billable r
 require working provider credentials and account credit:
 
 ```bash
-PROVIDERS=openai,anthropic,cohere,mistral bun run test:providers-e2e
-PROVIDERS=openai,anthropic bun run apps/server/test/run-tests.js passthrough-e2e.js
+PROVIDERS=openai,anthropic,cohere,mistral bun run test:live
 ```
 
 Both suites honor `PROVIDERS`. Override a model with

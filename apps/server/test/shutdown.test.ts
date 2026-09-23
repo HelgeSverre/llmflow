@@ -1,28 +1,12 @@
 import { test, expect } from 'bun:test'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { rmSync } from 'node:fs'
 import path from 'node:path'
+import { childEnv, isolatedEnv, tempDirectory } from './helpers/test-server'
 
 async function start(extra: Record<string, string>) {
-    const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-shutdown-'))
+    const directory = tempDirectory('llmflow-shutdown-')
     const child = Bun.spawn([process.execPath, path.resolve(import.meta.dir, '../src/server.ts')], {
-        env: {
-            ...process.env,
-            DATA_DIR: directory,
-            DB_PATH: path.join(directory, 'db.sqlite'),
-            DASHBOARD_HOST: '127.0.0.1',
-            PROXY_HOST: '127.0.0.1',
-            DASHBOARD_PORT: '0',
-            PROXY_PORT: '0',
-            OTLP_EXPORT_ENABLED: 'false',
-            OTLP_EXPORT_ENDPOINT: '',
-            OTLP_EXPORT_TRACES_ENDPOINT: '',
-            OTLP_EXPORT_LOGS_ENDPOINT: '',
-            OTLP_EXPORT_METRICS_ENDPOINT: '',
-            PRICING_URL: 'http://127.0.0.1:1/no',
-            OTLP_EXPORT_FLUSH_INTERVAL: '60000',
-            ...extra,
-        },
+        env: childEnv(isolatedEnv(directory, { OTLP_EXPORT_FLUSH_INTERVAL: '60000', ...extra })),
         stdout: 'pipe',
         stderr: 'pipe',
     })

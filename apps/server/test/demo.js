@@ -42,7 +42,7 @@ const {
     genAiWorkflowAttributes,
     genAiRetrievalAttributes,
     postOtlp,
-} = require('./lib/otlp-builders.js')
+} = require('./helpers/otlp-builders.js')
 
 const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
 

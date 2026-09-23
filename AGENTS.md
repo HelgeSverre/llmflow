@@ -13,7 +13,7 @@ LLMFlow is a local LLM observability tool: an HTTP proxy for LLM APIs (port 8080
 - Bun ≥ 1.3.13 required (developed on 1.4.2). `bun install` at the root (`bun ci` in CI); the isolated linker gives each workspace its own `node_modules`. Versions shared by several workspaces live in the root `catalog` and are referenced as `"catalog:"`.
 - Root scripts only forward to workspaces with `bun run --filter`. Plain `--filter` runs in dependency order and waits for each dependency's script to finish, so long-running scripts (`dev`) use `--parallel`.
 - `bun run dev` — `apps/server` (`--watch`) and the Vite dashboard as two processes, falling back to free ports; they find each other through `@llmflow/dev-runtime` (a per-checkout state directory, `LLMFLOW_URL` overrides). `bun run dev:server` / `bun run dev:dashboard` for one side, `bun run dev:status` lists them.
-- `bun run test` — server suite (custom runner until TASK-76). `bun run --filter @llmflow/dashboard test` — Vitest. `bunx playwright test` — E2E (builds first).
+- `bun run test` = `test:server` (`bun test --isolate` over `apps/server` and `packages`, `**/live/**` ignored) + `test:dashboard` (Vitest). Filter with `bun test --isolate <path-substring>`. `bun run test:live` runs `apps/server/test/live/` (skipped without API keys). Server tests get an in-process server from `apps/server/test/helpers/test-server.ts` (`startTestServer()`: port 0, temp DB, no pricing fetch or export); subprocess tests use its `isolatedEnv()`. `bunx playwright test` — E2E (builds first).
 - `bun run typecheck` — every workspace plus `scripts/`. `bun run lint` (oxlint, `.oxlintrc.json`; `lint:fix` autofixes) · `bun run format` / `bun run format:check` (oxfmt, `.oxfmtrc.json`; Svelte goes through oxfmt's bundled Prettier) · `bun run check` = typecheck + lint + format:check. oxlint only sees `.svelte` `<script>` blocks; `svelte-check` in the dashboard typecheck covers templates.
 - `bun run build` → `apps/server/dist/` (server bundle, dashboard assets, pricing fallback, licenses). `bun run test:package` packs `apps/server` with `bun pm pack` and smoke-tests the tarball (only bin/, dist/, package.json, README, LICENSE; no `workspace:`/`catalog:` specifiers). `just --list` shows all recipes by group.
 
@@ -47,7 +47,7 @@ docker/ website/ release-notes/ .backlog/
 
 ## Before marking a task Done
 
-`bun run check` (typecheck + lint + format:check), `bun run test` and the dashboard tests must pass; run Playwright when UI or API behaviour changed and `bun run test:package` when packaging changed. Record verified facts and decisions as task comments so the next task sees them.
+`bun run check` (typecheck + lint + format:check) and `bun run test` (server, packages and dashboard) must pass; run Playwright when UI or API behaviour changed and `bun run test:package` when packaging changed. Record verified facts and decisions as task comments so the next task sees them.
 
 <!-- BACKLOG.MD GUIDELINES START -->
 <!-- backlog.md-instructions-version: 1.52.0 -->

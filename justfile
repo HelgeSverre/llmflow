@@ -31,40 +31,25 @@ demo:
 demo-many:
     bun run demo:many
 
-# Run unit/integration tests (server workspace)
+# Run server, package and dashboard tests
 [group('test')]
 test:
     bun run test
 
-# Run OTLP traces ingestion tests
+# Run server and package tests (bun test --isolate)
 [group('test')]
-test-otlp:
-    bun run test:otlp
+test-server:
+    bun run test:server
 
-# Run WebSocket fanout tests
+# Run dashboard unit tests (Vitest)
 [group('test')]
-test-ws:
-    bun run test:ws
+test-dashboard:
+    bun run test:dashboard
 
-# Run OTLP logs ingestion tests
+# Run live provider tests (skipped without API keys)
 [group('test')]
-test-logs:
-    bun run test:logs
-
-# Run OTLP metrics ingestion tests
-[group('test')]
-test-metrics:
-    bun run test:metrics
-
-# Run provider adapter unit tests
-[group('test')]
-test-providers:
-    bun run test:providers
-
-# Run provider adapter end-to-end tests
-[group('test')]
-test-providers-e2e:
-    bun run test:providers-e2e
+test-live:
+    bun run test:live
 
 # Run Playwright E2E tests
 [group('test')]

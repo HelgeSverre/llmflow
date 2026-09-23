@@ -1,24 +1,8 @@
 import { test, expect, afterAll } from 'bun:test'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-const directory = mkdtempSync(path.join(tmpdir(), 'llmflow-contracts-'))
-Object.assign(process.env, {
-    DATA_DIR: directory,
-    DB_PATH: path.join(directory, 'test.db'),
-    DASHBOARD_HOST: '127.0.0.1',
-    DASHBOARD_PORT: '0',
-    OTLP_EXPORT_ENABLED: 'false',
-    PRICING_URL: 'http://127.0.0.1:1/no',
-})
-const db = await import('@llmflow/db')
-const { startDashboardServer } = await import('../src/server')
-const server = startDashboardServer()
-afterAll(() => {
-    server.stop(true)
-    db.close()
-    rmSync(directory, { recursive: true, force: true })
-})
+import { startTestServer } from './helpers/test-server'
+const testServer = await startTestServer({ prefix: 'llmflow-contracts-' })
+const { db, dashboard: server } = testServer
+afterAll(() => testServer.stop())
 const get = async (route: string) =>
     (await fetch(new URL(route, server.url))).json() as Promise<any>
 async function post(route: string, body: unknown) {
