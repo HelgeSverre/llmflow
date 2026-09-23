@@ -1,6 +1,6 @@
 // Spans and traces: list, detail, span tree, replay, and span creation for the SDK.
 import * as db from '@llmflow/db'
-import { safeJson } from '@llmflow/db'
+import { parseTraceRow } from '@llmflow/db'
 import { log } from '@llmflow/shared/logger'
 import { replayTrace, replayUnavailableReason } from '../replay'
 import { notFound, page, queryFilters, type Route } from './router'
@@ -8,7 +8,8 @@ import { notFound, page, queryFilters, type Route } from './router'
 type Row = Record<string, unknown>
 type TreeSpan = Row & { children: TreeSpan[] }
 
-function traceDetail(t: Row) {
+function traceDetail(row: Row) {
+    const t = parseTraceRow(row)
     return {
         trace: {
             id: t.id,
@@ -17,9 +18,9 @@ function traceDetail(t: Row) {
             span_name: t.span_name,
             span_type: t.span_type,
             service_name: t.service_name,
-            input: safeJson(t.input, null),
-            output: safeJson(t.output, null),
-            attributes: safeJson(t.attributes, {}),
+            input: t.input,
+            output: t.output,
+            attributes: t.attributes,
             timestamp: t.timestamp,
             duration_ms: t.duration_ms,
             model: t.model,
@@ -33,13 +34,13 @@ function traceDetail(t: Row) {
         request: {
             method: t.request_method,
             path: t.request_path,
-            headers: safeJson(t.request_headers, {}),
-            body: safeJson(t.request_body, {}),
+            headers: t.request_headers,
+            body: t.request_body,
         },
         response: {
             status: t.response_status,
-            headers: safeJson(t.response_headers, {}),
-            body: safeJson(t.response_body, {}),
+            headers: t.response_headers,
+            body: t.response_body,
         },
     }
 }
@@ -51,16 +52,8 @@ function traceTree(id: string) {
     const spans = db.getSpansByTraceId(traceId) as Row[]
 
     const parsed: TreeSpan[] = spans.map((s) => ({
-        ...s,
+        ...parseTraceRow(s),
         replay_unavailable_reason: replayUnavailableReason(s),
-        request_headers: safeJson(s.request_headers, {}),
-        request_body: safeJson(s.request_body, {}),
-        response_headers: safeJson(s.response_headers, {}),
-        response_body: safeJson(s.response_body, {}),
-        input: safeJson(s.input, null),
-        output: safeJson(s.output, null),
-        attributes: safeJson(s.attributes, {}),
-        tags: safeJson<unknown[]>(s.tags, []),
         children: [],
     }))
     const byId = new Map(parsed.map((span) => [span.id as string, span]))

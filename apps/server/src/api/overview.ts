@@ -3,22 +3,14 @@ import * as db from '@llmflow/db'
 import { getPricingStatus } from '@llmflow/pricing'
 import type { Route } from './router'
 
-type ModelStats = {
-    model: string
-    count: number
-    tokens: number
-    prompt_tokens: number
-    completion_tokens: number
-    avg_latency: number
-    cost: number
-}
-
 // The dashboard charts break on null labels.
 const orUnknown = (rows: unknown[], keys: string[]) =>
     (rows as Record<string, unknown>[]).map((row) => ({
         ...row,
         ...Object.fromEntries(keys.map((key) => [key, row[key] || 'unknown'])),
     }))
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 export const overviewRoutes: Route[] = [
     [
@@ -31,23 +23,15 @@ export const overviewRoutes: Route[] = [
     [
         'GET',
         '/api/models',
-        (_req, url) => {
-            const models = db.getModelStats(
-                Number(url.searchParams.get('date_from') || 0),
-                Number(url.searchParams.get('date_to') || Date.now()),
-            ) as ModelStats[]
-            return Response.json(
-                (models || []).map((m) => ({
-                    model: m.model,
-                    request_count: m.count || 0,
-                    total_tokens: m.tokens || 0,
-                    prompt_tokens: m.prompt_tokens ?? 0,
-                    completion_tokens: m.completion_tokens ?? 0,
-                    total_cost: m.cost || 0,
-                    avg_latency: m.avg_latency ?? null,
-                })),
-            )
-        },
+        (_req, url) =>
+            Response.json(
+                db
+                    .getModelAggregates({
+                        from: Number(url.searchParams.get('date_from') || 0),
+                        to: Number(url.searchParams.get('date_to') || Date.now()),
+                    })
+                    .map(({ provider: _provider, ...model }) => model),
+            ),
     ],
     [
         'GET',
@@ -57,7 +41,12 @@ export const overviewRoutes: Route[] = [
             return Response.json({
                 daily: db.getDailyStats({ days }),
                 by_tool: orUnknown(db.getCostByTool({ days }), ['provider', 'service_name']),
-                by_model: orUnknown(db.getCostByModel({ days }), ['model', 'provider']),
+                by_model: orUnknown(
+                    db
+                        .getModelAggregates({ from: Date.now() - days * DAY_MS, orderBy: 'cost' })
+                        .map(({ avg_latency: _latency, ...model }) => model),
+                    ['model', 'provider'],
+                ),
                 days,
             })
         },

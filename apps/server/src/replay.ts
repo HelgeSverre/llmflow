@@ -1,5 +1,5 @@
 import * as db from '@llmflow/db'
-import { safeJson } from '@llmflow/db'
+import { parseTraceRow } from '@llmflow/db'
 import { registry } from '@llmflow/providers'
 import { PROVIDER_KEY_VARIABLES, providerApiKey } from '@llmflow/providers/credentials'
 import { forwardProxyRequest } from './proxy'
@@ -37,16 +37,17 @@ export async function replayTrace(id: string, signal: AbortSignal): Promise<Resp
     return Response.json({ id: rows[0].id })
 }
 
-function prepareReplay(trace: Record<string, unknown>) {
+function prepareReplay(row: Record<string, unknown>) {
+    const trace = parseTraceRow(row)
     const path = String(trace.request_path || '')
-    const body = safeJson(trace.request_body, null) as Record<string, unknown> | null
+    const body = trace.request_body as Record<string, unknown> | null
     if (
         trace.request_method !== 'POST' ||
         !path.startsWith('/') ||
         path.startsWith('/passthrough/')
     ) {
         return {
-            error: 'Replay supports captured POST requests through the normalized provider proxy. Native passthrough and telemetry-only spans cannot be replayed.',
+            error: 'Replay supports captured POST requests through the normalized provider proxy. Passthrough and telemetry-only spans cannot be replayed.',
         }
     }
     if (
@@ -66,7 +67,7 @@ function prepareReplay(trace: Record<string, unknown>) {
             error: 'The captured URL contains redacted parameters. Replay this request from the original client with fresh parameters.',
         }
     }
-    const stored = safeJson(trace.request_headers, {}) as Record<string, string>
+    const stored = trace.request_headers as Record<string, string>
     const headers = new Headers({ 'content-type': 'application/json' })
     for (const name of [
         'x-llmflow-provider',

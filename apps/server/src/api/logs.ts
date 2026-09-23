@@ -24,8 +24,8 @@ export const logRoutes: Route[] = [
         '/api/logs/filters',
         () =>
             Response.json({
-                services: db.getDistinctLogServices(),
-                event_names: db.getDistinctEventNames(),
+                services: db.getDistinctValues('logs', 'service_name'),
+                event_names: db.getDistinctValues('logs', 'event_name'),
             }),
     ],
     [

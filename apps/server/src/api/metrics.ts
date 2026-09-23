@@ -26,8 +26,8 @@ export const metricRoutes: Route[] = [
         '/api/metrics/filters',
         () =>
             Response.json({
-                names: db.getDistinctMetricNames(),
-                services: db.getDistinctMetricServices(),
+                names: db.getDistinctValues('metrics', 'name'),
+                services: db.getDistinctValues('metrics', 'service_name'),
             }),
     ],
     [

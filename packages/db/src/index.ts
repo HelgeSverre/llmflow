@@ -37,134 +37,26 @@ export function safeJson<T>(raw: unknown, fallback: T): T {
     }
 }
 
-// Helper to add columns if they don't exist (simple migration)
-function ensureColumn(name: string, definition: string) {
-    const info = db.query('PRAGMA table_info(traces)').all() as { name: string }[]
-    if (!info.find((c) => c.name === name)) {
-        db.exec(`ALTER TABLE traces ADD COLUMN ${name} ${definition}`)
-    }
+// The JSON-encoded columns of a traces row and the value each gets when missing or malformed.
+const TRACE_JSON_COLUMNS: Record<string, unknown> = {
+    request_headers: {},
+    request_body: {},
+    response_headers: {},
+    response_body: {},
+    input: null,
+    output: null,
+    attributes: {},
+    tags: [],
 }
 
-function initSchema() {
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS traces (
-            id TEXT PRIMARY KEY,
-            timestamp INTEGER NOT NULL,
-            duration_ms INTEGER,
-            provider TEXT,
-            model TEXT,
-            prompt_tokens INTEGER DEFAULT 0,
-            completion_tokens INTEGER DEFAULT 0,
-            total_tokens INTEGER DEFAULT 0,
-            estimated_cost REAL DEFAULT 0,
-            status INTEGER,
-            error TEXT,
-            request_method TEXT,
-            request_path TEXT,
-            request_headers TEXT,
-            request_body TEXT,
-            response_status INTEGER,
-            response_headers TEXT,
-            response_body TEXT,
-            tags TEXT,
-            trace_id TEXT,
-            parent_id TEXT
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_traces_timestamp ON traces(timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_traces_model ON traces(model);
-        CREATE INDEX IF NOT EXISTS idx_traces_trace_id ON traces(trace_id);
-        CREATE INDEX IF NOT EXISTS idx_traces_status ON traces(status);
-    `)
-
-    // Span-specific columns (v0.2+)
-    ensureColumn('span_type', "TEXT DEFAULT 'llm'")
-    ensureColumn('span_name', 'TEXT')
-    ensureColumn('input', 'TEXT')
-    ensureColumn('output', 'TEXT')
-    ensureColumn('attributes', 'TEXT')
-    ensureColumn('service_name', 'TEXT')
-
-    // Session correlation columns (v0.3+)
-    ensureColumn('session_id', 'TEXT')
-    ensureColumn('conversation_id', 'TEXT')
-    ensureColumn('agent_name', 'TEXT')
-
-    db.exec('CREATE INDEX IF NOT EXISTS idx_traces_parent_id ON traces(parent_id)')
-    db.exec('CREATE INDEX IF NOT EXISTS idx_traces_session_id ON traces(session_id)')
-    db.exec('CREATE INDEX IF NOT EXISTS idx_traces_conversation_id ON traces(conversation_id)')
-
-    // Logs table for OTLP logs ingestion (v0.2.1+)
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS logs (
-            id TEXT PRIMARY KEY,
-            timestamp INTEGER NOT NULL,
-            observed_timestamp INTEGER,
-            
-            -- Severity
-            severity_number INTEGER,
-            severity_text TEXT,
-            
-            -- Content
-            body TEXT,
-            
-            -- Context
-            trace_id TEXT,
-            span_id TEXT,
-            
-            -- Classification
-            event_name TEXT,
-            service_name TEXT,
-            scope_name TEXT,
-            
-            -- Structured data
-            attributes TEXT,
-            resource_attributes TEXT
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_logs_trace_id ON logs(trace_id);
-        CREATE INDEX IF NOT EXISTS idx_logs_event_name ON logs(event_name);
-        CREATE INDEX IF NOT EXISTS idx_logs_service_name ON logs(service_name);
-        CREATE INDEX IF NOT EXISTS idx_logs_severity ON logs(severity_number);
-    `)
-
-    // Metrics table for OTLP metrics ingestion (v0.2.2+)
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS metrics (
-            id TEXT PRIMARY KEY,
-            timestamp INTEGER NOT NULL,
-            
-            -- Metric identification
-            name TEXT NOT NULL,
-            description TEXT,
-            unit TEXT,
-            metric_type TEXT,
-            
-            -- Value (for simple metrics)
-            value_int INTEGER,
-            value_double REAL,
-            
-            -- Histogram buckets (JSON for complex data)
-            histogram_data TEXT,
-            
-            -- Context
-            service_name TEXT,
-            scope_name TEXT,
-            
-            -- Dimensions
-            attributes TEXT,
-            resource_attributes TEXT
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp DESC);
-        CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics(name);
-        CREATE INDEX IF NOT EXISTS idx_metrics_service_name ON metrics(service_name);
-        CREATE INDEX IF NOT EXISTS idx_metrics_type ON metrics(metric_type);
-    `)
+/** A traces row with its JSON columns decoded; every endpoint that returns span detail uses it. */
+export function parseTraceRow<T extends Record<string, unknown>>(row: T): T {
+    const parsed: Record<string, unknown> = { ...row }
+    for (const [column, fallback] of Object.entries(TRACE_JSON_COLUMNS))
+        if (column in row) parsed[column] = safeJson(row[column], fallback)
+    return parsed as T
 }
 
-initSchema()
 migrate(db)
 
 // Prepared statements using bun:sqlite query()
@@ -849,26 +741,6 @@ export function getLogCount(filters: Partial<LogFilters> = {}) {
     return result.cnt
 }
 
-export function getDistinctEventNames() {
-    return (
-        db
-            .query(
-                'SELECT DISTINCT event_name FROM logs WHERE event_name IS NOT NULL ORDER BY event_name',
-            )
-            .all() as { event_name: string }[]
-    ).map((r) => r.event_name)
-}
-
-export function getDistinctLogServices() {
-    return (
-        db
-            .query(
-                'SELECT DISTINCT service_name FROM logs WHERE service_name IS NOT NULL ORDER BY service_name',
-            )
-            .all() as { service_name: string }[]
-    ).map((r) => r.service_name)
-}
-
 // Metric functions
 export function insertMetric(metric: Metric) {
     insertMetricStmt.run({
@@ -1071,24 +943,6 @@ export function getTokenUsage() {
         .all()
 }
 
-export function getDistinctMetricNames() {
-    return (
-        db
-            .query('SELECT DISTINCT name FROM metrics WHERE name IS NOT NULL ORDER BY name')
-            .all() as { name: string }[]
-    ).map((r) => r.name)
-}
-
-export function getDistinctMetricServices() {
-    return (
-        db
-            .query(
-                'SELECT DISTINCT service_name FROM metrics WHERE service_name IS NOT NULL ORDER BY service_name',
-            )
-            .all() as { service_name: string }[]
-    ).map((r) => r.service_name)
-}
-
 // Analytics functions
 function formatDateLabel(timestamp: number, interval: string) {
     const date = new Date(timestamp)
@@ -1120,29 +974,6 @@ export function getCostByTool({ days = 30 } = {}) {
         FROM traces
         WHERE timestamp >= $fromTs
         GROUP BY provider, service_name
-        ORDER BY total_cost DESC
-    `,
-        )
-        .all({ $fromTs: fromTs })
-}
-
-export function getCostByModel({ days = 30 } = {}) {
-    const fromTs = Date.now() - days * 24 * 60 * 60 * 1000
-
-    return db
-        .query(
-            `
-        SELECT 
-            model,
-            provider,
-            SUM(estimated_cost) as total_cost,
-            SUM(total_tokens) as total_tokens,
-            SUM(prompt_tokens) as prompt_tokens,
-            SUM(completion_tokens) as completion_tokens,
-            COUNT(*) as request_count
-        FROM traces
-        WHERE timestamp >= $fromTs AND model IS NOT NULL
-        GROUP BY model
         ORDER BY total_cost DESC
     `,
         )
@@ -1207,27 +1038,6 @@ export function close() {
 
 // Export constants
 
-export function getModelStats(from = 0, to = Date.now()) {
-    return db
-        .query(
-            `
-        SELECT
-            model,
-            COUNT(*) as count,
-            COALESCE(SUM(total_tokens), 0) as tokens,
-            COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
-            COALESCE(SUM(completion_tokens), 0) as completion_tokens,
-            AVG(CASE WHEN span_type = 'llm' AND duration_ms >= 0 THEN duration_ms END) as avg_latency,
-            COALESCE(SUM(estimated_cost), 0) as cost
-        FROM traces
-        WHERE model IS NOT NULL AND timestamp >= $from AND timestamp <= $to
-        GROUP BY model
-        ORDER BY count DESC
-    `,
-        )
-        .all({ $from: from, $to: to })
-}
-
 export function getServices() {
     return (
         db
@@ -1238,4 +1048,68 @@ export function getServices() {
             )
             .all() as { service_name: string }[]
     ).map((row) => row.service_name)
+}
+
+const DISTINCT_COLUMNS = {
+    logs: ['event_name', 'service_name'],
+    metrics: ['name', 'service_name'],
+} as const
+
+/** Sorted non-null values of one filterable column (table and column are allowlisted). */
+export function getDistinctValues<T extends keyof typeof DISTINCT_COLUMNS>(
+    table: T,
+    column: (typeof DISTINCT_COLUMNS)[T][number],
+): string[] {
+    if (!(DISTINCT_COLUMNS[table] as readonly string[]).includes(column))
+        throw new Error(`${table}.${column} is not a filterable column`)
+    return (
+        db
+            .query(
+                `SELECT DISTINCT ${column} AS value FROM ${table} WHERE ${column} IS NOT NULL ORDER BY ${column}`,
+            )
+            .all() as { value: string }[]
+    ).map((row) => row.value)
+}
+
+export interface ModelAggregate {
+    model: string
+    provider: string | null
+    request_count: number
+    total_tokens: number
+    prompt_tokens: number
+    completion_tokens: number
+    total_cost: number
+    /** Mean duration of LLM spans with a known duration; null when there are none. */
+    avg_latency: number | null
+}
+
+/**
+ * Per-model totals for spans in [from, to]. Serves both the Models view (by request count)
+ * and Analytics (by cost).
+ */
+export function getModelAggregates({
+    from = 0,
+    to,
+    orderBy = 'requests',
+}: { from?: number; to?: number; orderBy?: 'requests' | 'cost' } = {}): ModelAggregate[] {
+    const order = orderBy === 'cost' ? 'total_cost' : 'request_count'
+    return db
+        .query(
+            `
+        SELECT
+            model,
+            provider,
+            COUNT(*) AS request_count,
+            COALESCE(SUM(total_tokens), 0) AS total_tokens,
+            COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(estimated_cost), 0) AS total_cost,
+            AVG(CASE WHEN span_type = 'llm' AND duration_ms >= 0 THEN duration_ms END) AS avg_latency
+        FROM traces
+        WHERE model IS NOT NULL AND timestamp >= $from AND ($to IS NULL OR timestamp <= $to)
+        GROUP BY model
+        ORDER BY ${order} DESC
+    `,
+        )
+        .all({ $from: from, $to: to ?? null }) as ModelAggregate[]
 }

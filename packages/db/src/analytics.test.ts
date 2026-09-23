@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test'
+import type { ModelAggregate } from './index'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -67,24 +68,31 @@ describe('Cost by Tool', () => {
     })
 })
 
-describe('Cost by Model', () => {
-    test('getCostByModel returns array', () => {
-        expect(db.getCostByModel({ days: 30 })).toBeArray()
-    })
+describe('Model aggregates', () => {
+    const lastMonth = () => ({ from: Date.now() - 30 * 24 * 60 * 60 * 1000 })
 
-    test('getCostByModel items have expected fields', () => {
-        const byModel = rows(db.getCostByModel({ days: 30 }))
+    test('by cost: totals per model, most expensive first', () => {
+        const byModel = db.getModelAggregates({ ...lastMonth(), orderBy: 'cost' })
         expect(byModel.length).toBeGreaterThan(0)
-        for (const key of ['model', 'total_cost', 'total_tokens', 'request_count']) {
+        for (const key of ['model', 'provider', 'total_cost', 'total_tokens', 'request_count'])
             expect(byModel[0]).toHaveProperty(key)
-        }
-    })
-
-    test('getCostByModel orders by total_cost descending', () => {
-        const byModel = rows(db.getCostByModel({ days: 30 }))
-        const costs = byModel.map((item) => Number(item.total_cost))
+        const costs = byModel.map((item) => item.total_cost)
         expect(costs).toEqual([...costs].sort((a, b) => b - a))
         expect(byModel[0]?.model).toBe('gpt-4o')
+    })
+
+    test('by requests: the same rows ordered by request count', () => {
+        const byRequests = db.getModelAggregates(lastMonth())
+        const counts = byRequests.map((item) => item.request_count)
+        expect(counts).toEqual([...counts].sort((a, b) => b - a))
+        const byCost = db.getModelAggregates({ ...lastMonth(), orderBy: 'cost' })
+        const sorted = (rows: ModelAggregate[]) =>
+            [...rows].sort((a, b) => a.model.localeCompare(b.model))
+        expect(sorted(byRequests)).toEqual(sorted(byCost))
+    })
+
+    test('an empty window has no rows', () => {
+        expect(db.getModelAggregates({ from: Date.now() + 60_000 })).toEqual([])
     })
 })
 
@@ -126,8 +134,8 @@ describe('Edge Cases', () => {
         expect(db.getCostByTool()).toBeArray()
     })
 
-    test('getCostByModel with default params works', () => {
-        expect(db.getCostByModel()).toBeArray()
+    test('getModelAggregates with default params works', () => {
+        expect(db.getModelAggregates()).toBeArray()
     })
 
     test('getDailyStats with default params works', () => {

@@ -63,12 +63,15 @@ test('retention evicts logical traces, bounds oversized traces and marks late fr
 test('historical credential scrub and observed timestamp repair execute once', () => {
     const filename = path.join(directory, 'historical.db'),
         historical = new Database(filename)
-    historical.exec(`CREATE TABLE traces(id TEXT PRIMARY KEY,timestamp INTEGER,trace_id TEXT,request_headers TEXT,response_headers TEXT,request_path TEXT);
-        CREATE TABLE logs(timestamp INTEGER,observed_timestamp INTEGER);
-        CREATE TABLE metrics(id TEXT PRIMARY KEY, value_int INTEGER);
+    // A pre-v0.2 database: baseline columns only, unscrubbed headers, no migrations recorded.
+    historical.exec(`CREATE TABLE traces(id TEXT PRIMARY KEY,timestamp INTEGER,provider TEXT,model TEXT,status INTEGER,trace_id TEXT,parent_id TEXT,request_headers TEXT,response_headers TEXT,request_path TEXT);
+        CREATE TABLE logs(id TEXT,timestamp INTEGER,observed_timestamp INTEGER,severity_number INTEGER,trace_id TEXT,event_name TEXT,service_name TEXT);
+        CREATE TABLE metrics(id TEXT PRIMARY KEY,timestamp INTEGER,name TEXT,metric_type TEXT,service_name TEXT,value_int INTEGER);
         CREATE TABLE stats_cache(key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER);`)
     historical
-        .query('INSERT INTO traces VALUES(?,?,?,?,?,?)')
+        .query(
+            'INSERT INTO traces(id,timestamp,trace_id,request_headers,response_headers,request_path) VALUES(?,?,?,?,?,?)',
+        )
         .run(
             'old',
             1,
@@ -77,20 +80,20 @@ test('historical credential scrub and observed timestamp repair execute once', (
             JSON.stringify({ 'Set-Cookie': 'response-secret' }),
             '/v1?key=query-secret',
         )
-    historical.exec('INSERT INTO logs VALUES(0,12345),(99,888)')
-    historical.exec("INSERT INTO metrics VALUES('legacy',42)")
+    historical.exec('INSERT INTO logs(timestamp,observed_timestamp) VALUES(0,12345),(99,888)')
+    historical.exec("INSERT INTO metrics(id,value_int) VALUES('legacy',42)")
     migrate(historical)
     expect(historical.query('SELECT timestamp FROM logs ORDER BY timestamp').all()).toEqual([
         { timestamp: 99 },
         { timestamp: 12345 },
     ])
-    expect(historical.query('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 5 })
+    expect(historical.query('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 6 })
     expect(
         historical
             .query("SELECT name FROM sqlite_master WHERE type='table' AND name='stats_cache'")
             .get(),
     ).toBeNull()
-    expect(historical.query('SELECT * FROM metrics').get()).toEqual({
+    expect(historical.query('SELECT * FROM metrics').get()).toMatchObject({
         id: 'legacy',
         value_int: 42,
         aggregation_temporality: null,
@@ -99,11 +102,17 @@ test('historical credential scrub and observed timestamp repair execute once', (
         time_unix_nano: null,
         series_key: null,
     })
-    historical.exec('INSERT INTO logs VALUES(0,54321)')
+    historical.exec('INSERT INTO logs(timestamp,observed_timestamp) VALUES(0,54321)')
     migrate(historical)
     expect(
         historical.query('SELECT timestamp FROM logs WHERE observed_timestamp=54321').get(),
     ).toEqual({ timestamp: 0 })
+    const columns = (historical.query('PRAGMA table_info(traces)').all() as { name: string }[]).map(
+        (column) => column.name,
+    )
+    expect(columns).toEqual(
+        expect.arrayContaining(['span_type', 'service_name', 'session_id', 'agent_name']),
+    )
     historical.close()
     for (const secret of ['historical-secret', 'cookie-secret', 'response-secret', 'query-secret'])
         expect(readFileSync(filename).includes(Buffer.from(secret))).toBe(false)
