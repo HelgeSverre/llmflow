@@ -1,10 +1,10 @@
 ---
 id: TASK-97
 title: Harden the Docker image and build it in CI
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 11:55'
+updated_date: '2026-09-23 11:59'
 labels:
   - docker
   - ci
