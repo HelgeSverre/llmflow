@@ -13,5 +13,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@llmflow/shared": "workspace:*"
   }
 }

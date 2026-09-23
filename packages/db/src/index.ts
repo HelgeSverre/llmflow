@@ -1,20 +1,14 @@
 import { Database } from 'bun:sqlite'
 import { migrate } from './migrations'
-import path from 'path'
 import fs from 'fs'
-import os from 'os'
+import { config } from '@llmflow/shared/config'
 import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
 
-// .env files are not shell-expanded, so expand a leading ~ here instead of creating a literal ./~ directory.
-function expandHome(value: string | undefined) {
-    if (!value) return undefined
-    return value === '~' || /^~[\\/]/.test(value) ? path.join(os.homedir(), value.slice(1)) : value
-}
-const DATA_DIR = expandHome(process.env.DATA_DIR) || path.join(os.homedir(), '.llmflow')
-const DB_PATH = expandHome(process.env.DB_PATH) || path.join(DATA_DIR, 'data.db')
-const MAX_TRACES = Math.max(1, parseInt(process.env.MAX_TRACES || '10000', 10) || 10000)
-const MAX_LOGS = parseInt(process.env.MAX_LOGS || '100000', 10)
-const MAX_METRICS = parseInt(process.env.MAX_METRICS || '1000000', 10)
+const DATA_DIR = config.dataDir
+const DB_PATH = config.dbPath
+const MAX_TRACES = config.maxTraces
+const MAX_LOGS = config.maxLogs
+const MAX_METRICS = config.maxMetrics
 
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true })

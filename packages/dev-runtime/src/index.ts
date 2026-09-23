@@ -12,6 +12,7 @@ import { tmpdir, userInfo } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { log } from '@llmflow/shared/logger'
+import { config } from '@llmflow/shared/config'
 import { LOOPBACK_HOSTS } from '@llmflow/shared/net'
 
 // Keyed by checkout so split dev commands in one clone find each other and ignore other clones.
@@ -20,7 +21,7 @@ const checkout = path.resolve(
     '../../..',
 )
 export const stateDirectory =
-    process.env.LLMFLOW_DEV_STATE_DIR ||
+    config.devStateDir ||
     path.join(
         tmpdir(),
         `llmflow-dev-${userInfo().uid}-${createHash('sha256').update(checkout).digest('hex').slice(0, 16)}`,
@@ -95,7 +96,7 @@ export function runtimes(): Runtime[] {
     }
 }
 export function backendUrl() {
-    if (process.env.LLMFLOW_URL) return process.env.LLMFLOW_URL.replace(/\/$/, '')
+    if (config.llmflowUrl) return config.llmflowUrl
     return runtimes().find((runtime) => runtime.kind === 'backend')?.url
 }
 export function frontendOrigins() {

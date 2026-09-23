@@ -1,13 +1,14 @@
 import { existsSync } from 'node:fs'
 import { cp, mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
+import { config } from '@llmflow/shared/config'
 
 const packageRoot = path.resolve(import.meta.dir, '..')
 const output = path.join(packageRoot, 'dist')
 
 // CI builds once, then sets LLMFLOW_REUSE_BUILD=1 so prepack (test:package) and the
 // Playwright webServer reuse that dist instead of rebuilding it.
-if (process.env.LLMFLOW_REUSE_BUILD === '1') {
+if (config.reuseBuild) {
     if (!existsSync(path.join(output, 'server.js'))) {
         console.error(
             'LLMFLOW_REUSE_BUILD=1 but apps/server/dist is missing; run bun run build first',

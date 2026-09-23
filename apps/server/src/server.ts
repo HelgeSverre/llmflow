@@ -2,7 +2,7 @@
 import * as db from '@llmflow/db'
 import { getConfig as getExportConfig, initExportHooks } from '@llmflow/otlp/export'
 import { log } from '@llmflow/shared/logger'
-import { parsePort } from '@llmflow/shared/net'
+import { config } from '@llmflow/shared/config'
 import { handleApiRoute } from './api'
 import { addLiveClient, removeLiveClient } from './live'
 import { handleOtlpRoute, isOtlpPath } from './otlp-routes'
@@ -10,10 +10,10 @@ import { createProxyServer } from './proxy-server'
 import { serveStatic } from './static'
 import { trustedWebSocketOrigin } from './websocket-origin'
 
-const PROXY_HOST = process.env.PROXY_HOST || '127.0.0.1'
-const DASHBOARD_HOST = process.env.DASHBOARD_HOST || '127.0.0.1'
-const PROXY_PORT = parsePort('PROXY_PORT', 8080)
-const DASHBOARD_PORT = parsePort('DASHBOARD_PORT', 1337)
+const PROXY_HOST = config.proxyHost
+const DASHBOARD_HOST = config.dashboardHost
+const PROXY_PORT = config.proxyPort
+const DASHBOARD_PORT = config.dashboardPort
 
 export function startDashboardServer(
     port = DASHBOARD_PORT,

@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { log } from '@llmflow/shared/logger'
-import { clientUrl, parsePort as port } from '@llmflow/shared/net'
+import { config } from '@llmflow/shared/config'
+import { clientUrl } from '@llmflow/shared/net'
 import { available, backendUrl, frontendOrigins, publish, runtimes } from '@llmflow/dev-runtime'
 
 const mode = process.argv[2] || 'server'
@@ -16,7 +17,7 @@ if (['--help', '-h'].includes(mode)) {
         )
     if (!live.length) console.log('No running development servers found for this checkout.')
 } else if (mode === 'demo') {
-    const target = backendUrl() || `http://127.0.0.1:${port('DASHBOARD_PORT', 1337)}`
+    const target = backendUrl() || `http://127.0.0.1:${config.dashboardPort}`
     const child = Bun.spawn(
         [process.execPath, path.join(import.meta.dir, 'demo.ts'), ...process.argv.slice(3)],
         {
@@ -50,18 +51,17 @@ if (['--help', '-h'].includes(mode)) {
     process.on('SIGTERM', () => void stop())
     try {
         // Validate all selected ports before opening listeners.
-        port('DASHBOARD_PORT', 1337)
-        port('PROXY_PORT', 8080)
+        void [config.dashboardPort, config.proxyPort]
         const { startDashboardServer, startProxyServer } = await import('../src/server')
         const db = await import('@llmflow/db')
         const { initExportHooks } = await import('@llmflow/otlp/export')
         cleanup.push(() => db.close())
         cleanup.push(initExportHooks(db))
-        const dashboard = available('Dashboard/OTLP', port('DASHBOARD_PORT', 1337), (value) =>
+        const dashboard = available('Dashboard/OTLP', config.dashboardPort, (value) =>
             startDashboardServer(value, frontendOrigins),
         )
         cleanup.push(() => dashboard.stop(true))
-        const proxy = available('Proxy', port('PROXY_PORT', 8080), startProxyServer)
+        const proxy = available('Proxy', config.proxyPort, startProxyServer)
         cleanup.push(() => proxy.stop(true))
         const url = clientUrl(dashboard.url)
         cleanup.push(publish({ kind: 'backend', url, proxy: clientUrl(proxy.url) }))

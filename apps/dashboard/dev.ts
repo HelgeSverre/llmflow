@@ -2,11 +2,12 @@ import { createServer, type ProxyOptions, type ViteDevServer } from 'vite'
 import { createServer as createHttpServer } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { available, backendUrl, publish } from '@llmflow/dev-runtime'
-import { clientHost, parsePort as port } from '@llmflow/shared/net'
+import { config } from '@llmflow/shared/config'
+import { clientHost } from '@llmflow/shared/net'
 import { log } from '@llmflow/shared/logger'
 
 async function startFrontend() {
-  const target = () => backendUrl() || `http://127.0.0.1:${port('DASHBOARD_PORT', 1337)}`
+  const target = () => backendUrl() || `http://127.0.0.1:${config.dashboardPort}`
   function proxyOptions(): ProxyOptions {
     return {
       target: target(),
@@ -21,8 +22,8 @@ async function startFrontend() {
       },
     }
   }
-  const preferred = port('VITE_PORT', 5173)
-  const host = process.env.VITE_HOST || '127.0.0.1'
+  const preferred = config.vitePort
+  const host = config.viteHost
   let vite: ViteDevServer | undefined
   const http = createHttpServer((req, res) => {
     if (vite) vite.middlewares(req, res)

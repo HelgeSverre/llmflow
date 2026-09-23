@@ -2,6 +2,12 @@ import { afterAll, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import {
+    README_MARKERS,
+    renderEnvExample,
+    renderHelp,
+    renderReadmeTable,
+} from '@llmflow/shared/config-docs'
 
 const root = path.resolve(import.meta.dir, '../../..')
 const scratch = mkdtempSync(path.join(tmpdir(), 'llmflow-env-'))
@@ -10,41 +16,58 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }))
 
 function sourceFiles(directory: string): string[] {
     return readdirSync(directory).flatMap((name) => {
+        if (name === 'node_modules' || name === 'dist') return []
         const file = path.join(directory, name)
         if (statSync(file).isDirectory()) return sourceFiles(file)
-        return /\.(ts|js)$/.test(name) && !/\.test\./.test(name) ? [file] : []
+        return /\.(ts|js|svelte)$/.test(name) && !/\.test\.|\.spec\./.test(name) ? [file] : []
     })
 }
 
-test('.env.example documents every variable the server and dev tooling read', () => {
-    const example = readFileSync(path.join(root, '.env.example'), 'utf8')
-    const documented = new Set(
-        [...example.matchAll(/^#?\s*([A-Z][A-Z0-9_]+)=/gm)].map((match) => match[1]),
+// The config module is the one reader. llmflow-sdk runs in the user's app and documents its own
+// two variables; Vite reads its own; test harnesses build the environment of the server under test.
+// Spreading process.env into a child's environment is not a read.
+const ALLOWED = [
+    'packages/shared/src/config.ts',
+    'packages/sdk/',
+    'apps/dashboard/vite.config.ts',
+    'apps/server/test/',
+    'e2e/',
+]
+
+test('server and tooling code reads environment variables only through the config module', () => {
+    const files = ['apps', 'packages', 'scripts', 'e2e'].flatMap((dir) =>
+        sourceFiles(path.join(root, dir)),
     )
-    const files = [
-        ...sourceFiles(path.join(root, 'apps/server/src')),
-        // llmflow-sdk runs inside the user's app and documents its own variables in its README.
-        ...readdirSync(path.join(root, 'packages')).flatMap((name) => {
-            if (name === 'sdk') return []
-            const src = path.join(root, 'packages', name, 'src')
-            return existsSync(src) ? sourceFiles(src) : []
-        }),
-        path.join(root, 'apps/dashboard/dev.ts'),
-    ]
-    const read = new Set<string>()
-    for (const file of files) {
-        const source = readFileSync(file, 'utf8')
-        for (const match of source.matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)) read.add(match[1])
-        // Names passed to port helpers and the replay credential table.
-        for (const match of source.matchAll(/(?:configuredPort|port)\('([A-Z][A-Z0-9_]+)'/g))
-            read.add(match[1])
-    }
-    for (const match of readFileSync(path.join(root, 'apps/server/src/replay.ts'), 'utf8').matchAll(
-        /'([A-Z][A-Z0-9_]+_API_KEY)'/g,
-    ))
-        read.add(match[1])
-    expect([...read].filter((name) => !documented.has(name)).sort()).toEqual([])
-    expect(example).not.toMatch(/^DATA_DIR=~/m)
+    const readers = files
+        .map((file) => path.relative(root, file))
+        .filter((file) => !ALLOWED.some((allowed) => file.startsWith(allowed)))
+        .filter((file) =>
+            /process\.env\.[A-Z]|process\.env\[/.test(readFileSync(path.join(root, file), 'utf8')),
+        )
+    expect(readers).toEqual([])
+})
+
+test('.env.example, the README table and llmflow --help are generated from SETTINGS', () => {
+    expect(readFileSync(path.join(root, '.env.example'), 'utf8')).toBe(renderEnvExample())
+    expect(readFileSync(path.join(root, '.env.example'), 'utf8')).not.toMatch(/^DATA_DIR=~/m)
+
+    // The formatter pads table columns, so compare cells rather than bytes.
+    const rows = (markdown: string) =>
+        markdown
+            .split('\n')
+            .filter((line) => line.startsWith('|') && !/^\|[\s|:-]+\|$/.test(line))
+            .map((line) =>
+                line
+                    .split(/(?<!\\)\|/)
+                    .map((cell) => cell.trim())
+                    .join('|'),
+            )
+    const readme = readFileSync(path.join(root, 'README.md'), 'utf8')
+    const block = readme.slice(readme.indexOf(README_MARKERS[0]), readme.indexOf(README_MARKERS[1]))
+    expect(rows(block)).toEqual(rows(renderReadmeTable()))
+
+    const help = Bun.spawnSync(['node', path.join(root, 'apps/server/bin/llmflow.js'), '--help'])
+    expect(help.stdout.toString()).toContain(renderHelp())
 })
 
 test('a DATA_DIR with a leading ~ resolves under the home directory, not ./~', async () => {

@@ -41,7 +41,7 @@ docker/ website/ release-notes/ .backlog/
 - Style: no semicolons, single quotes, trailing commas, 4-space indent (2-space in `apps/dashboard/**` and Markdown/JSON/YAML). No comments unless the WHY is non-obvious. Minimal dependencies.
 - Naming: camelCase in code, UPPER_SNAKE constants, snake_case for DB columns and API JSON.
 - Request handlers return an error `Response`; they never throw. Providers extend `BaseProvider` (`packages/providers/src/base.ts`).
-- Environment variables are still read ad hoc; TASK-90 centralises them. Do not add new scattered `process.env` reads — extend the existing read site instead.
+- Environment variables: declare every variable in `SETTINGS` and read it through `config` (`packages/shared/src/config.ts`); never read `process.env` elsewhere (a test enforces it; the SDK, `vite.config.ts` and test harnesses are exempt). After changing `SETTINGS`, run `bun run env:docs` to regenerate `.env.example`, the README table and `llmflow --help`.
 - npm packages list what they ship in the `files` whitelist of their `package.json`; there is no `.npmignore`. `.dockerignore` keeps the image build context to what `bun install` + `bun run build` need.
 - Never commit generated output (`apps/server/dist/`, `apps/dashboard/dist/`, `test-results/`, the `apps/server/README.md`/`LICENSE` copies made by prepack) or private files (`.env`, `*.db`, `.claude-config/`).
 

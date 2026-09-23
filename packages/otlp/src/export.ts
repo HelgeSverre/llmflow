@@ -1,6 +1,7 @@
 // Forwards stored traces, logs and metrics to another OTLP/HTTP backend
 // (Jaeger, Phoenix/Arize, Langfuse, Opik, Grafana Tempo, ...), batched per signal.
 import type * as Db from '@llmflow/db'
+import { config } from '@llmflow/shared/config'
 import { log } from '@llmflow/shared/logger'
 import { fixedWidthId } from './ids'
 import { messageType, type Signal } from './transport'
@@ -11,21 +12,18 @@ type Protocol = 'http/json' | 'http/protobuf'
 
 // OTLP_EXPORT_ENDPOINT is an alias for the traces endpoint only; logs and metrics
 // are exported only when their own endpoint is set.
-const ENDPOINTS: Record<Kind, string | undefined> = {
-    traces: process.env.OTLP_EXPORT_TRACES_ENDPOINT || process.env.OTLP_EXPORT_ENDPOINT,
-    logs: process.env.OTLP_EXPORT_LOGS_ENDPOINT,
-    metrics: process.env.OTLP_EXPORT_METRICS_ENDPOINT,
-}
+const EXPORT = config.otlpExport
+const ENDPOINTS: Record<Kind, string | undefined> = EXPORT.endpoints
 const SIGNALS: Record<Kind, Signal> = { traces: 'trace', logs: 'logs', metrics: 'metrics' }
-const HEADERS = parseHeaders(process.env.OTLP_EXPORT_HEADERS || '')
-const ENABLED = process.env.OTLP_EXPORT_ENABLED === 'true' || Object.values(ENDPOINTS).some(Boolean)
-const PROTOCOL = parseProtocol(process.env.OTLP_EXPORT_PROTOCOL)
-const BATCH_SIZE = parseInt(process.env.OTLP_EXPORT_BATCH_SIZE || '100', 10)
-const FLUSH_INTERVAL_MS = parseInt(process.env.OTLP_EXPORT_FLUSH_INTERVAL || '5000', 10)
+const HEADERS = parseHeaders(EXPORT.headers)
+const ENABLED = EXPORT.enabled
+const PROTOCOL = parseProtocol(EXPORT.protocol)
+const BATCH_SIZE = EXPORT.batchSize
+const FLUSH_INTERVAL_MS = EXPORT.flushIntervalMs
 const TIMEOUT_MS = 10_000
 
 // Also emit the deprecated v1.36.0 GenAI names for collectors built against the old spec.
-const EMIT_LEGACY_GENAI_ATTRS = process.env.LLMFLOW_OTLP_LEGACY_ATTRS === '1'
+const EMIT_LEGACY_GENAI_ATTRS = EXPORT.legacyAttributes
 
 // Inverse of GENAI_OPERATION_TO_SPAN_TYPE in traces.ts (lossy: several operations map to 'llm').
 const SPAN_TYPE_TO_GENAI_OPERATION: Record<string, string> = {

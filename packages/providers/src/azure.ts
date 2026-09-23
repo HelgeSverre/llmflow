@@ -1,3 +1,4 @@
+import { config } from '@llmflow/shared/config'
 import {
     BaseProvider,
     type NormalizedResponse,
@@ -28,14 +29,14 @@ export class AzureOpenAIProvider extends BaseProvider {
     apiVersion: string
     deploymentMap: Record<string, string>
 
-    constructor(config: AzureOpenAIProviderConfig = {}) {
+    constructor(options: AzureOpenAIProviderConfig = {}) {
         super()
         this.name = 'azure'
         this.displayName = 'Azure OpenAI'
 
-        this.resource = config.resource || process.env.AZURE_OPENAI_RESOURCE
-        this.apiVersion = config.apiVersion || process.env.AZURE_OPENAI_API_VERSION || '2024-02-01'
-        this.deploymentMap = config.deploymentMap || {}
+        this.resource = options.resource || config.azureResource
+        this.apiVersion = options.apiVersion || config.azureApiVersion
+        this.deploymentMap = options.deploymentMap || {}
     }
 
     /**
@@ -47,10 +48,8 @@ export class AzureOpenAIProvider extends BaseProvider {
             return this.deploymentMap[model]
         }
 
-        const envKey = `AZURE_DEPLOYMENT_${model.replace(/[.-]/g, '_').toUpperCase()}`
-        if (process.env[envKey]) {
-            return process.env[envKey] as string
-        }
+        const configured = config.azureDeployment(model)
+        if (configured) return configured
 
         // Default: use model name as deployment (common pattern)
         // Also try removing dots (gpt-3.5-turbo -> gpt-35-turbo)
@@ -67,7 +66,7 @@ export class AzureOpenAIProvider extends BaseProvider {
 
         if (this.resource) return this.resource
 
-        return process.env.AZURE_OPENAI_RESOURCE || 'azure-openai'
+        return config.azureResource || 'azure-openai'
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {

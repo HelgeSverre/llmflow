@@ -1,19 +1,5 @@
-import { afterEach, expect, test } from 'bun:test'
-import { clientHost, clientUrl, freePort, parsePort, waitForHealth, waitUntil } from './net'
-
-afterEach(() => {
-    delete process.env.NET_TEST_PORT
-})
-
-test('parsePort reads the environment and rejects invalid ports', () => {
-    expect(parsePort('NET_TEST_PORT', 1337)).toBe(1337)
-    process.env.NET_TEST_PORT = '0'
-    expect(parsePort('NET_TEST_PORT', 1337)).toBe(0)
-    for (const value of ['-1', '65536', '1.5', 'x']) {
-        process.env.NET_TEST_PORT = value
-        expect(() => parsePort('NET_TEST_PORT', 1337)).toThrow('NET_TEST_PORT must be a port')
-    }
-})
+import { expect, test } from 'bun:test'
+import { clientHost, clientUrl, freePort, waitForHealth, waitUntil } from './net'
 
 test('clientHost and clientUrl turn wildcard binds into loopback and bracket IPv6', () => {
     expect(clientHost('0.0.0.0')).toBe('127.0.0.1')

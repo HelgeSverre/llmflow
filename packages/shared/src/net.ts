@@ -5,14 +5,6 @@ import { createServer } from 'node:net'
 export const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '[::1]']
 const WILDCARD_HOSTS = ['0.0.0.0', '::', '[::]']
 
-/** Reads a port from the environment; 0 means "any free port". */
-export function parsePort(name: string, fallback: number): number {
-    const value = Number(process.env[name] ?? fallback)
-    if (!Number.isInteger(value) || value < 0 || value > 65535)
-        throw new Error(`${name} must be a port from 0 to 65535`)
-    return value
-}
-
 /** The host a client should use to reach a listener bound to `hostname`. */
 export function clientHost(hostname: string): string {
     if (WILDCARD_HOSTS.includes(hostname)) return '127.0.0.1'

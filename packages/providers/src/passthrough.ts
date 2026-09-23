@@ -1,3 +1,4 @@
+import { config } from '@llmflow/shared/config'
 import { StreamSession, type StreamFormat } from './stream'
 
 export interface PassthroughTarget {
@@ -312,15 +313,15 @@ export class HeliconePassthrough extends PassthroughHandler {
         super({
             name: 'helicone-passthrough',
             displayName: 'Helicone (Cost Tracking)',
-            targetHost: process.env.HELICONE_HOST || 'oai.helicone.ai',
+            targetHost: config.heliconeHost,
             targetPort: 443,
             protocol: 'https',
         })
     }
 
     override getTarget(req: PassthroughRequest): PassthroughTarget {
-        const host = process.env.HELICONE_HOST || 'oai.helicone.ai'
-        const port = process.env.HELICONE_PORT || '443'
+        const host = config.heliconeHost
+        const port = config.heliconePort
 
         return {
             hostname: host,
@@ -338,7 +339,7 @@ export class HeliconePassthrough extends PassthroughHandler {
             Authorization: headers.authorization,
         }
 
-        const heliconeApiKey = headers['helicone-auth'] || process.env.HELICONE_API_KEY
+        const heliconeApiKey = headers['helicone-auth'] || config.heliconeApiKey
         if (heliconeApiKey) {
             heliconeHeaders['Helicone-Auth'] = heliconeApiKey.startsWith('Bearer ')
                 ? heliconeApiKey

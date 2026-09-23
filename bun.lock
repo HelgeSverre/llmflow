@@ -87,6 +87,9 @@
     "packages/providers": {
       "name": "@llmflow/providers",
       "version": "0.0.0",
+      "dependencies": {
+        "@llmflow/shared": "workspace:*",
+      },
     },
     "packages/sdk": {
       "name": "llmflow-sdk",

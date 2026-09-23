@@ -1,3 +1,5 @@
+import { readSetting } from '@llmflow/shared/config'
+
 // The environment variables that hold each provider's API key, in precedence order.
 // The proxy forwards the client's own credentials; LLMFlow reads these only when it
 // makes a request itself (replay).
@@ -16,5 +18,5 @@ export const PROVIDER_KEY_VARIABLES: Record<string, string[]> = {
 
 /** The first configured API key for `provider`, or undefined. */
 export function providerApiKey(provider: string): string | undefined {
-    return PROVIDER_KEY_VARIABLES[provider]?.map((name) => process.env[name]).find(Boolean)
+    return PROVIDER_KEY_VARIABLES[provider]?.map(readSetting).find(Boolean)
 }

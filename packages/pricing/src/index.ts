@@ -1,3 +1,4 @@
+import { config } from '@llmflow/shared/config'
 import { log } from '@llmflow/shared/logger'
 import bundled from '../pricing.fallback.json' with { type: 'json' }
 
@@ -19,9 +20,7 @@ export type PricingStatus = {
     upstream_url: string
 }
 
-const DEFAULT_PRICING_URL =
-    'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
-const PRICING_URL = process.env.PRICING_URL || DEFAULT_PRICING_URL
+const PRICING_URL = config.pricingUrl
 const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000
 const FETCH_TIMEOUT_MS = 10_000
 

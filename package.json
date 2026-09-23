@@ -39,7 +39,8 @@
     "format:check": "oxfmt --check",
     "check": "bun run typecheck && bun run lint && bun run format:check",
     "test:package": "bun run scripts/test-package.ts && bun run scripts/test-sdk-package.ts",
-    "pricing:refresh": "bun run scripts/refresh-pricing-fallback.ts"
+    "pricing:refresh": "bun run scripts/refresh-pricing-fallback.ts",
+    "env:docs": "bun run scripts/gen-env-docs.ts && oxfmt README.md .env.example apps/server/bin/llmflow.js"
   },
   "devDependencies": {
     "@llmflow/shared": "workspace:*",

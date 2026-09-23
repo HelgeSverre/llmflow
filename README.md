@@ -145,14 +145,8 @@ For chat-thread correlation, set `gen_ai.conversation.id` (OTel) or
 LLMFlow can forward what it stores to any OTLP/HTTP backend (Jaeger, Grafana Tempo,
 Langfuse, Phoenix, Opik). Records are batched per signal.
 
-| Variable                       | Description                                                        |
-| ------------------------------ | ------------------------------------------------------------------ |
-| `OTLP_EXPORT_TRACES_ENDPOINT`  | Full traces URL, e.g. `http://localhost:4318/v1/traces`            |
-| `OTLP_EXPORT_ENDPOINT`         | Alias for the traces URL; it does **not** enable logs or metrics   |
-| `OTLP_EXPORT_LOGS_ENDPOINT`    | Full logs URL; logs are forwarded only when this is set            |
-| `OTLP_EXPORT_METRICS_ENDPOINT` | Full metrics URL; metrics are forwarded only when this is set      |
-| `OTLP_EXPORT_PROTOCOL`         | `http/json` (default) or `http/protobuf` (needed by Phoenix)       |
-| `OTLP_EXPORT_HEADERS`          | Comma-separated `key=value` headers, e.g. `Authorization=Bearer …` |
+Set `OTLP_EXPORT_TRACES_ENDPOINT` (and the logs/metrics endpoints if wanted); the other
+`OTLP_EXPORT_*` settings are listed under [Configuration](#configuration).
 
 Forwarded spans are rebuilt from the stored row. They carry the GenAI usage attributes,
 `session.id`, `gen_ai.conversation.id`, `gen_ai.agent.name`, and the attributes the span
@@ -164,17 +158,91 @@ receive it. Logs and metrics are forwarded with their attributes and resource at
 
 ## Configuration
 
-| Variable         | Default      | Description                                       |
-| ---------------- | ------------ | ------------------------------------------------- |
-| `PROXY_HOST`     | `127.0.0.1`  | Proxy listener address                            |
-| `DASHBOARD_HOST` | `127.0.0.1`  | Dashboard and OTLP listener address               |
-| `PROXY_PORT`     | `8080`       | Proxy port                                        |
-| `DASHBOARD_PORT` | `1337`       | Dashboard + OTLP receiver port                    |
-| `DATA_DIR`       | `~/.llmflow` | Data directory                                    |
-| `MAX_TRACES`     | `10000`      | Maximum retained span rows (whole-trace eviction) |
-| `VERBOSE`        | `0`          | Enable verbose logging                            |
+Every setting is an environment variable; `.env.example` lists them all with their defaults.
 
-Set provider API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) if you want the proxy to forward requests.
+<!-- env:start -->
+<!-- Generated from packages/shared/src/config.ts by `bun run env:docs`; edit that list, not this block. -->
+
+**Servers**
+
+| Variable             | Default     | Description                                                             |
+| -------------------- | ----------- | ----------------------------------------------------------------------- |
+| `PROXY_PORT`         | `8080`      | Proxy port (receives LLM API requests); 0 picks a free port             |
+| `DASHBOARD_PORT`     | `1337`      | Dashboard, JSON API and OTLP receiver port; 0 picks a free port         |
+| `PROXY_HOST`         | `127.0.0.1` | Interface the proxy binds to (0.0.0.0 accepts remote clients)           |
+| `DASHBOARD_HOST`     | `127.0.0.1` | Interface the dashboard binds to (0.0.0.0 accepts remote clients)       |
+| `WS_ALLOWED_ORIGINS` |             | Extra origins allowed to open the dashboard WebSocket (comma-separated) |
+| `PROXY_TIMEOUT_MS`   | `300000`    | Milliseconds before a proxied upstream request is aborted               |
+| `VERBOSE`            | `0`         | Log debug detail (1=on); the --verbose flag does the same               |
+
+**Storage**
+
+| Variable      | Default                                                                                       | Description                                                     |
+| ------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `DATA_DIR`    |                                                                                               | Directory for the SQLite database (default: ~/.llmflow)         |
+| `DB_PATH`     |                                                                                               | Full path to the SQLite file (default: $DATA_DIR/data.db)       |
+| `MAX_TRACES`  | `10000`                                                                                       | Spans to keep; whole traces are pruned oldest first beyond this |
+| `MAX_LOGS`    | `100000`                                                                                      | Log records to keep; the oldest are pruned beyond this          |
+| `MAX_METRICS` | `1000000`                                                                                     | Metric points to keep; the oldest are pruned beyond this        |
+| `PRICING_URL` | `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json` | Model pricing JSON used for cost estimates                      |
+
+**Provider API keys**
+
+| Variable               | Default | Description                                              |
+| ---------------------- | ------- | -------------------------------------------------------- |
+| `OPENAI_API_KEY`       |         | OpenAI API key                                           |
+| `ANTHROPIC_API_KEY`    |         | Anthropic API key                                        |
+| `GEMINI_API_KEY`       |         | Google Gemini API key (wins over GOOGLE_API_KEY)         |
+| `GOOGLE_API_KEY`       |         | Google Gemini API key, used when GEMINI_API_KEY is unset |
+| `COHERE_API_KEY`       |         | Cohere API key                                           |
+| `AZURE_OPENAI_API_KEY` |         | Azure OpenAI API key                                     |
+| `GROQ_API_KEY`         |         | Groq API key                                             |
+| `MISTRAL_API_KEY`      |         | Mistral AI API key                                       |
+| `TOGETHER_API_KEY`     |         | Together AI API key                                      |
+| `PERPLEXITY_API_KEY`   |         | Perplexity API key                                       |
+| `OPENROUTER_API_KEY`   |         | OpenRouter API key                                       |
+
+**Provider settings**
+
+| Variable                   | Default           | Description                                                                          |
+| -------------------------- | ----------------- | ------------------------------------------------------------------------------------ |
+| `OLLAMA_HOST`              | `localhost`       | Ollama host                                                                          |
+| `OLLAMA_PORT`              | `11434`           | Ollama port                                                                          |
+| `AZURE_OPENAI_RESOURCE`    |                   | Azure OpenAI resource name (an x-azure-resource header wins)                         |
+| `AZURE_OPENAI_API_VERSION` | `2024-02-01`      | Azure OpenAI API version                                                             |
+| `AZURE_DEPLOYMENT_<MODEL>` |                   | Azure deployment for a model; <MODEL> is the model name uppercased with . and - as _ |
+| `HELICONE_HOST`            | `oai.helicone.ai` | Helicone gateway host                                                                |
+| `HELICONE_PORT`            | `443`             | Helicone gateway port                                                                |
+| `HELICONE_API_KEY`         |                   | Helicone key used when the request has no helicone-auth header                       |
+
+**OTLP export**
+
+| Variable                       | Default     | Description                                                     |
+| ------------------------------ | ----------- | --------------------------------------------------------------- |
+| `OTLP_EXPORT_ENABLED`          | `false`     | Enable export (true); setting any endpoint enables it too       |
+| `OTLP_EXPORT_TRACES_ENDPOINT`  |             | Full traces URL                                                 |
+| `OTLP_EXPORT_ENDPOINT`         |             | Alias for the traces URL; it does not enable logs or metrics    |
+| `OTLP_EXPORT_LOGS_ENDPOINT`    |             | Full logs URL; logs are exported only when set                  |
+| `OTLP_EXPORT_METRICS_ENDPOINT` |             | Full metrics URL; metrics are exported only when set            |
+| `OTLP_EXPORT_PROTOCOL`         | `http/json` | http/json or http/protobuf (Phoenix accepts protobuf only)      |
+| `OTLP_EXPORT_HEADERS`          |             | Headers sent with every export (comma-separated key=value)      |
+| `OTLP_EXPORT_BATCH_SIZE`       | `100`       | Records per export batch, per signal                            |
+| `OTLP_EXPORT_FLUSH_INTERVAL`   | `5000`      | Milliseconds between flushes                                    |
+| `LLMFLOW_OTLP_LEGACY_ATTRS`    | `0`         | Also export the deprecated v1.36.0 GenAI attribute names (1=on) |
+
+**Development**
+
+| Variable                | Default     | Description                                                                         |
+| ----------------------- | ----------- | ----------------------------------------------------------------------------------- |
+| `LLMFLOW_URL`           |             | Backend the dashboard dev server and demo target (default: the running dev backend) |
+| `LLMFLOW_DEV_STATE_DIR` |             | Where dev servers record their URLs (default: a per-checkout temp directory)        |
+| `VITE_PORT`             | `5173`      | Dashboard dev server port                                                           |
+| `VITE_HOST`             | `127.0.0.1` | Dashboard dev server bind interface                                                 |
+| `LLMFLOW_REUSE_BUILD`   | `0`         | Reuse an existing apps/server/dist instead of rebuilding (1=on; CI)                 |
+
+<!-- env:end -->
+
+The proxy forwards the API key each client sends; the provider keys above are only needed to replay a captured request from the dashboard.
 
 ---
 

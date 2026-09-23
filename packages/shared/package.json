@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     "./body": "./src/body.ts",
+    "./config": "./src/config.ts",
+    "./config-docs": "./src/config-docs.ts",
     "./logger": "./src/logger.ts",
     "./net": "./src/net.ts",
     "./redaction": "./src/redaction.ts"

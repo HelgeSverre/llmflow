@@ -1,4 +1,4 @@
-const VERBOSE = process.env.VERBOSE === '1' || process.argv.includes('--verbose')
+import { config } from './config'
 
 const dim = '\x1b[2m'
 const yellow = '\x1b[33m'
@@ -29,7 +29,7 @@ export const log = {
     },
 
     debug(message: string) {
-        if (VERBOSE) console.log(`${dim}${timestamp()} ${message}${reset}`)
+        if (config.verbose) console.log(`${dim}${timestamp()} ${message}${reset}`)
     },
 }
 

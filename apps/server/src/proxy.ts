@@ -4,6 +4,7 @@ import type { ProviderRequest, TokenUsage } from '@llmflow/providers/base'
 import type { PassthroughHandler } from '@llmflow/providers/passthrough'
 import { calculateCost } from '@llmflow/pricing'
 import { readBoundedBody } from '@llmflow/shared/body'
+import { config } from '@llmflow/shared/config'
 import { sanitizeHeaders, sanitizePath } from '@llmflow/shared/redaction'
 import { log } from '@llmflow/shared/logger'
 
@@ -101,7 +102,7 @@ export async function forwardProxyRequest(
     const adapter = native?.handler || provider!
     const name = adapter.name
     const controller = new AbortController()
-    const timeoutMs = Number(process.env.PROXY_TIMEOUT_MS || 300000)
+    const timeoutMs = config.proxyTimeoutMs
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
         return Response.json({ error: 'Invalid PROXY_TIMEOUT_MS' }, { status: 500 })
     const timer = setTimeout(

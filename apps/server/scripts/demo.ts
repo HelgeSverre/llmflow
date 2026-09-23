@@ -23,6 +23,7 @@
  *   bun run demo -- --no-metrics              # skip metric emission
  */
 
+import { config } from '@llmflow/shared/config'
 import {
     traceId,
     spanId,
@@ -60,7 +61,7 @@ interface ScenarioResult {
     logs: Json[]
 }
 
-const LLMFLOW_URL = process.env.LLMFLOW_URL || 'http://127.0.0.1:1337'
+const LLMFLOW_URL = config.llmflowUrl || 'http://127.0.0.1:1337'
 
 const args = process.argv.slice(2)
 const COUNT = parseInt(args.find((a) => a.startsWith('--count='))?.split('=')[1] || '1', 10)

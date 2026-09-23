@@ -1,3 +1,4 @@
+import { config } from '@llmflow/shared/config'
 import { BaseProvider, type ProviderRequest, type ProviderTarget } from './base'
 
 /**
@@ -12,8 +13,8 @@ export class OllamaProvider extends BaseProvider {
         super()
         this.name = 'ollama'
         this.displayName = 'Ollama'
-        this.hostname = process.env.OLLAMA_HOST || 'localhost'
-        this.port = parseInt(process.env.OLLAMA_PORT || '', 10) || 11434
+        this.hostname = config.ollamaHost
+        this.port = config.ollamaPort
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {
