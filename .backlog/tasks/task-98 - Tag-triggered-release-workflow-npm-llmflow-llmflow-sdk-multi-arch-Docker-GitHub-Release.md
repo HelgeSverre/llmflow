@@ -3,10 +3,11 @@ id: TASK-98
 title: >-
   Tag-triggered release workflow: npm (llmflow + llmflow-sdk), multi-arch
   Docker, GitHub Release
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 10:31'
+updated_date: '2026-09-23 19:54'
 labels:
   - release
   - ci
@@ -39,12 +40,33 @@ Add `just release <version>`: bumps root + sdk versions, creates `release-notes/
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 A `v*` tag triggers .github/workflows/release.yml which publishes both npm packages, pushes multi-arch Docker tags X.Y.Z and latest, and creates a GitHub Release with the notes file; a dry-run mode exists for testing
-- [ ] #2 `just release 0.5.0` bumps versions in lockstep, creates the notes file, commits and tags; RELEASING.md describes only this flow and the required secrets
+- [x] #2 `just release 0.5.0` bumps versions in lockstep, creates the notes file, commits and tags; RELEASING.md describes only this flow and the required secrets
 - [ ] #3 The next actual release fixes the published-artifact drift: Docker latest serves 1337, npm README image works, GitHub Latest matches npm
-- [ ] #4 Both packages are published with bun publish (or bun pm pack + npm publish tarball) from their workspace directories, never from the root
-- [ ] #5 just release turns release-notes/UNRELEASED.md into release-notes/v<version>.md and recreates an empty UNRELEASED.md
-- [ ] #6 release.yml publishes via bun pm pack plus npm publish ./tarball --provenance with id-token: write; both package.json files carry a repository field matching the GitHub repo
+- [x] #4 Both packages are published with bun publish (or bun pm pack + npm publish tarball) from their workspace directories, never from the root
+- [x] #5 just release turns release-notes/UNRELEASED.md into release-notes/v<version>.md and recreates an empty UNRELEASED.md
+- [x] #6 release.yml publishes via bun pm pack plus npm publish ./tarball --provenance with id-token: write; both package.json files carry a repository field matching the GitHub repo
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. release.yml: prepare (version/notes checks) -> checks (reuse checks.yml via workflow_call) -> npm (bun pm pack per workspace + npm publish --provenance) and docker (multi-arch push) -> github-release; workflow_dispatch = dry run. 2. scripts/release.ts + just release: lockstep bump, UNRELEASED -> v<version>, commit, tag, never push; --dry-run. 3. RELEASING.md for this flow, secrets and the first-release drift checklist; README link. 4. Validate without releasing: actionlint, real just release in a throwaway clone, bun pm pack of both packages.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+USER DECISION honoured: nothing was released, tagged or pushed (no git push at all in this run; main is 114 commits ahead of origin/main locally).
+Done (commits 17a74b4, d347ed1):
+- .github/workflows/release.yml: on push tags v* and workflow_dispatch (inputs version optional -> current package version; dry_run default true). Jobs: prepare (X.Y.Z check, both package.json versions == tag, release-notes/v<version>.md required unless dry run), checks (uses ./.github/workflows/checks.yml; checks.yml gained workflow_call), npm (permissions id-token: write; bun ci; bun pm pack in apps/server and packages/sdk; npm publish <tarball> --provenance --access public, plus --dry-run in dry runs; NODE_AUTH_TOKEN=secrets.NPM_TOKEN), docker (qemu + buildx, login only when publishing, build-push-action platforms linux/amd64,linux/arm64, tags X.Y.Z and latest, build-args VERSION/REVISION/CREATED, push only when not dry run), github-release (contents: write; gh release create vX --verify-tag --latest --notes-file release-notes/vX.md; skipped in dry runs). actionlint: no findings.
+- scripts/release.ts / root script 'release' / just release <version> [--dry-run] (group release): semver check; version must be newer; both manifests must share the current version; main + clean tree (warnings in --dry-run); tag and notes file must not exist; UNRELEASED.md must have content. Bumps both package.json, runs bun install (bun.lock records workspace versions), writes release-notes/v<version>.md ('# LLMFlow v<version>' + UNRELEASED body without its heading/comments), resets UNRELEASED.md to a template, commits 'Release v<version>', creates annotated tag, prints the push command.
+- Verified in a throwaway clone (then deleted): just release 0.5.0 bumped both packages and bun.lock, wrote v0.5.0.md, reset UNRELEASED.md, one commit + annotated tag, clean tree; bun pm pack in both workspace dirs produced llmflow-0.5.0.tgz and llmflow-sdk-0.5.0.tgz. Rejections checked: 0.4.1 (not newer), 1.0 (not X.Y.Z), bare 'just release' (usage).
+- The recipe takes *args so recipe-contracts can dry-run it bare (a required parameter failed that test; fixed in d347ed1).
+- RELEASING.md written from scratch (flow, rehearsal, secrets NPM_TOKEN / DOCKERHUB_USERNAME / DOCKERHUB_TOKEN, first-release drift checklist); README Packaging links it. Both package.json repository fields match github.com/HelgeSverre/llmflow.
+REMAINING (need the user; both require pushing, which was withheld):
+- AC1: push the workflow and run Actions -> Release -> Run workflow (dry_run) once to see it green on GitHub; add the three secrets first for a real release.
+- AC3: cut the first real release (0.5.0 suggested; 0.4.1 is taken on npm) and walk the RELEASING.md drift checklist (npm versions + README image, Docker latest on 1337, GitHub Latest).
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
