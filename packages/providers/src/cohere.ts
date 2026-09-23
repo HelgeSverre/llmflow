@@ -6,10 +6,6 @@ import {
     type TokenUsage,
 } from './base'
 
-export interface CohereProviderConfig {
-    hostname?: string
-}
-
 interface CohereTokens {
     input_tokens?: number
     output_tokens?: number
@@ -30,11 +26,11 @@ export class CohereProvider extends BaseProvider {
     override streamFormat = 'cohere' as const
     hostname: string
 
-    constructor(config: CohereProviderConfig = {}) {
+    constructor() {
         super()
         this.name = 'cohere'
         this.displayName = 'Cohere'
-        this.hostname = config.hostname || 'api.cohere.com'
+        this.hostname = 'api.cohere.com'
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {
@@ -194,5 +190,3 @@ export class CohereProvider extends BaseProvider {
         }
     }
 }
-
-export default CohereProvider

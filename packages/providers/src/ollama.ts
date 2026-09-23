@@ -1,10 +1,5 @@
 import { BaseProvider, type ProviderRequest, type ProviderTarget } from './base'
 
-export interface OllamaProviderConfig {
-    hostname?: string
-    port?: number
-}
-
 /**
  * Ollama provider - local LLM server with OpenAI-compatible API.
  * Uses HTTP instead of HTTPS.
@@ -13,12 +8,12 @@ export class OllamaProvider extends BaseProvider {
     hostname: string
     port: number
 
-    constructor(config: OllamaProviderConfig = {}) {
+    constructor() {
         super()
         this.name = 'ollama'
         this.displayName = 'Ollama'
-        this.hostname = config.hostname || process.env.OLLAMA_HOST || 'localhost'
-        this.port = config.port || parseInt(process.env.OLLAMA_PORT || '', 10) || 11434
+        this.hostname = process.env.OLLAMA_HOST || 'localhost'
+        this.port = parseInt(process.env.OLLAMA_PORT || '', 10) || 11434
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {
@@ -39,5 +34,3 @@ export class OllamaProvider extends BaseProvider {
         }
     }
 }
-
-export default OllamaProvider

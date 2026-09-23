@@ -6,11 +6,6 @@ import {
     type TokenUsage,
 } from './base'
 
-export interface GeminiProviderConfig {
-    hostname?: string
-    apiVersion?: string
-}
-
 interface GeminiUsageMetadata {
     promptTokenCount?: number
     candidatesTokenCount?: number
@@ -32,12 +27,12 @@ export class GeminiProvider extends BaseProvider {
     hostname: string
     apiVersion: string
 
-    constructor(config: GeminiProviderConfig = {}) {
+    constructor() {
         super()
         this.name = 'gemini'
         this.displayName = 'Google Gemini'
-        this.hostname = config.hostname || 'generativelanguage.googleapis.com'
-        this.apiVersion = config.apiVersion || 'v1beta'
+        this.hostname = 'generativelanguage.googleapis.com'
+        this.apiVersion = 'v1beta'
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {
@@ -250,5 +245,3 @@ export class GeminiProvider extends BaseProvider {
         return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
     }
 }
-
-export default GeminiProvider

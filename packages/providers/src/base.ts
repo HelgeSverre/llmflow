@@ -128,7 +128,3 @@ export class BaseProvider {
         return body?.stream === true
     }
 }
-
-export type Provider = BaseProvider
-
-export default BaseProvider

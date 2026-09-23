@@ -61,6 +61,7 @@ export function migrate(db: Database) {
             ALTER TABLE metrics ADD COLUMN time_unix_nano TEXT;
             ALTER TABLE metrics ADD COLUMN series_key TEXT;
         `),
+        () => db.exec('DROP TABLE IF EXISTS stats_cache'),
     ]
     let scrubbed = false
     for (const [index, step] of steps.entries()) {

@@ -21,21 +21,12 @@ interface PassthroughRequest {
     body?: Record<string, unknown> | unknown
 }
 
-type HeaderTransform = (
-    headers: Record<string, string | undefined>,
-) => Record<string, string | undefined>
-type ExtractUsageFn = (body: unknown) => PassthroughUsage
-type IdentifyModelFn = (reqBody: unknown, respBody: unknown) => string
-
 export interface PassthroughOptions {
     name?: string
     displayName?: string
     targetHost?: string
     targetPort?: number
     protocol?: 'http' | 'https'
-    extractUsage?: ExtractUsageFn
-    identifyModel?: IdentifyModelFn
-    headerTransform?: HeaderTransform
 }
 
 /**
@@ -62,22 +53,12 @@ export class PassthroughHandler {
     targetPort: number
     protocol: 'http' | 'https'
 
-    extractUsage: ExtractUsageFn
-    identifyModel: IdentifyModelFn
-    headerTransform: HeaderTransform
-
     constructor(options: PassthroughOptions = {}) {
         this.name = options.name || 'passthrough'
         this.displayName = options.displayName || 'Passthrough'
         this.targetHost = options.targetHost || ''
         this.targetPort = options.targetPort || 443
         this.protocol = options.protocol || 'https'
-
-        // Customizable hooks
-        this.extractUsage = options.extractUsage || ((b) => this.defaultExtractUsage(b))
-        this.identifyModel =
-            options.identifyModel || ((rq, rs) => this.defaultIdentifyModel(rq, rs))
-        this.headerTransform = options.headerTransform || ((h) => this.defaultHeaderTransform(h))
     }
 
     /** Get target configuration - passthrough preserves the original path */
@@ -91,7 +72,7 @@ export class PassthroughHandler {
     }
 
     /** Transform headers for upstream - override in subclasses */
-    defaultHeaderTransform(
+    headerTransform(
         headers: Record<string, string | undefined>,
     ): Record<string, string | undefined> {
         return {
@@ -101,7 +82,7 @@ export class PassthroughHandler {
     }
 
     /** Extract usage from response - override in subclasses */
-    defaultExtractUsage(body: unknown): PassthroughUsage {
+    extractUsage(body: unknown): PassthroughUsage {
         const b = (body || {}) as { usage?: Record<string, number | undefined> }
         const usage = b.usage || {}
         const promptTokens = usage.prompt_tokens || usage.input_tokens || 0
@@ -114,7 +95,7 @@ export class PassthroughHandler {
     }
 
     /** Identify model from request/response - override in subclasses */
-    defaultIdentifyModel(reqBody: unknown, respBody: unknown): string {
+    identifyModel(reqBody: unknown, respBody: unknown): string {
         const rq = (reqBody || {}) as { model?: string }
         const rs = (respBody || {}) as { model?: string }
         return rq.model || rs.model || 'unknown'
@@ -143,7 +124,7 @@ export class AnthropicPassthrough extends PassthroughHandler {
         })
     }
 
-    override defaultHeaderTransform(
+    override headerTransform(
         headers: Record<string, string | undefined>,
     ): Record<string, string | undefined> {
         // Extract API key from various sources
@@ -165,7 +146,7 @@ export class AnthropicPassthrough extends PassthroughHandler {
         return result
     }
 
-    override defaultExtractUsage(body: unknown): PassthroughUsage {
+    override extractUsage(body: unknown): PassthroughUsage {
         const b = (body || {}) as {
             usage?: {
                 input_tokens?: number
@@ -184,7 +165,7 @@ export class AnthropicPassthrough extends PassthroughHandler {
         }
     }
 
-    override defaultIdentifyModel(reqBody: unknown, respBody: unknown): string {
+    override identifyModel(reqBody: unknown, respBody: unknown): string {
         const rq = (reqBody || {}) as { model?: string }
         const rs = (respBody || {}) as { model?: string }
         return rs.model || rq.model || 'claude-unknown'
@@ -243,7 +224,7 @@ export class GeminiPassthrough extends PassthroughHandler {
         return null
     }
 
-    override defaultHeaderTransform(
+    override headerTransform(
         _headers: Record<string, string | undefined>,
     ): Record<string, string | undefined> {
         return {
@@ -252,7 +233,7 @@ export class GeminiPassthrough extends PassthroughHandler {
         }
     }
 
-    override defaultExtractUsage(body: unknown): PassthroughUsage {
+    override extractUsage(body: unknown): PassthroughUsage {
         const b = (body || {}) as {
             usageMetadata?: {
                 promptTokenCount?: number
@@ -270,7 +251,7 @@ export class GeminiPassthrough extends PassthroughHandler {
         }
     }
 
-    override defaultIdentifyModel(reqBody: unknown, respBody: unknown): string {
+    override identifyModel(reqBody: unknown, respBody: unknown): string {
         const rq = (reqBody || {}) as { model?: string }
         const rs = (respBody || {}) as { model?: string; modelVersion?: string }
         return rs.modelVersion || rq.model || 'gemini-unknown'
@@ -292,7 +273,7 @@ export class OpenAIPassthrough extends PassthroughHandler {
         })
     }
 
-    override defaultHeaderTransform(
+    override headerTransform(
         headers: Record<string, string | undefined>,
     ): Record<string, string | undefined> {
         return {
@@ -301,7 +282,7 @@ export class OpenAIPassthrough extends PassthroughHandler {
         }
     }
 
-    override defaultExtractUsage(body: unknown): PassthroughUsage {
+    override extractUsage(body: unknown): PassthroughUsage {
         const b = (body || {}) as {
             usage?: {
                 prompt_tokens?: number
@@ -349,7 +330,7 @@ export class HeliconePassthrough extends PassthroughHandler {
         }
     }
 
-    override defaultHeaderTransform(
+    override headerTransform(
         headers: Record<string, string | undefined>,
     ): Record<string, string | undefined> {
         const heliconeHeaders: Record<string, string | undefined> = {
@@ -387,7 +368,7 @@ export class HeliconePassthrough extends PassthroughHandler {
         return heliconeHeaders
     }
 
-    override defaultExtractUsage(body: unknown): PassthroughUsage {
+    override extractUsage(body: unknown): PassthroughUsage {
         const b = (body || {}) as {
             usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
         }

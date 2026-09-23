@@ -40,40 +40,6 @@ seed.forEach(([provider, model, cost, age], index) => {
     })
 })
 
-describe('Token Trends', () => {
-    test('getTokenTrends returns array', () => {
-        expect(db.getTokenTrends({ interval: 'day', days: 7 })).toBeArray()
-    })
-
-    test('getTokenTrends with hour interval', () => {
-        expect(db.getTokenTrends({ interval: 'hour', days: 1 })).toBeArray()
-    })
-
-    test('getTokenTrends buckets have expected fields', () => {
-        const trends = rows(db.getTokenTrends({ interval: 'day', days: 30 }))
-        expect(trends.length).toBeGreaterThan(0)
-        for (const key of [
-            'bucket',
-            'label',
-            'prompt_tokens',
-            'completion_tokens',
-            'total_tokens',
-            'total_cost',
-            'request_count',
-        ]) {
-            expect(trends[0]).toHaveProperty(key)
-        }
-        const requests = trends.reduce((sum, bucket) => sum + Number(bucket.request_count), 0)
-        expect(requests).toBe(seed.length)
-    })
-
-    test('getTokenTrends respects days parameter', () => {
-        const trends7 = db.getTokenTrends({ interval: 'day', days: 7 })
-        const trends30 = db.getTokenTrends({ interval: 'day', days: 30 })
-        expect(trends30.length).toBeGreaterThanOrEqual(trends7.length)
-    })
-})
-
 describe('Cost by Tool', () => {
     test('getCostByTool returns array', () => {
         expect(db.getCostByTool({ days: 30 })).toBeArray()
@@ -148,20 +114,12 @@ describe('Daily Stats', () => {
 })
 
 describe('Edge Cases', () => {
-    test('getTokenTrends with 0 days returns empty', () => {
-        expect(db.getTokenTrends({ interval: 'day', days: 0 })).toHaveLength(0)
-    })
-
     test('getCostByTool with 0 days returns empty', () => {
         expect(db.getCostByTool({ days: 0 })).toHaveLength(0)
     })
 
     test('getDailyStats with 0 days returns empty', () => {
         expect(db.getDailyStats({ days: 0 })).toHaveLength(0)
-    })
-
-    test('getTokenTrends with default params works', () => {
-        expect(db.getTokenTrends()).toBeArray()
     })
 
     test('getCostByTool with default params works', () => {

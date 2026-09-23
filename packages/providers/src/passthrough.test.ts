@@ -59,7 +59,7 @@ describe('AnthropicPassthrough', () => {
     test('AnthropicPassthrough transforms headers with x-api-key', () => {
         const handler = new AnthropicPassthrough()
 
-        const headers = handler.defaultHeaderTransform({
+        const headers = handler.headerTransform({
             'x-api-key': 'my-api-key',
             'anthropic-version': '2024-01-01',
         })
@@ -72,7 +72,7 @@ describe('AnthropicPassthrough', () => {
     test('AnthropicPassthrough transforms headers with Authorization Bearer', () => {
         const handler = new AnthropicPassthrough()
 
-        const headers = handler.defaultHeaderTransform({
+        const headers = handler.headerTransform({
             authorization: 'Bearer my-bearer-key',
         })
 
@@ -83,7 +83,7 @@ describe('AnthropicPassthrough', () => {
     test('AnthropicPassthrough passes through anthropic-beta header', () => {
         const handler = new AnthropicPassthrough()
 
-        const headers = handler.defaultHeaderTransform({
+        const headers = handler.headerTransform({
             'x-api-key': 'key',
             'anthropic-beta': 'prompt-caching-2024-07-31',
         })
@@ -109,7 +109,7 @@ describe('AnthropicPassthrough', () => {
             },
         }
 
-        const usage = handler.defaultExtractUsage(response)
+        const usage = handler.extractUsage(response)
 
         expect(usage.prompt_tokens).toBe(15)
         expect(usage.completion_tokens).toBe(8)
@@ -121,7 +121,7 @@ describe('AnthropicPassthrough', () => {
     test('AnthropicPassthrough identifies model from response', () => {
         const handler = new AnthropicPassthrough()
 
-        const model = handler.defaultIdentifyModel(
+        const model = handler.identifyModel(
             { model: 'claude-3-haiku-20240307' },
             { model: 'claude-3-5-haiku-20241022' },
         )
@@ -237,7 +237,7 @@ describe('GeminiPassthrough', () => {
             },
         }
 
-        const usage = handler.defaultExtractUsage(response)
+        const usage = handler.extractUsage(response)
 
         expect(usage.prompt_tokens).toBe(10)
         expect(usage.completion_tokens).toBe(5)
@@ -280,7 +280,7 @@ describe('OpenAIPassthrough', () => {
     test('OpenAIPassthrough transforms headers correctly', () => {
         const handler = new OpenAIPassthrough()
 
-        const headers = handler.defaultHeaderTransform({
+        const headers = handler.headerTransform({
             authorization: 'Bearer sk-test123',
         })
 
@@ -302,7 +302,7 @@ describe('OpenAIPassthrough', () => {
             },
         }
 
-        const usage = handler.defaultExtractUsage(response)
+        const usage = handler.extractUsage(response)
 
         expect(usage.prompt_tokens).toBe(10)
         expect(usage.completion_tokens).toBe(5)
@@ -322,7 +322,7 @@ describe('OpenAIPassthrough', () => {
             },
         }
 
-        const usage = handler.defaultExtractUsage(response)
+        const usage = handler.extractUsage(response)
 
         expect(usage.prompt_tokens).toBe(100)
         expect(usage.completion_tokens).toBe(50)

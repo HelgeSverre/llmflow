@@ -82,14 +82,6 @@ db.subscribeTraces((record) => {
 db.subscribeLogs((record) => {
     const log = db.logSummary(record)
     broadcast({ type: 'new_log', payload: log })
-
-    // If log has trace_id, notify trace subscribers
-    if (log.trace_id) {
-        broadcast({
-            type: 'trace_log_added',
-            payload: { trace_id: log.trace_id, log },
-        })
-    }
 })
 
 db.subscribeMetrics((record) => {
@@ -199,152 +191,6 @@ function sanitizeByModel(data: unknown[]): unknown[] {
     }))
 }
 
-// Provider health check using fetch
-async function handleProviderHealthCheck(): Promise<Response> {
-    interface HealthResult {
-        status: 'ok' | 'error' | 'unconfigured'
-        latency_ms?: number
-        message?: string
-    }
-
-    const results: Record<string, HealthResult> = {}
-
-    const checkProvider = async (
-        name: string,
-        checkFn: () => Promise<{ ok: boolean; message?: string }>,
-    ): Promise<HealthResult> => {
-        try {
-            const start = Date.now()
-            const result = await checkFn()
-            return {
-                status: result.ok ? 'ok' : 'error',
-                latency_ms: Date.now() - start,
-                message: result.message || undefined,
-            }
-        } catch (err) {
-            return { status: 'error', message: (err as Error).message }
-        }
-    }
-
-    // Check OpenAI
-    if (process.env.OPENAI_API_KEY) {
-        results.openai = await checkProvider('openai', async () => {
-            try {
-                const controller = new AbortController()
-                const timeout = setTimeout(() => controller.abort(), 5000)
-                const res = await fetch('https://api.openai.com/v1/models', {
-                    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-                    signal: controller.signal,
-                })
-                clearTimeout(timeout)
-                return { ok: res.status === 200 }
-            } catch (e) {
-                return { ok: false, message: (e as Error).message }
-            }
-        })
-    } else {
-        results.openai = { status: 'unconfigured', message: 'OPENAI_API_KEY not set' }
-    }
-
-    // Check Anthropic
-    if (process.env.ANTHROPIC_API_KEY) {
-        results.anthropic = await checkProvider('anthropic', async () => {
-            try {
-                const controller = new AbortController()
-                const timeout = setTimeout(() => controller.abort(), 5000)
-                const res = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: {
-                        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-                        'anthropic-version': '2023-06-01',
-                        'Content-Type': 'application/json',
-                    },
-                    body: '{}',
-                    signal: controller.signal,
-                })
-                clearTimeout(timeout)
-                // 400 means API key is valid but request body invalid (expected)
-                return { ok: res.status === 400 || res.status === 200 }
-            } catch (e) {
-                return { ok: false, message: (e as Error).message }
-            }
-        })
-    } else {
-        results.anthropic = { status: 'unconfigured', message: 'ANTHROPIC_API_KEY not set' }
-    }
-
-    // Check Gemini
-    const geminiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY
-    if (geminiKey) {
-        results.gemini = await checkProvider('gemini', async () => {
-            try {
-                const controller = new AbortController()
-                const timeout = setTimeout(() => controller.abort(), 5000)
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
-                    {
-                        signal: controller.signal,
-                    },
-                )
-                clearTimeout(timeout)
-                return { ok: res.status === 200 }
-            } catch (e) {
-                return { ok: false, message: (e as Error).message }
-            }
-        })
-    } else {
-        results.gemini = {
-            status: 'unconfigured',
-            message: 'GOOGLE_API_KEY/GEMINI_API_KEY not set',
-        }
-    }
-
-    // Check Groq
-    if (process.env.GROQ_API_KEY) {
-        results.groq = await checkProvider('groq', async () => {
-            try {
-                const controller = new AbortController()
-                const timeout = setTimeout(() => controller.abort(), 5000)
-                const res = await fetch('https://api.groq.com/openai/v1/models', {
-                    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
-                    signal: controller.signal,
-                })
-                clearTimeout(timeout)
-                return { ok: res.status === 200 }
-            } catch (e) {
-                return { ok: false, message: (e as Error).message }
-            }
-        })
-    } else {
-        results.groq = { status: 'unconfigured', message: 'GROQ_API_KEY not set' }
-    }
-
-    // Check Ollama (local, no API key needed)
-    const ollamaHost = process.env.OLLAMA_HOST || 'localhost'
-    const ollamaPort = process.env.OLLAMA_PORT || '11434'
-    results.ollama = await checkProvider('ollama', async () => {
-        try {
-            const controller = new AbortController()
-            const timeout = setTimeout(() => controller.abort(), 2000)
-            const res = await fetch(`http://${ollamaHost}:${ollamaPort}/api/tags`, {
-                signal: controller.signal,
-            })
-            clearTimeout(timeout)
-            return { ok: res.status === 200 }
-        } catch {
-            return { ok: false, message: `not reachable at ${ollamaHost}:${ollamaPort}` }
-        }
-    })
-
-    const okCount = Object.values(results).filter((r) => r.status === 'ok').length
-    const totalConfigured = Object.values(results).filter((r) => r.status !== 'unconfigured').length
-
-    return Response.json({
-        summary: `${okCount}/${totalConfigured} providers healthy`,
-        providers: results,
-    })
-}
-
 // API route handler
 async function handleApiRoute(req: Request, url: URL): Promise<Response> {
     const pathname = url.pathname
@@ -358,11 +204,6 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
                 timestamp: Date.now(),
                 pricing: getPricingStatus(),
             })
-        }
-
-        // Provider health check
-        if (pathname === '/api/health/providers' && method === 'GET') {
-            return await handleProviderHealthCheck()
         }
 
         // Stats
@@ -766,24 +607,6 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             })
         }
 
-        // Token usage endpoint
-        if (pathname === '/api/token-usage' && method === 'GET') {
-            const usage = db.getTokenUsage()
-            return Response.json(usage)
-        }
-
-        // Metrics summary
-        if (pathname === '/api/metrics/summary' && method === 'GET') {
-            const dateFrom = url.searchParams.get('date_from')
-                ? Number(url.searchParams.get('date_from'))
-                : undefined
-            const dateTo = url.searchParams.get('date_to')
-                ? Number(url.searchParams.get('date_to'))
-                : undefined
-            const summary = db.getMetricsSummary({ date_from: dateFrom, date_to: dateTo })
-            return Response.json(summary)
-        }
-
         // Analytics combined
         if (pathname === '/api/analytics' && method === 'GET') {
             const days = Number(url.searchParams.get('days') || '30')
@@ -791,32 +614,6 @@ async function handleApiRoute(req: Request, url: URL): Promise<Response> {
             const byTool = sanitizeByTool(db.getCostByTool({ days }))
             const byModel = sanitizeByModel(db.getCostByModel({ days }))
             return Response.json({ daily, by_tool: byTool, by_model: byModel, days })
-        }
-
-        // Analytics individual endpoints
-        if (pathname === '/api/analytics/daily' && method === 'GET') {
-            const days = Number(url.searchParams.get('days') || '30')
-            const daily = db.getDailyStats({ days })
-            return Response.json({ daily, days })
-        }
-
-        if (pathname === '/api/analytics/cost-by-tool' && method === 'GET') {
-            const days = Number(url.searchParams.get('days') || '30')
-            const byTool = sanitizeByTool(db.getCostByTool({ days }))
-            return Response.json({ by_tool: byTool, days })
-        }
-
-        if (pathname === '/api/analytics/cost-by-model' && method === 'GET') {
-            const days = Number(url.searchParams.get('days') || '30')
-            const byModel = sanitizeByModel(db.getCostByModel({ days }))
-            return Response.json({ by_model: byModel, days })
-        }
-
-        if (pathname === '/api/analytics/token-trends' && method === 'GET') {
-            const interval = url.searchParams.get('interval') || 'hour'
-            const days = Number(url.searchParams.get('days') || '7')
-            const trends = db.getTokenTrends({ interval, days })
-            return Response.json({ trends, interval, days })
         }
 
         // Create span (for SDK/testing)

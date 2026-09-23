@@ -83,5 +83,3 @@ export const OpenRouterProvider = new OpenAICompatibleProvider({
     hostname: 'openrouter.ai',
     basePath: '/api',
 })
-
-export default OpenAICompatibleProvider

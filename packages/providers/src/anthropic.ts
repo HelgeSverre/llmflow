@@ -6,11 +6,6 @@ import {
     type TokenUsage,
 } from './base'
 
-export interface AnthropicProviderConfig {
-    hostname?: string
-    apiVersion?: string
-}
-
 interface AnthropicUsage {
     input_tokens?: number
     output_tokens?: number
@@ -28,12 +23,12 @@ export class AnthropicProvider extends BaseProvider {
     hostname: string
     apiVersion: string
 
-    constructor(config: AnthropicProviderConfig = {}) {
+    constructor() {
         super()
         this.name = 'anthropic'
         this.displayName = 'Anthropic Claude'
-        this.hostname = config.hostname || 'api.anthropic.com'
-        this.apiVersion = config.apiVersion || '2023-06-01'
+        this.hostname = 'api.anthropic.com'
+        this.apiVersion = '2023-06-01'
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {
@@ -256,5 +251,3 @@ export class AnthropicProvider extends BaseProvider {
         }
     }
 }
-
-export default AnthropicProvider

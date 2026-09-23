@@ -145,5 +145,3 @@ export class AzureOpenAIProvider extends BaseProvider {
         }
     }
 }
-
-export default AzureOpenAIProvider

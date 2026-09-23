@@ -55,7 +55,7 @@ test('a DATA_DIR with a leading ~ resolves under the home directory, not ./~', a
         [
             process.execPath,
             '-e',
-            `const db = require(${JSON.stringify(path.join(root, 'packages/db/src/index.ts'))}); console.log(db.DATA_DIR); db.close()`,
+            `const db = require(${JSON.stringify(path.join(root, 'packages/db/src/index.ts'))}); db.close()`,
         ],
         {
             cwd,
@@ -63,7 +63,6 @@ test('a DATA_DIR with a leading ~ resolves under the home directory, not ./~', a
         },
     )
     expect(child.exitCode).toBe(0)
-    expect(child.stdout.toString().trim()).toBe(path.join(home, '.llmflow'))
     expect(existsSync(path.join(home, '.llmflow', 'data.db'))).toBe(true)
     expect(existsSync(path.join(cwd, '~'))).toBe(false)
 })

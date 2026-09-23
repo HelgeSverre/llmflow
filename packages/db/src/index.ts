@@ -100,14 +100,6 @@ function initSchema() {
     db.exec('CREATE INDEX IF NOT EXISTS idx_traces_session_id ON traces(session_id)')
     db.exec('CREATE INDEX IF NOT EXISTS idx_traces_conversation_id ON traces(conversation_id)')
 
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS stats_cache (
-            key TEXT PRIMARY KEY,
-            value TEXT,
-            updated_at INTEGER
-        );
-    `)
-
     // Logs table for OTLP logs ingestion (v0.2.1+)
     db.exec(`
         CREATE TABLE IF NOT EXISTS logs (
@@ -474,11 +466,7 @@ export interface TraceFilters {
     q?: string
     date_from?: number
     date_to?: number
-    cost_min?: number
-    cost_max?: number
-    span_type?: string
     provider?: string
-    tag?: string
     service_name?: string
     session_id?: string
     conversation_id?: string
@@ -584,21 +572,6 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
         params.$date_to = filters.date_to
     }
 
-    if (filters.cost_min != null) {
-        where.push('estimated_cost >= $cost_min')
-        params.$cost_min = filters.cost_min
-    }
-
-    if (filters.cost_max != null) {
-        where.push('estimated_cost <= $cost_max')
-        params.$cost_max = filters.cost_max
-    }
-
-    if (filters.span_type) {
-        where.push('span_type = $span_type')
-        params.$span_type = filters.span_type
-    }
-
     if (filters.provider) {
         where.push('provider = $provider')
         params.$provider = filters.provider
@@ -618,11 +591,6 @@ export function getTraces({ limit = 50, offset = 0, filters = {} as TraceFilters
     if (filters.conversation_id) {
         where.push('conversation_id = $conversation_id')
         params.$conversation_id = filters.conversation_id
-    }
-
-    if (filters.tag) {
-        where.push('EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value = $tag)')
-        params.$tag = filters.tag
     }
 
     if (filters.service_name) {
@@ -684,24 +652,14 @@ export function getStats() {
         )
         .get() as Record<string, number>
 
-    const models = getModelStats()
-
     const avg_duration = row.total_requests > 0 ? row.total_duration / row.total_requests : 0
 
-    return { ...row, avg_duration, models }
+    return { ...row, avg_duration }
 }
 
 export function getTraceCount() {
     const result = db.query('SELECT COUNT(*) as cnt FROM traces').get() as { cnt: number }
     return result.cnt
-}
-
-export function getDistinctModels() {
-    return (
-        db
-            .query('SELECT DISTINCT model FROM traces WHERE model IS NOT NULL ORDER BY model')
-            .all() as { model: string }[]
-    ).map((r) => r.model)
 }
 
 export interface SessionSummary {
@@ -869,19 +827,6 @@ export function getLogById(id: string) {
         log.resource_attributes = safeJson(log.resource_attributes, {})
     }
     return log
-}
-
-export function getLogsByTraceId(traceId: string) {
-    return db
-        .query(
-            `
-        SELECT *
-        FROM logs
-        WHERE trace_id = $traceId
-        ORDER BY timestamp ASC
-    `,
-        )
-        .all({ $traceId: traceId })
 }
 
 export function getLogCount(filters: Partial<LogFilters> = {}) {
@@ -1163,75 +1108,6 @@ function formatDateLabel(timestamp: number, interval: string) {
     return `${year}-${month}-${day} ${hour}:00`
 }
 
-export function getTokenTrends({ interval = 'hour', days = 7 } = {}) {
-    if (days <= 0) return []
-
-    const now = Date.now()
-    const fromTs = now - days * 24 * 60 * 60 * 1000
-
-    let bucketSize: number
-    let dateFormat: string
-
-    switch (interval) {
-        case 'day':
-            bucketSize = 24 * 60 * 60 * 1000
-            dateFormat = '%Y-%m-%d'
-            break
-        case 'hour':
-        default:
-            bucketSize = 60 * 60 * 1000
-            dateFormat = '%Y-%m-%d %H:00'
-            break
-    }
-
-    const data = db
-        .query(
-            `
-        SELECT
-            CAST(timestamp / $bucketSize AS INTEGER) * $bucketSize as bucket,
-            strftime($dateFormat, timestamp / 1000, 'unixepoch') as label,
-            SUM(prompt_tokens) as prompt_tokens,
-            SUM(completion_tokens) as completion_tokens,
-            SUM(total_tokens) as total_tokens,
-            SUM(estimated_cost) as total_cost,
-            COUNT(*) as request_count
-        FROM traces
-        WHERE timestamp >= $fromTs
-        GROUP BY bucket
-        ORDER BY bucket ASC
-    `,
-        )
-        .all({ $bucketSize: bucketSize, $dateFormat: dateFormat, $fromTs: fromTs }) as Record<
-        string,
-        unknown
-    >[]
-
-    const dataMap = new Map(data.map((d) => [d.bucket, d]))
-
-    const result = []
-    const startBucket = Math.floor(fromTs / bucketSize) * bucketSize
-    const endBucket = Math.floor(now / bucketSize) * bucketSize
-
-    for (let bucket = startBucket; bucket <= endBucket; bucket += bucketSize) {
-        const existing = dataMap.get(bucket)
-        if (existing) {
-            result.push(existing)
-        } else {
-            result.push({
-                bucket,
-                label: formatDateLabel(bucket, interval),
-                prompt_tokens: 0,
-                completion_tokens: 0,
-                total_tokens: 0,
-                total_cost: 0,
-                request_count: 0,
-            })
-        }
-    }
-
-    return result
-}
-
 export function getCostByTool({ days = 30 } = {}) {
     const fromTs = Date.now() - days * 24 * 60 * 60 * 1000
 
@@ -1336,7 +1212,6 @@ export function close() {
 }
 
 // Export constants
-export { DB_PATH, DATA_DIR }
 
 export function getModelStats(from = 0, to = Date.now()) {
     return db

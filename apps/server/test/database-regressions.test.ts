@@ -65,7 +65,8 @@ test('historical credential scrub and observed timestamp repair execute once', (
         historical = new Database(filename)
     historical.exec(`CREATE TABLE traces(id TEXT PRIMARY KEY,timestamp INTEGER,trace_id TEXT,request_headers TEXT,response_headers TEXT,request_path TEXT);
         CREATE TABLE logs(timestamp INTEGER,observed_timestamp INTEGER);
-        CREATE TABLE metrics(id TEXT PRIMARY KEY, value_int INTEGER);`)
+        CREATE TABLE metrics(id TEXT PRIMARY KEY, value_int INTEGER);
+        CREATE TABLE stats_cache(key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER);`)
     historical
         .query('INSERT INTO traces VALUES(?,?,?,?,?,?)')
         .run(
@@ -83,7 +84,12 @@ test('historical credential scrub and observed timestamp repair execute once', (
         { timestamp: 99 },
         { timestamp: 12345 },
     ])
-    expect(historical.query('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 4 })
+    expect(historical.query('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 5 })
+    expect(
+        historical
+            .query("SELECT name FROM sqlite_master WHERE type='table' AND name='stats_cache'")
+            .get(),
+    ).toBeNull()
     expect(historical.query('SELECT * FROM metrics').get()).toEqual({
         id: 'legacy',
         value_int: 42,

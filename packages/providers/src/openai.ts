@@ -7,12 +7,6 @@ import {
     type UsageLike,
 } from './base'
 
-export interface OpenAIProviderConfig {
-    hostname?: string
-    port?: number
-    basePath?: string
-}
-
 interface OpenAIResponsesUsage extends UsageLike {
     input_tokens?: number
     output_tokens?: number
@@ -27,13 +21,13 @@ export class OpenAIProvider extends BaseProvider {
     port: number
     basePath: string
 
-    constructor(config: OpenAIProviderConfig = {}) {
+    constructor() {
         super()
         this.name = 'openai'
         this.displayName = 'OpenAI'
-        this.hostname = config.hostname || 'api.openai.com'
-        this.port = config.port || 443
-        this.basePath = config.basePath || ''
+        this.hostname = 'api.openai.com'
+        this.port = 443
+        this.basePath = ''
     }
 
     override getTarget(req: ProviderRequest): ProviderTarget {
@@ -143,5 +137,3 @@ export class OpenAIProvider extends BaseProvider {
         }
     }
 }
-
-export default OpenAIProvider
