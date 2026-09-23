@@ -4,15 +4,11 @@ import { childEnv, startTestServer, type TestServer } from './helpers/test-serve
 
 // Transitional: these scripts still use their own test()/assert() counters and
 // process.exit, so they run as child processes against one in-process server.
-// TASK-77 and TASK-78 convert them to bun:test and remove them from this list.
+// TASK-78 converts them to bun:test and removes them from this list.
 const scripts = [
     'otlp-e2e.js',
-    'otlp-export.test.js',
     'otlp-logs-e2e.js',
     'otlp-metrics-e2e.js',
-    'otlp-session-extraction.test.js',
-    'passthrough.js',
-    'providers.js',
     'sessions-e2e.js',
     'websocket-e2e.js',
 ]
