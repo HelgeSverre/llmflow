@@ -3,7 +3,7 @@ id: TASK-76
 title: >-
   Replace the custom test runner with bun test --isolate and one test-server
   helper
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-09-23 08:50'
 updated_date: '2026-09-23 11:41'
@@ -40,6 +40,12 @@ Scope:
 - [ ] #2 Every server test that needs a server gets it from test/helpers/test-server.ts on port 0 with its own temp DB; no test hardcodes 1337/8080
 - [ ] #3 `bun run test:live` with no API keys exits 0 with every live test skipped
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Automated cleanup run: blocked — The user only asked to gitignore the worktrees folder, and main already does that. The computed task asks for a much larger test-runner rewrite (TASK-76) that the user did not request. Implementing it needs the user to confirm the workflow should run TASK-76.. Partial work on branch cleanup/task-76.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 
