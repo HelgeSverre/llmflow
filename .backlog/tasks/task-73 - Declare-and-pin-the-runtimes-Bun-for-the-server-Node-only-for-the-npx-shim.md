@@ -4,6 +4,7 @@ title: 'Declare and pin the runtimes: Bun for the server, Node only for the npx 
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:50'
+updated_date: '2026-09-23 09:24'
 labels:
   - runtime
 milestone: m-0
@@ -36,4 +37,14 @@ Today nothing states this honestly and versions are unpinned/understated:
 - [ ] #1 package.json declares realistic engines for bun and node; a .bun-version (or packageManager) file exists and Dockerfile, CI and docs all pin/read the same Bun version
 - [ ] #2 Only @types/bun remains; typecheck passes
 - [ ] #3 README and RELEASING state in one sentence what needs Bun and what needs Node
+- [ ] #4 engines.bun is >=1.3.13 and .bun-version, setup-bun (bun-version-file) and the Dockerfile tag all name the same 1.4.x release
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:24
+---
+Verified 2026-09-23: features this milestone relies on shipped in Bun 1.2.14 (catalogs), 1.2.19 (bun ci, isolated linker), 1.3.2 (isolated default via configVersion 1), 1.3.11 (bun test --path-ignore-patterns), 1.3.13 (bun test --isolate/--parallel). So engines.bun must be >=1.3.13; pin 1.4.2 in .bun-version. Bun itself reads neither .bun-version nor packageManager (github.com/oven-sh/bun/discussions/10955), but oven-sh/setup-bun supports bun-version-file (.bun-version, .tool-versions, package.json packageManager) and otherwise falls back to packageManager, then engines.bun, then latest. Docker: oven/bun tags 1.4.2, 1.4.2-slim, 1.4.2-alpine, 1.4.2-distroless exist.
+---
+<!-- COMMENTS:END -->

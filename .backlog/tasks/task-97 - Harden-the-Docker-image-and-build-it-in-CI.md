@@ -4,7 +4,7 @@ title: Harden the Docker image and build it in CI
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:06'
+updated_date: '2026-09-23 09:24'
 labels:
   - docker
   - ci
@@ -40,6 +40,7 @@ The new multi-stage `docker/Dockerfile` has never been built (no daemon in eithe
 - [ ] #2 Image pins the Bun tag, runs as non-root, carries OCI labels with the version, and rebuilds without reinstalling when only source changes
 - [ ] #3 DOCKER_HUB.md matches the image (ports, hosts, providers, domain, volume path)
 - [ ] #4 Runtime stage copies apps/server/dist only; build stage installs with bun ci
+- [ ] #5 Container runs as uid 1000 (USER bun) and the volume path change from /root/.llmflow is documented with a migration note
 <!-- AC:END -->
 
 ## Comments
@@ -48,5 +49,10 @@ The new multi-stage `docker/Dockerfile` has never been built (no daemon in eithe
 created: 2026-09-23 09:06
 ---
 Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+
+created: 2026-09-23 09:24
+---
+Verified 2026-09-23: the oven/bun debian, slim and alpine images create user bun (uid/gid 1000) with WORKDIR /home/bun/app but have no USER directive, so add USER bun explicitly and move the volume to /home/bun/.llmflow (document the migration from /root/.llmflow). Distroless has no user. FROM --platform=$BUILDPLATFORM ... AS build is documented BuildKit syntax.
 ---
 <!-- COMMENTS:END -->

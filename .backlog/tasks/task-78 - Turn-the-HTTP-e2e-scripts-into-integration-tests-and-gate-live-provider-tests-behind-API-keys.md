@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:50'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:15'
 labels:
   - tests
 milestone: m-0
@@ -36,3 +36,12 @@ ordinal: 67000
 - [ ] #2 `bun run test:server` runs each former e2e scenario exactly once against an in-process server
 - [ ] #3 live/ tests are skipped without keys and run the matching provider when its key is set
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Reconciled with TASK-104: demo.js moves to apps/server/scripts/demo.ts (not root scripts/), so it can import server and package code without crossing workspaces.
+---
+<!-- COMMENTS:END -->

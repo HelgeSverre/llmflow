@@ -4,7 +4,7 @@ title: Delete the API routes and DB code nothing calls
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:16'
 labels:
   - dead-code
 milestone: m-0
@@ -34,3 +34,12 @@ Also dead: `packages/providers` `export default` in all 8 adapters, `type Provid
 - [ ] #1 Listed routes, DB helpers, table and filter fields are removed and grep shows no references; dashboard, SDK, examples and tests still pass
 - [ ] #2 release-notes for the next version list the removed endpoints
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:16
+---
+Release-notes convention: record removals in release-notes/UNRELEASED.md; just release (TASK-98) renames it to release-notes/v<version>.md at release time.
+---
+<!-- COMMENTS:END -->

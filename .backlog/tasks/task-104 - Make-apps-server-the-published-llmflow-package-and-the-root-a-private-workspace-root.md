@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 09:06'
+updated_date: '2026-09-23 09:24'
 labels:
   - workspaces
   - packaging
@@ -48,3 +49,17 @@ This reworks parts of TASK-69 (Codex) which built dist/ at the root; do it befor
 - [ ] #3 No file imports another workspace via a relative path (grep for ../apps/ and ../packages/ across apps, packages, scripts, e2e returns nothing); root scripts forward with bun run --filter
 - [ ] #4 Docker build, CI and bin/llmflow.js work from the new layout; typecheck, tests and Playwright pass
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Clarifications: (1) root may keep orchestration scripts that import no workspace code, e.g. bun test with explicit paths, bunx playwright, scripts/test-package.ts. (2) The combined dev command must not import apps/dashboard from apps/server or vice versa; the root dev script runs both workspace dev scripts via bun run --filter, and the dashboard discovers the server port through the existing state file/env mechanism from scripts/dev-runtime.ts, which moves into the workspace that owns it. (3) The @llmflow/* devDependencies of apps/server are still installed by bun install (workspace devDeps are installed), so e2e seeding through the llmflow package keeps working.
+---
+
+created: 2026-09-23 09:24
+---
+Verified 2026-09-23: bun pm pack rewrites workspace: and catalog: specifiers in all four dependency groups (src/runtime/cli/pack_command.rs, same code path as bun publish). The replacement version is read from bun.lock, so run bun install before packing; a missing or stale lockfile makes pack fail with "Failed to resolve workspace version". Keep the no-workspace:/catalog: assertion in test:package regardless.
+---
+<!-- COMMENTS:END -->

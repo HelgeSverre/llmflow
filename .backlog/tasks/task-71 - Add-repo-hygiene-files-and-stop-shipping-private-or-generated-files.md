@@ -4,6 +4,7 @@ title: Add repo hygiene files and stop shipping private or generated files
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:50'
+updated_date: '2026-09-23 09:15'
 labels:
   - hygiene
 milestone: m-0
@@ -37,3 +38,12 @@ Audit (2026-09-23) found gaps in the ignore files and private data in the tree.
 - [ ] #3 `.editorconfig` exists and matches the formatter settings
 - [ ] #4 examples/claude-code/.claude-config/ is deleted and unreferenced screenshot evidence under .backlog/assets is removed
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Reconciled with TASK-101: once website leaves the workspaces list, .dockerignore should exclude website/ entirely (no package.json needed in the build context).
+---
+<!-- COMMENTS:END -->

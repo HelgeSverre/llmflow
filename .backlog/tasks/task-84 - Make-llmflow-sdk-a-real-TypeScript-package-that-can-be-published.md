@@ -4,7 +4,7 @@ title: Make llmflow-sdk a real TypeScript package that can be published
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:15'
 labels:
   - typescript
   - packaging
@@ -34,3 +34,12 @@ Port to `src/index.ts`, build `dist/` (ESM + .d.ts, optionally CJS) with `bun bu
 - [ ] #2 `npm pack` in packages/sdk yields a tarball with LICENSE, README, dist and a correct exports map (types first, import, default); a consumer smoke test imports it
 - [ ] #3 README documents every export incl. traced and has no require() example unless CJS is actually shipped
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Reconciled with TASK-104: the SDK version moves in lockstep with the llmflow package in apps/server (the root has no version after 104), bumped together by just release (TASK-98).
+---
+<!-- COMMENTS:END -->

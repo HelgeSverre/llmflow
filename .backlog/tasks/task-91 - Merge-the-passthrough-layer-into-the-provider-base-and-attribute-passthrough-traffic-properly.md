@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:15'
 labels:
   - refactor
   - providers
@@ -36,3 +36,12 @@ Attribution: passthrough traces get no `service_name` (`proxy.ts:143-160`) so th
 - [ ] #2 Passthrough and proxied requests to the same upstream share a provider value and passthrough rows carry a service_name; Analytics shows one bucket per provider
 - [ ] #3 Cache-token capture is identical for Anthropic in both modes (test)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Reconciled with TASK-90: providers read Azure/Ollama/Helicone settings through the shared config module instead of ad-hoc process.env; deleting the never-passed constructor options is compatible with that (config is imported, not injected).
+---
+<!-- COMMENTS:END -->

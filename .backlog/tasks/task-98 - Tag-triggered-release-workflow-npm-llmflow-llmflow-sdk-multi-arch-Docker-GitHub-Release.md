@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:06'
+updated_date: '2026-09-23 09:24'
 labels:
   - release
   - ci
@@ -40,6 +40,8 @@ Add `just release <version>`: bumps root + sdk versions, creates `release-notes/
 - [ ] #2 `just release 0.5.0` bumps versions in lockstep, creates the notes file, commits and tags; RELEASING.md describes only this flow and the required secrets
 - [ ] #3 The next actual release fixes the published-artifact drift: Docker latest serves 1337, npm README image works, GitHub Latest matches npm
 - [ ] #4 Both packages are published with bun publish (or bun pm pack + npm publish tarball) from their workspace directories, never from the root
+- [ ] #5 just release turns release-notes/UNRELEASED.md into release-notes/v<version>.md and recreates an empty UNRELEASED.md
+- [ ] #6 release.yml publishes via bun pm pack plus npm publish ./tarball --provenance with id-token: write; both package.json files carry a repository field matching the GitHub repo
 <!-- AC:END -->
 
 ## Comments
@@ -48,5 +50,10 @@ Add `just release <version>`: bumps root + sdk versions, creates `release-notes/
 created: 2026-09-23 09:06
 ---
 Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+
+created: 2026-09-23 09:24
+---
+Verified 2026-09-23: bun publish has no --provenance or OIDC support (oven-sh/bun issues #15601, #22423 open; PR #29374 closed unmerged). Working path: bun install (pack takes workspace versions from bun.lock) then bun pm pack in the workspace dir (rewrites workspace: and catalog: in dependencies, devDependencies, peer and optional), then npm publish ./<tarball> --provenance with permissions id-token: write, npm >=9.5 and a public repository field in package.json that matches the GitHub repo. npm does not validate workspace: specs at publish time, only at install, so the tarball assertion in test:package is the real guard.
 ---
 <!-- COMMENTS:END -->

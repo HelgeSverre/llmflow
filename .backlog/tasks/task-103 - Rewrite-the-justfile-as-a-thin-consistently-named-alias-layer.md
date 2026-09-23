@@ -4,7 +4,7 @@ title: 'Rewrite the justfile as a thin, consistently named alias layer'
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:15'
 labels:
   - justfile
 milestone: m-0
@@ -32,3 +32,12 @@ About 20 recipes are 1:1 aliases of package.json scripts but with hyphen names v
 - [ ] #1 Every recipe has a one-line comment, belongs to a group, and forwards to a root script or scripts/*.ts (no inline shell longer than one line except status/clean)
 - [ ] #2 `just --list` output is what README documents; recipe-contracts test passes
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Reconciled with TASK-104: recipes may forward to root scripts, root scripts/*.ts, or workspace scripts via bun run --filter <pkg> <script>; never to a relative path into a workspace.
+---
+<!-- COMMENTS:END -->

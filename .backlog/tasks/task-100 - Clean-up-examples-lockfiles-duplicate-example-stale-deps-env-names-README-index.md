@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:15'
 labels:
   - examples
 milestone: m-0
@@ -39,3 +39,12 @@ Verify each example actually runs against a local LLMFlow (`run-all.sh` or per-e
 - [ ] #1 No npm lockfiles under examples/; one AI SDK example; dependencies on current majors; every example dir listed in examples/README.md
 - [ ] #2 Each example runs against a fresh local LLMFlow and produces a trace (checked manually, noted in the task)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Examples are not workspace members, so workspace:* is not available there. Use "llmflow-sdk": "file:../../packages/sdk" until the package is published (TASK-98), then the published version range.
+---
+<!-- COMMENTS:END -->

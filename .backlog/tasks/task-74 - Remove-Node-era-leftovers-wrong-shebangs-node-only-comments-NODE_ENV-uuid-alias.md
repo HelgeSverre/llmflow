@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:50'
+updated_date: '2026-09-23 09:15'
 labels:
   - runtime
   - dead-code
@@ -36,5 +37,14 @@ Note: the `http`/`https` clients in otlp/export.js and pricing/index.js are repl
 <!-- AC:BEGIN -->
 - [ ] #1 grep for '#!/usr/bin/env node' returns only bin/llmflow.js
 - [ ] #2 No comment or README instructs running a Bun-only file with node
-- [ ] #3 NODE_ENV and the uuidv4 alias are gone; empty apps/server/scripts is removed
+- [ ] #3 NODE_ENV and the uuidv4 alias are gone
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Reconciled with TASK-104: apps/server/scripts is reused for server dev/build/demo scripts, so do not delete the directory.
+---
+<!-- COMMENTS:END -->

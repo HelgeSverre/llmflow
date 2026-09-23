@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:50'
+updated_date: '2026-09-23 09:24'
 labels:
   - tests
 milestone: m-0
@@ -39,3 +40,17 @@ Scope:
 - [ ] #2 Every server test that needs a server gets it from test/helpers/test-server.ts on port 0 with its own temp DB; no test hardcodes 1337/8080
 - [ ] #3 `bun run test:live` with no API keys exits 0 with every live test skipped
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Note: bun test also matches *.spec.* files, so always pass explicit paths (./apps/server ./packages) so Playwright specs under e2e/ and the dashboard vitest files are never picked up.
+---
+
+created: 2026-09-23 09:24
+---
+Verified 2026-09-23 (bun.com/docs/test/discovery): bun test positional arguments are substring path filters, not globs, and a leading ./ or / means an exact file path. So the script must be bun test --isolate --path-ignore-patterns "**/live/**" apps/server packages (no ./ prefix). Default discovery matches *.test.*, *_test.*, *.spec.*, *_spec.*.
+---
+<!-- COMMENTS:END -->

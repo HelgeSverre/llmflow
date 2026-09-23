@@ -4,7 +4,7 @@ title: 'Clean up the npm tarball: sourcemap, baked-in paths, engines, version bu
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 09:06'
+updated_date: '2026-09-23 09:24'
 labels:
   - packaging
 milestone: m-0
@@ -30,8 +30,8 @@ ordinal: 85000
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Tarball contains no sourcemap larger than the bundle (or a linked one) and no local filesystem paths; test:package asserts both
-- [ ] #2 package.json version is bumped past 0.4.1 and engines include node; README image resolves on npmjs.com
-- [ ] #3 The tarball is produced from apps/server and its package.json contains no workspace: or catalog: specifier
+- [ ] #2 The tarball is produced from apps/server and its package.json contains no workspace: or catalog: specifier
+- [ ] #3 engines include node and the README image resolves on npmjs.com; the version number itself is changed only by the release recipe (TASK-98)
 <!-- AC:END -->
 
 ## Comments
@@ -40,5 +40,15 @@ ordinal: 85000
 created: 2026-09-23 09:06
 ---
 Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+
+created: 2026-09-23 09:16
+---
+Verified empirically (Bun 1.4.2, 2026-09-23): Bun.build sourcemap "linked" is valid and adds a sourceMappingURL comment; import.meta.dir/path stay runtime-evaluated (not baked); a JSON import with type json is inlined into the bundle; the "// path" comments Bun emits are relative to the build cwd, so building from the repo root yields relative comments (the root option only changes the outdir layout and does not affect them). The only absolute-path leak was the CJS __dirname in pricing, removed by TASK-81. So: build from the repo root, decide linked-vs-none for the map by size, and assert no /Users/ string in dist.
+---
+
+created: 2026-09-23 09:24
+---
+Docs nuance: bun.com/docs/bundler/minifier says import.meta properties are inlined at build time when known, and issues #4216/#15994 report baked __dirname; the empirical test above (target bun, no minify) kept import.meta runtime-evaluated. Do not rely on either: TASK-81 removes all path resolution from the bundle by embedding the JSON, and test:package asserts no build-machine path in dist.
 ---
 <!-- COMMENTS:END -->

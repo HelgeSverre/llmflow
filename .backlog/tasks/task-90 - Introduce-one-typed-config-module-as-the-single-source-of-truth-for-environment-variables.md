@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 08:52'
+updated_date: '2026-09-23 09:15'
 labels:
   - refactor
   - config
@@ -36,3 +36,12 @@ Build `packages/shared/src/config.ts` (or `apps/server/src/config.ts`) that pars
 - [ ] #1 All server-side process.env reads go through the config module (grep proves it outside the module, SDK and Vite config)
 - [ ] #2 `llmflow --help`, README config table and .env.example are generated from / asserted against the same list and are identical in content
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-09-23 09:15
+---
+Placement: the config module must live in packages/shared (packages/providers, otlp and db cannot import apps/server). The SDK is a standalone published package and keeps reading its own two variables.
+---
+<!-- COMMENTS:END -->

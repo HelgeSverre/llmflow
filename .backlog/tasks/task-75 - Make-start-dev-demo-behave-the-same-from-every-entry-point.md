@@ -4,7 +4,7 @@ title: Make start/dev/demo behave the same from every entry point
 status: To Do
 assignee: []
 created_date: '2026-09-23 08:50'
-updated_date: '2026-09-23 09:06'
+updated_date: '2026-09-23 09:15'
 labels:
   - runtime
   - scripts
@@ -44,5 +44,10 @@ ordinal: 64000
 created: 2026-09-23 09:06
 ---
 Workspace decision (2026-09-23): apps/server becomes the published llmflow package and the root goes private (see the "Make apps/server the published llmflow package" task); website leaves the workspaces list. Adjust paths accordingly: dist/ and bin/ live under apps/server.
+---
+
+created: 2026-09-23 09:15
+---
+See TASK-104 clarification (2): dev runs server and dashboard as two workspace scripts orchestrated from the root via bun run --filter; port discovery stays file/env based.
 ---
 <!-- COMMENTS:END -->
