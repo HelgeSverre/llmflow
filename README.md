@@ -216,7 +216,9 @@ LLMFlow intentionally requires no login or token setup for local use. WebSocket 
 ## Development
 
 LLMFlow is a Bun workspaces monorepo (`apps/server`, `apps/dashboard`, plus
-six packages under `packages/`). Bun is required.
+six packages under `packages/`).
+
+**Runtimes:** Bun (at least 1.3.13; the pinned version in `.bun-version` is what CI and the Docker image use) runs the server, installs, builds and tests, while Node (`^20.19.0 || >=22.12.0`) is needed only for the `npx llmflow` launcher (`apps/server/bin/llmflow.js`, which then spawns Bun) and for Node-shebang dev tools (Vite, vitest, tsc, Playwright, `npm pack`), which run on Node whenever it is on `PATH` and on Bun inside Docker.
 
 ```bash
 # Clone and install (one workspace install at root covers every package)

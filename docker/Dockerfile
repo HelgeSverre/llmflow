@@ -1,10 +1,11 @@
-FROM oven/bun:1 AS build
+# Keep this tag in sync with .bun-version (also read by CI via setup-bun).
+FROM oven/bun:1.4.2 AS build
 WORKDIR /app
 COPY . .
 RUN bun install --frozen-lockfile
 RUN bun run build
 
-FROM oven/bun:1 AS runtime
+FROM oven/bun:1.4.2 AS runtime
 WORKDIR /app
 COPY --from=build /app/apps/server/dist ./dist
 
