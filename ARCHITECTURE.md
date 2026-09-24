@@ -21,7 +21,7 @@ the config module (see [Configuration](#configuration)).
 
 ```mermaid
 flowchart LR
-    app[LLM client] -->|OpenAI format or native| proxy[Proxy listener]
+    app[LLM client] -->|OpenAI or provider format| proxy[Proxy listener]
     proxy -->|translated or unchanged| upstream[Provider API]
     otel[OTLP exporter] -->|/v1/traces, /v1/logs, /v1/metrics| dash[Dashboard listener]
     sdk[llmflow-sdk] -->|POST /api/spans| dash
@@ -36,7 +36,7 @@ flowchart LR
 
 Every write goes through `@llmflow/db` (`insertSpan`, `insertLog`, `insertMetric`), which notifies
 subscribers after the insert. Two subscribers exist: `apps/server/src/live.ts` broadcasts to
-dashboard WebSockets, and `@llmflow/otlp/export` queues records for forwarding when
+dashboard WebSockets, and `@llmflow/otlp/export` queues records for export when
 `OTLP_EXPORT_*` is configured.
 
 ### Proxied LLM calls
@@ -102,11 +102,11 @@ exception becomes a 500 with the message.
 | GET    | `/api/timeline`         | `timeline.ts` | Spans and logs merged newest first (`type`, `service_name`, `q`, `date_from`)                                                                |
 | GET    | `/api/logs`             | `logs.ts`     | Log list and total                                                                                                                           |
 | GET    | `/api/logs/filters`     | `logs.ts`     | Distinct services and event names                                                                                                            |
-| GET    | `/api/logs/:id`         | `logs.ts`     | One log record                                                                                                                               |
-| GET    | `/api/metrics`          | `metrics.ts`  | Metric points, or with `aggregation=summary` totals per name, service, type and unit                                                         |
+| GET    | `/api/logs/:id`         | `logs.ts`     | One log                                                                                                                                      |
+| GET    | `/api/metrics`          | `metrics.ts`  | Data points, or with `aggregation=summary` totals per name, service, type and unit                                                           |
 | GET    | `/api/metrics/tokens`   | `metrics.ts`  | Token/usage metrics summed per service, model and token type                                                                                 |
 | GET    | `/api/metrics/filters`  | `metrics.ts`  | Distinct metric names and services                                                                                                           |
-| GET    | `/api/metrics/:id`      | `metrics.ts`  | One metric point                                                                                                                             |
+| GET    | `/api/metrics/:id`      | `metrics.ts`  | One data point                                                                                                                               |
 
 Other dashboard-listener routes: `POST /v1/traces`, `/v1/logs`, `/v1/metrics` (OTLP), `GET /ws`
 (WebSocket) and static files from the dashboard build (`apps/server/src/static.ts`).
@@ -126,8 +126,8 @@ server ignores client messages and sends JSON objects with a `type` and `payload
 | `new_span`     | Every stored span                            | Span summary (`spanSummary`)     |
 | `new_trace`    | A stored span without a parent               | Span summary                     |
 | `stats_update` | After a stored span, at most once per second | Same object as `GET /api/stats`  |
-| `new_log`      | Every stored log record                      | Log summary (`logSummary`)       |
-| `new_metric`   | Every stored metric point                    | Metric summary (`metricSummary`) |
+| `new_log`      | Every stored log                             | Log summary (`logSummary`)       |
+| `new_metric`   | Every stored data point                      | Metric summary (`metricSummary`) |
 
 ## Storage
 
@@ -244,7 +244,7 @@ flowchart TD
 | `@llmflow/db`           | SQLite schema, migrations, queries, retention, subscriptions                                 |
 | `@llmflow/providers`    | Provider adapters, registry, passthrough providers, stream parsing, API keys for replay      |
 | `@llmflow/otlp`         | OTLP decoding and ingestion; OTLP export                                                     |
-| `@llmflow/pricing`      | LiteLLM price table with the bundled fallback; cost calculation                              |
+| `@llmflow/pricing`      | LiteLLM pricing with bundled pricing for offline use; cost calculation                       |
 | `@llmflow/shared`       | Config (every environment variable), logger, redaction, bounded body reader, network helpers |
 | `@llmflow/dev-runtime`  | Development only: busy-port fallback and discovery between dev servers                       |
 | `llmflow-sdk`           | Tracing SDK for applications; published separately, depends on nothing                       |
@@ -264,7 +264,7 @@ dev scripts can set variables before importing a module.
 
 `bun run build` (`apps/server/scripts/build.ts`) builds the dashboard and bundles `src/server.ts`
 with its workspace dependencies into `apps/server/dist/server.js` (linked source map), copying the
-dashboard to `dist/public/`. The pricing fallback is embedded in the bundle. The npm package
+dashboard to `dist/public/`. Bundled pricing is embedded in the bundle. The npm package
 contains `bin/`, `dist/`, `README.md` and `LICENSE`; `bin/llmflow.js` runs on Node and starts
 `dist/server.js` (or `src/server.ts` in a checkout) with Bun. `bun run test:package` packs and
 checks both the `llmflow` and `llmflow-sdk` tarballs. The Docker image builds the same layout from
@@ -272,20 +272,14 @@ source.
 
 ## Vocabulary
 
-One name per concept, in code, API JSON, environment variables and docs:
+The domain glossary (span, trace, session, service, cost, and the rest, with the words to avoid) is
+[CONTEXT.md](CONTEXT.md). Use its terms in code, API JSON, the UI and docs. Some identifiers predate
+it (for example the `trace` key on a single span, `request_count`, `prompt_tokens`) and are being
+renamed; until then this document names the identifiers as they are in the code.
 
-| Concept                                                     | Name                               | Notes                                                        |
-| ----------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------ |
-| One recorded operation (LLM call, tool call, agent step, …) | span                               | Stored in the `spans` table; `GET /api/spans`.               |
-| All spans that share a `trace_id`                           | trace                              | The dashboard's Traces view lists traces by their root span. |
-| The application that produced a record                      | `service_name`                     | Never "tool". `unknown_service` when the source names none.  |
-| Number of requests or spans in an aggregate                 | `request_count`                    |                                                              |
-| Average duration                                            | `avg_duration_ms`                  | Durations are `duration_ms`.                                 |
-| The upstream LLM API                                        | `provider`                         | Identical for translated and passthrough calls.              |
-| Forwarding a provider's own API format unchanged            | passthrough                        | `/passthrough/<provider>/*`.                                 |
-| Client environment variables                                | `LLMFLOW_URL`, `LLMFLOW_PROXY_URL` | Dashboard/API and proxy base URLs.                           |
-
-API JSON uses snake_case only. Millisecond settings end in `_MS`. The default host is `127.0.0.1`.
+Naming conventions for identifiers: API JSON is snake_case only, durations are `duration_ms` /
+`avg_duration_ms`, millisecond settings end in `_MS`, the default host is `127.0.0.1`, and client
+environment variables are `LLMFLOW_URL` (dashboard and API) and `LLMFLOW_PROXY_URL` (proxy).
 
 ## Decisions
 

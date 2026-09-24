@@ -7,7 +7,7 @@ LLMFlow is a local LLM observability tool: an HTTP proxy for LLM APIs (port 8080
 - Bun-only runtime; Node only for `apps/server/bin/llmflow.js`, Node-based tools and Playwright. Everything is TypeScript ESM; no `require()`.
 - `bun test` for server and packages, Vitest for the dashboard, Playwright in `e2e/playwright`. oxlint + oxfmt, no Prettier.
 - `apps/server` is the published `llmflow` package; the root is a private workspace root; `website/` is outside the workspaces.
-- Spans live in the `spans` table and `/api/spans`; "trace" means the group of spans sharing a `trace_id`. The vocabulary and the reasoning behind renames are in ARCHITECTURE.md.
+- Spans live in the `spans` table and `/api/spans`; "trace" means the group of spans sharing a `trace_id`. The domain vocabulary is [CONTEXT.md](CONTEXT.md); the reasoning behind renames is in ARCHITECTURE.md.
 - Backlog tasks carry the verified facts and decisions behind each change: read the task that owns an area (`backlog search <topic> --plain`) before changing build, tests, packaging, config or docs.
 
 ## Commands
@@ -41,7 +41,7 @@ docker/ examples/ website/ release-notes/ .backlog/
 
 - Internal dependencies use `workspace:*`; import packages by name, never by a relative path into another workspace (add an `exports` entry instead). The `@llmflow/*` packages are bundled into `llmflow`, so they are its `devDependencies`.
 - Style: no semicolons, single quotes, trailing commas, 4-space indent (2-space in `apps/dashboard/**` and Markdown/JSON/YAML). No comments unless the WHY is non-obvious. Minimal dependencies.
-- Naming: camelCase in code, UPPER_SNAKE constants, snake_case for DB columns and API JSON (no camelCase keys in responses). One name per concept (see the vocabulary in ARCHITECTURE.md): `service_name`, `request_count`, `avg_duration_ms` / `duration_ms`, `provider`, "passthrough". A record without a service is `unknown_service` (`DEFAULT_SERVICE_NAME`). Client env vars are `LLMFLOW_URL` and `LLMFLOW_PROXY_URL`; millisecond settings end in `_MS`; the default host is `127.0.0.1`.
+- Naming: camelCase in code, UPPER_SNAKE constants, snake_case for DB columns and API JSON (no camelCase keys in responses). One name per concept, as defined in the glossary in CONTEXT.md: `service_name`, `request_count`, `avg_duration_ms` / `duration_ms`, `provider`, "passthrough". A record without a service is `unknown_service` (`DEFAULT_SERVICE_NAME`). Client env vars are `LLMFLOW_URL` and `LLMFLOW_PROXY_URL`; millisecond settings end in `_MS`; the default host is `127.0.0.1`.
 - API routes are entries in the route tables under `apps/server/src/api/`. Handlers return an error `Response`; they never throw. Providers extend `BaseProvider` (`packages/providers/src/base.ts`), which serves translated and passthrough calls.
 - Schema changes are new steps appended to `packages/db/src/migrations.ts`; never edit or reorder an applied step. `packages/db/src/migrations.test.ts` upgrades a real v0.4.1 database and compares the result with a new one.
 - Environment variables: declare every variable in `SETTINGS` and read it through `config` (`packages/shared/src/config.ts`); never read `process.env` elsewhere (a test enforces it; the SDK, `vite.config.ts` and test harnesses are exempt). After changing `SETTINGS`, run `bun run env:docs` to regenerate `.env.example`, the README table and `llmflow --help`.
