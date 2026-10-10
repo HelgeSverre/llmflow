@@ -9,7 +9,7 @@ These endpoints had no consumer in the dashboard, SDK, examples or tests. Use th
 | `GET /api/token-usage`                 | `GET /api/metrics/tokens`                                      |
 | `GET /api/metrics/summary`             | `GET /api/metrics?aggregation=summary`                         |
 | `GET /api/analytics/daily`             | `GET /api/analytics` (`daily`)                                 |
-| `GET /api/analytics/cost-by-tool`      | `GET /api/analytics` (`by_tool`)                               |
+| `GET /api/analytics/cost-by-tool`      | `GET /api/analytics` (`by_service`)                            |
 | `GET /api/analytics/cost-by-model`     | `GET /api/analytics` (`by_model`)                              |
 | `GET /api/analytics/token-trends`      | `GET /api/analytics` (`daily` carries per-day token totals)    |
 | `GET /api/health/providers`            | none; it made live calls to every configured provider          |

@@ -5,9 +5,9 @@ title: >-
   Docker, GitHub Release
 status: In Progress
 assignee:
-  - '@claude'
+  - '@codex'
 created_date: '2026-09-23 08:51'
-updated_date: '2026-09-23 20:25'
+updated_date: '2026-10-10 20:20'
 labels:
   - release
   - ci
@@ -50,7 +50,11 @@ Add `just release <version>`: bumps root + sdk versions, creates `release-notes/
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. release.yml: prepare (version/notes checks) -> checks (reuse checks.yml via workflow_call) -> npm (bun pm pack per workspace + npm publish --provenance) and docker (multi-arch push) -> github-release; workflow_dispatch = dry run. 2. scripts/release.ts + just release: lockstep bump, UNRELEASED -> v<version>, commit, tag, never push; --dry-run. 3. RELEASING.md for this flow, secrets and the first-release drift checklist; README link. 4. Validate without releasing: actionlint, real just release in a throwaway clone, bun pm pack of both packages.
+1. Preflight npm, Docker Hub and GitHub publishing setup; use 0.5.0 because 0.4.1 is already published and this release changes API names.
+2. Preserve the pre-existing pricing edit while preparing a clean release checkout; verify all checks, full tests including Python OTLP, live providers when configured, browser E2E and clean package installation.
+3. Exercise a release workflow dry run and manual smoke checks of the built app (dashboard navigation, SDK/OTLP capture, proxy streaming and restart/migration).
+4. Review release notes, prepare both packages and the annotated v0.5.0 tag, and bootstrap llmflow-sdk plus trusted publishing when authentication is available.
+5. Push the release tag only after publishing prerequisites and checks pass; inspect the hosted workflow and published npm/Docker/GitHub artifacts, record evidence and finalize TASK-98.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -68,6 +72,12 @@ REMAINING (need the user; both require pushing, which was withheld):
 - AC3: cut the first real release (0.5.0 suggested; 0.4.1 is taken on npm) and walk the RELEASING.md drift checklist (npm versions + README image, Docker latest on 1337, GitHub Latest).
 
 Change (2026-09-23, user decision: no npm token in CI): release.yml now publishes through npm trusted publishing. Removed NODE_AUTH_TOKEN/NPM_TOKEN and --provenance (npm adds provenance automatically under OIDC); added 'npm install -g npm@^11.5.1' (trusted publishing needs npm >= 11.5.1 and Node >= 22.14; Node 22 ships npm 10); kept id-token: write. The publish loop skips a name@version already on npm (checked with npm view; tested locally: llmflow@0.4.1 -> skip). Verified in npm docs (docs.npmjs.com/cli/v11/commands/npm-trust): 'Package must exist: The package you're configuring must already exist on the npm registry.' So llmflow (on npm) only needs its trusted publisher configured; llmflow-sdk (npm view -> 404, never published) needs one manual first publish from a logged-in machine, then its trusted publisher; RELEASING.md documents both. Only Docker Hub secrets remain. AC6 wording ('--provenance') is superseded: provenance is automatic with trusted publishing.
+
+2026-10-10: User now explicitly authorized verification and a new release, superseding the earlier no-push/no-publish instruction. Target 0.5.0. Registry preflight: llmflow latest is 0.4.1; llmflow-sdk returns 404; npm whoami on this machine returns 401; gh secret list returned no repository secrets. Requested npm login, llmflow trusted publisher, and Docker Hub repository secrets from the user while continuing release preparation. Main 7feef88 passed hosted Checks. Pre-existing pricing.fallback.json edit remains separate until reviewed/preserved for release preparation.
+
+Live provider suite passed: 15 real calls across OpenAI, Anthropic, Gemini, Groq, Mistral and Cohere; Together, Azure and local Ollama skipped because their configuration was unavailable. Release dry-run dispatched on main 7feef88: https://github.com/HelgeSverre/llmflow/actions/runs/38083090689. Reviewed the pre-existing pricing edit: generated LiteLLM snapshot dated 2026-09-24, 801 models, valid schema and finite nonnegative token rates; include this existing data update in the clean release preparation rather than discarding it. Latest Checks for main 7feef88 are green: https://github.com/HelgeSverre/llmflow/actions/runs/38082696584.
+
+Hosted release rehearsal passed at https://github.com/HelgeSverre/llmflow/actions/runs/38083090689: prepare, full checks/Python/unit/browser/package gates, both Docker platform smoke jobs, npm dry-run and multi-architecture release-image build all succeeded; GitHub release correctly skipped. Publishing access remains unavailable (npm whoami still 401, no Docker Hub repository secrets). Reviewed the notes and corrected the removed cost-by-tool endpoint replacement to by_service, matching current /api/analytics. Bundled-pricing tests (6) and bun run check passed with the 801-model snapshot.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
