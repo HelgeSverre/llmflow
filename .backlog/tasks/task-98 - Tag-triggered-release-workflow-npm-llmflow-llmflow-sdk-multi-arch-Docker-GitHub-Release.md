@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-09-23 08:51'
-updated_date: '2026-10-10 20:20'
+updated_date: '2026-10-10 20:23'
 labels:
   - release
   - ci
@@ -78,6 +78,12 @@ Change (2026-09-23, user decision: no npm token in CI): release.yml now publishe
 Live provider suite passed: 15 real calls across OpenAI, Anthropic, Gemini, Groq, Mistral and Cohere; Together, Azure and local Ollama skipped because their configuration was unavailable. Release dry-run dispatched on main 7feef88: https://github.com/HelgeSverre/llmflow/actions/runs/38083090689. Reviewed the pre-existing pricing edit: generated LiteLLM snapshot dated 2026-09-24, 801 models, valid schema and finite nonnegative token rates; include this existing data update in the clean release preparation rather than discarding it. Latest Checks for main 7feef88 are green: https://github.com/HelgeSverre/llmflow/actions/runs/38082696584.
 
 Hosted release rehearsal passed at https://github.com/HelgeSverre/llmflow/actions/runs/38083090689: prepare, full checks/Python/unit/browser/package gates, both Docker platform smoke jobs, npm dry-run and multi-architecture release-image build all succeeded; GitHub release correctly skipped. Publishing access remains unavailable (npm whoami still 401, no Docker Hub repository secrets). Reviewed the notes and corrected the removed cost-by-tool endpoint replacement to by_service, matching current /api/analytics. Bundled-pricing tests (6) and bun run check passed with the 801-model snapshot.
+
+Prepared Release v0.5.0 at local annotated tag v0.5.0 / commit 9eaae70. Both manifests and bun.lock move in lockstep, v0.5.0 notes were generated and UNRELEASED reset. Pre-existing generated pricing snapshot included at f0ccd2f. Fresh verification on exact v0.5.0 passed: bun run check; LLMFLOW_PYTHON=/tmp/llmflow-release-verify.l8UvR4/python/bin/python bun run test (230 server/package + 116 dashboard, no skips/failures); production build; both clean-package gates; 125 Playwright tests (45.2s). Live suite earlier passed 15/18, with unavailable Together/Azure/Ollama skipped.
+
+Temporary built-app smoke script at /tmp/llmflow-release-verify.l8UvR4/smoke.ts passed against dist/server.js with a fresh isolated database: SDK root/tool spans and two Ollama-format mock proxy calls (nonstreaming + streaming), unique span/parent links, 142 measured tokens, credential/query redaction, session descendant totals through explicit session_id ingestion, OTLP observed-time logs and numeric metrics, all seven dashboard tabs, nested waterfall, no browser page errors, desktop/mobile screenshot inspection. SDK custom attributes remain attributes; the harness explicitly annotated session_id through the supported API instead of expecting automatic attribute promotion. CLI reports llmflow v0.5.0. Local arm64 Docker 0.5.0 image started with numeric uid 1000, both /api/health and proxy /health worked, UI served and 801-model offline pricing was available; removed the owned container and smoke image.
+
+Ready tarballs: /tmp/llmflow-release-verify.l8UvR4/packages/llmflow-0.5.0.tgz and /tmp/llmflow-release-verify.l8UvR4/packages/llmflow-sdk-0.5.0.tgz. Full-test/e2e/Docker build logs and screenshots remain in that temporary directory for this release. Only release preparation/main is pushed; v0.5.0 has not been pushed, no npm/Docker/GitHub release published. Publishing prerequisites still missing: npm whoami is 401, no NPM_TOKEN/NODE_AUTH_TOKEN or Docker Hub credentials are present, and gh secret list returns none. User was asked to log into npm, trust release.yml for llmflow and add DOCKERHUB_USERNAME/DOCKERHUB_TOKEN. Once ready: bootstrap the packed SDK, configure its trusted publisher, push v0.5.0, inspect release jobs and verify the published artifacts; do not mark AC1/AC3 complete beforehand.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
