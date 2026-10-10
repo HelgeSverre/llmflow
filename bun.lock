@@ -31,7 +31,7 @@
     },
     "apps/server": {
       "name": "llmflow",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "bin": {
         "llmflow": "./bin/llmflow.js",
       },
@@ -93,7 +93,7 @@
     },
     "packages/sdk": {
       "name": "llmflow-sdk",
-      "version": "0.4.1",
+      "version": "0.5.0",
     },
     "packages/shared": {
       "name": "@llmflow/shared",

@@ -1,6 +1,6 @@
 {
   "name": "llmflow",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "See what your LLM calls cost. One command. No signup.",
   "type": "module",
   "bin": {
