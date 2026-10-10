@@ -5,13 +5,13 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-21 07:52'
-updated_date: '2026-09-21 09:42'
+updated_date: '2026-10-10 20:10'
 labels: []
 dependencies: []
 references:
-  - docs/github-issue-verification.md
   - apps/server/test/reviewed-fixes.test.ts
-  - e2e/playwright/trace-waterfall.spec.js
+  - e2e/playwright/trace-waterfall.spec.ts
+  - TASK-112
 ordinal: 26000
 ---
 
@@ -55,6 +55,8 @@ Implemented all issue groups: incremental proxy streaming and cancellation, cred
 Final verification passed: complete isolated server suite including real Python protobuf/gzip export, all workspace typechecks, 18 dashboard tests, 87 Playwright tests, production build and clean npm artifact/CLI gate. Inspected desktop and 390px screenshots in light/dark themes. Self-review removed obsolete provider parser APIs and retained Cohere billed usage and native Gemini JSON capture with dedicated regressions. Detailed issue evidence is in docs/github-issue-verification.md.
 
 2026-09-21 reconciliation: Reviewed completion against the issue verification report. Earlier test counts are historical verification records, not current suite totals. Subsequent UI contract cleanup has its own browser assertions in e2e/playwright/ui-contracts.spec.js.
+
+2026-10-10 re-verification: all 29 GitHub review issues #5–#33 remain fixed after workspace/TypeScript cleanup. bun run check passed; 229 server/package tests and 116 dashboard tests passed; the optional real Python gzip/protobuf exporter test was run separately and passed; all 125 Playwright tests and both clean consumer package gates passed. Under explicit user authorization, main 3d19dfa was pushed and all 29 GitHub issues were closed as completed with per-issue evidence. GitHub now reports zero open issues. Existing docs/github-issue-verification.md reference is historical: that report was deleted in commit 40c3353; current evidence and AtFlows/local-work audit are in TASK-112. Pre-existing pricing.fallback.json modification is unchanged.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
