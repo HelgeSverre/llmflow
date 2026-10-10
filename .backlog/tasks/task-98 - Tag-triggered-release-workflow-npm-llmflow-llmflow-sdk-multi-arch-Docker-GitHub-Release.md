@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-09-23 08:51'
-updated_date: '2026-10-10 20:23'
+updated_date: '2026-10-10 20:26'
 labels:
   - release
   - ci
@@ -84,6 +84,8 @@ Prepared Release v0.5.0 at local annotated tag v0.5.0 / commit 9eaae70. Both man
 Temporary built-app smoke script at /tmp/llmflow-release-verify.l8UvR4/smoke.ts passed against dist/server.js with a fresh isolated database: SDK root/tool spans and two Ollama-format mock proxy calls (nonstreaming + streaming), unique span/parent links, 142 measured tokens, credential/query redaction, session descendant totals through explicit session_id ingestion, OTLP observed-time logs and numeric metrics, all seven dashboard tabs, nested waterfall, no browser page errors, desktop/mobile screenshot inspection. SDK custom attributes remain attributes; the harness explicitly annotated session_id through the supported API instead of expecting automatic attribute promotion. CLI reports llmflow v0.5.0. Local arm64 Docker 0.5.0 image started with numeric uid 1000, both /api/health and proxy /health worked, UI served and 801-model offline pricing was available; removed the owned container and smoke image.
 
 Ready tarballs: /tmp/llmflow-release-verify.l8UvR4/packages/llmflow-0.5.0.tgz and /tmp/llmflow-release-verify.l8UvR4/packages/llmflow-sdk-0.5.0.tgz. Full-test/e2e/Docker build logs and screenshots remain in that temporary directory for this release. Only release preparation/main is pushed; v0.5.0 has not been pushed, no npm/Docker/GitHub release published. Publishing prerequisites still missing: npm whoami is 401, no NPM_TOKEN/NODE_AUTH_TOKEN or Docker Hub credentials are present, and gh secret list returns none. User was asked to log into npm, trust release.yml for llmflow and add DOCKERHUB_USERNAME/DOCKERHUB_TOKEN. Once ready: bootstrap the packed SDK, configure its trusted publisher, push v0.5.0, inspect release jobs and verify the published artifacts; do not mark AC1/AC3 complete beforehand.
+
+Final hosted Checks passed on release-prepared main 46e5563: https://github.com/HelgeSverre/llmflow/actions/runs/38083558872 (verify plus amd64/arm64 Docker build and container-health jobs). Both exact 0.5.0 tarballs additionally passed local npm publish --dry-run. Worktree clean; remote main includes the release commit; remote v0.5.0 is intentionally absent. Publication remains pending npm login/trusted publisher and Docker Hub secrets; latest npm whoami returned 401 and gh secret list returned none. No artifact was published and TASK-98 remains In Progress with AC1/AC3 unchecked.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
